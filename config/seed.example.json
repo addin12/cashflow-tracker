@@ -4,18 +4,139 @@
   "payday_day": 28,
   "owner_name": "Me",
   "categories": {
-    "income": ["gaji", "jajan dari ibu", "Proyek / Freelance", "Dividen & Bunga", "Cashback & Refund", "Pemasukan Lainnya"],
+    "income": [
+      "gaji",
+      "jajan dari ibu",
+      "Proyek / Freelance",
+      "Dividen & Bunga",
+      "Cashback & Refund",
+      "Pemasukan Lainnya"
+    ],
     "expense": [
-      "fnb", "Belanja Harian", "Belanja Online", "Transportasi & Bensin", "Servis & Cuci Kendaraan",
-      "Langganan Digital", "Hobi & Board Game", "Buku", "Kesehatan & Optik", "skincare",
-      "Tagihan & Utilitas", "Pulsa & Internet", "Rumah Tangga", "Pakaian", "Nongkrong & Hiburan",
-      "Hadiah & Sosial", "Iuran & Kas", "Pendidikan", "Biaya Admin", "Pengeluaran Lainnya"
+      "fnb",
+      "Belanja Harian",
+      "Belanja Online",
+      "Transportasi & Bensin",
+      "Servis & Cuci Kendaraan",
+      "Langganan Digital",
+      "Hobi & Board Game",
+      "Buku",
+      "Kesehatan & Optik",
+      "skincare",
+      "Tagihan & Utilitas",
+      "Pulsa & Internet",
+      "Rumah Tangga",
+      "Pakaian",
+      "Nongkrong & Hiburan",
+      "Hadiah & Sosial",
+      "Iuran & Kas",
+      "Pendidikan",
+      "Biaya Admin",
+      "Pengeluaran Lainnya"
     ]
   },
   "accounts": [
-    { "stream": "Bank 1", "type": "Spending", "owner": "Me", "institution": "Bank 1", "match_hint": "", "opening_balance": 0 },
-    { "stream": "E-wallet", "type": "Spending", "owner": "Me", "institution": "E-wallet", "match_hint": "", "opening_balance": 0 },
-    { "stream": "Cash", "type": "Spending", "owner": "Me", "institution": "", "match_hint": "manual", "opening_balance": 0 },
-    { "stream": "Savings", "type": "Saving", "owner": "Me", "institution": "Bank 1", "match_hint": "", "opening_balance": 0 }
+    {
+      "stream": "Bank 1",
+      "type": "Spending",
+      "owner": "Me",
+      "institution": "Bank 1",
+      "match_hint": "",
+      "opening_balance": 0
+    },
+    {
+      "stream": "E-wallet",
+      "type": "Spending",
+      "owner": "Me",
+      "institution": "E-wallet",
+      "match_hint": "",
+      "opening_balance": 0
+    },
+    {
+      "stream": "Cash",
+      "type": "Spending",
+      "owner": "Me",
+      "institution": "",
+      "match_hint": "manual",
+      "opening_balance": 0
+    },
+    {
+      "stream": "Savings",
+      "type": "Saving",
+      "owner": "Me",
+      "institution": "Bank 1",
+      "match_hint": "",
+      "opening_balance": 0
+    }
+  ],
+  "owner_bank_names": [
+    "YOUR NAME AS BANKS PRINT IT"
+  ],
+  "default_categories": {
+    "transfer": "trf ke bank lain",
+    "fee": "Biaya Admin",
+    "dividend": "Dividen & Bunga"
+  },
+  "rules": [
+    {
+      "field": "description",
+      "pattern": "CIRCLE ?K|ALFA(MART|MIDI|_)|INDOMARET|LAWSON|FAMILY ?MART|SUPERINDO|HYPERMART|TRANSMART|LOTTE MART|GIANT",
+      "category": "Belanja Harian",
+      "auto_approve": true
+    },
+    {
+      "field": "description",
+      "pattern": "\\bSPBU\\b|PERTAMINA|SHELL|\\bBP\\b|VIVO ENERGY|PARKIR|PARKING|\\bTOL\\b|JASA MARGA|\\bGRAB\\b|GOJEK|GO-JEK|\\bKRL\\b|\\bMRT\\b|TRANSJAKARTA|KAI\\b",
+      "category": "Transportasi & Bensin",
+      "auto_approve": true
+    },
+    {
+      "field": "description",
+      "pattern": "APPLE\\.COM|GOOGLE ?\\*|GOOGLE PLAY|NETFLIX|SPOTIFY|YOUTUBE|DISNEY|CANVA|OPENAI|ANTHROPIC|CLAUDE\\.AI|MICROSOFT|STEAM",
+      "category": "Langganan Digital",
+      "auto_approve": true
+    },
+    {
+      "field": "description",
+      "pattern": "TOKOPEDIA|SHOPEE|LAZADA|BLIBLI|TIKTOK ?SHOP|BUKALAPAK|ZALORA",
+      "category": "Belanja Online",
+      "auto_approve": true
+    },
+    {
+      "field": "description",
+      "pattern": "KOPI|COFFEE|CAFE|KAFE|WARKOP|BAKMI|MIXUE|STARBUCKS|JANJI JIWA|FORE |KFC|MCDONALD|\\bMCD\\b|SOLARIA|BAKSO|\\bMIE\\b|\\bSATE\\b|\\bNASI\\b|AYAM|BURGER|PIZZA|RESTO|RUMAH MAKAN|WARUNG|EATERY|DIMSUM|SUSHI|HOKBEN|RICHEESE",
+      "category": "fnb",
+      "auto_approve": true
+    },
+    {
+      "field": "description",
+      "pattern": "CAR ?WASH|CUCI MOBIL|CUCI MOTOR|BENGKEL|AUTO ?2000|SERVICE CENTER",
+      "category": "Servis & Cuci Kendaraan",
+      "auto_approve": true
+    },
+    {
+      "field": "description",
+      "pattern": "GRAMEDIA|PERIPLUS|TOKO BUKU|BOOK",
+      "category": "Buku",
+      "auto_approve": true
+    },
+    {
+      "field": "description",
+      "pattern": "OPTIK|APOTEK|APOTIK|KIMIA FARMA|K-24|CENTURY|GUARDIAN|WATSONS|KLINIK|RUMAH SAKIT|\\bRS\\b|HALODOC",
+      "category": "Kesehatan & Optik",
+      "auto_approve": true
+    },
+    {
+      "field": "description",
+      "pattern": "\\bPLN\\b|PDAM|LISTRIK|BPJS|PBB",
+      "category": "Tagihan & Utilitas",
+      "auto_approve": true
+    },
+    {
+      "field": "description",
+      "pattern": "TELKOMSEL|INDOSAT|\\bXL\\b|AXIS|SMARTFREN|\\bTRI\\b|PULSA|INDIHOME|BIZNET|FIRST ?MEDIA|MYREPUBLIC",
+      "category": "Pulsa & Internet",
+      "auto_approve": true
+    }
   ]
 }

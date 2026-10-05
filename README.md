@@ -4,7 +4,7 @@ A personal cashflow tracker that reads bank transaction emails from Gmail (read-
 
 - **Stack:** Google Sheets + Google Apps Script (sync every 10 min) + Apps Script web app. No server, no hosting cost.
 - **Banks supported (planned v1):** BCA (myBCA), Livin' by Mandiri, blu by BCA Digital, Jago, Mandiri Sekuritas dividends, GoPay monthly summary.
-- **Status:** Phase 0 (foundation) done. The template is adapted in Google Sheets with 14 formula fixes, and a self-test checks 11,828 report cells. Next: Phase 1, bank email parsers. v1 connects one Gmail account. Collaboration with a partner's Gmail is a planned future phase.
+- **Status:** all v1 phases built (0 setup, 1 email parsers, 2 Gmail sync, 3–4 web app, 5 month-end). 128 automated tests, plus a self-test on the real spreadsheet. v1 connects one Gmail account; collaboration with a partner's Gmail is a planned future phase.
 
 | File | What |
 |---|---|
@@ -22,9 +22,10 @@ npm test                        # unit tests
 npm run build                   # src/ -> dist/Code.js for Apps Script
 npx clasp login                 # once
 node scripts/upload-template.mjs   # once: template .xlsx -> Google Sheet + bound script
-npm run push                    # build + clasp push
+npm run push                    # build + clasp push (sheet menus, sync)
+npm run deploy                  # build + push + move the web app URL to the new code
 ```
 
-Then in the sheet: **Cashflow Tracker → Set up**, then **Self-test**. First-run data comes from `private/seed.json` (git-ignored). Without it, the build uses [config/seed.example.json](config/seed.example.json).
+Then in the sheet: **Cashflow Tracker → Set up**, **Self-test**, and **Hubungkan Gmail / Connect Gmail** (one Google consent; installs the 10-minute sync). First-run data comes from `private/seed.json` (git-ignored). Without it, the build uses [config/seed.example.json](config/seed.example.json).
 
 **Privacy:** this repository is public. It contains no personal or financial data. Names, accounts and transactions live only in the owner's Google Sheet. See [DESIGN.md §13](docs/DESIGN.md#13-public-repository-rules).

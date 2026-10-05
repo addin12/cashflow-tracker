@@ -3,7 +3,7 @@
 /* global SpreadsheetApp */
 
 import {
-  TABS, TRANSACTION_HEADERS, ACCOUNT_HEADERS, RULE_HEADERS, CONNECTION_HEADERS, CONFIG_KEYS,
+  TABS, TRANSACTION_HEADERS, ACCOUNT_HEADERS, RULE_HEADERS, CONNECTION_HEADERS, CONFIG_KEYS, INBOX_LOG_HEADERS, BUDGET_HEADERS,
   SETUP_VERSION, CF, TX_COL, STATUS, DIRECTION, ACCOUNT_TYPES,
 } from '../core/schema.js';
 import { templatePatches, isOpenEnded } from '../core/formulas.js';
@@ -55,6 +55,48 @@ function ensureConfig(ss, seed, firstRun) {
     setConfigValue(ss, 'owner_name', seed.owner_name);
   }
   sheet.getRange('B2').setNumberFormat('yyyy-mm-dd');
+}
+
+/** Values for keys added in a later setup version: filled once, never overwritten. */
+function fillNewConfig(ss, seed) {
+  const fill = (key, value) => { if (configValue(ss, key) === '' && value !== '') setConfigValue(ss, key, value); };
+  fill('owner_bank_names', seed.owner_bank_names.join(', '));
+  fill('cat_transfer', seed.defaults.transfer);
+  fill('cat_fee', seed.defaults.fee);
+  fill('cat_dividend', seed.defaults.dividend);
+}
+
+// Hints written by setup version 1, which version 2 may replace with the better ones from the
+// seed (account numbers found in the emails). A hint the user changed is left alone.
+// (The owner's sheet was migrated on 2026-10-05; only the generic v1 placeholders are kept here.)
+const V1_HINTS = new Set(['livin', 'gopay', 'manual', 'dividen']);
+
+function migrateAccountHints(ss, seed, log) {
+  const sh = ss.getSheetByName(TABS.accounts);
+  if (sh.getLastRow() < 2) return;
+  const col = ACCOUNT_HEADERS.indexOf('match_hint') + 1;
+  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, ACCOUNT_HEADERS.length).getValues();
+  let n = 0;
+  rows.forEach((r, i) => {
+    const s = seed.accounts.find((a) => a.stream === r[0]);
+    if (s && V1_HINTS.has(String(r[col - 1])) && s.match_hint !== r[col - 1]) {
+      sh.getRange(i + 2, col).setValue(s.match_hint);
+      n += 1;
+    }
+  });
+  if (n) log.push(`Updated ${n} account hint(s)`);
+}
+
+function seedRules(ss, seed, log) {
+  const sh = ss.getSheetByName(TABS.rules);
+  if (sh.getLastRow() >= 2 || !seed.rules.length) return;
+  const now = new Date();
+  const rows = seed.rules.map((r, i) => RULE_HEADERS.map((h) => ({
+    id: `r_seed_${i + 1}`, field: r.field || 'description', pattern: r.pattern, category: r.category, stream_override: r.stream_override || '',
+    auto_approve: r.auto_approve !== false, hits: 0, created_by: 'setup', created_at: now,
+  })[h]));
+  sh.getRange(2, 1, rows.length, RULE_HEADERS.length).setValues(rows);
+  log.push(`Added ${rows.length} starter rules`);
 }
 
 /** Writes the category names into CASHFLOW K5:K38 (K39/K40 are the template's fixed rows). */
@@ -132,14 +174,21 @@ export function runSetup(ss, seedRaw) {
   if (missing.length) throw new Error(`This is not the cashflow template (missing tabs: ${missing.join(', ')})`);
 
   ss.setSpreadsheetTimeZone(TIME_ZONE);
-  const firstRun = !configValue(ss, 'setup_version');
-  log.push(firstRun ? 'First run: seeding categories, accounts and settings' : `Re-run (setup version ${configValue(ss, 'setup_version')})`);
+  const fromVersion = Number(configValue(ss, 'setup_version')) || 0;
+  const firstRun = fromVersion === 0;
+  log.push(firstRun ? 'First run: seeding categories, accounts and settings' : `Upgrade from setup version ${fromVersion} to ${SETUP_VERSION}`);
 
   ensureTab(ss, TABS.transactions, TRANSACTION_HEADERS);
   const acc = ensureTab(ss, TABS.accounts, ACCOUNT_HEADERS);
   ensureTab(ss, TABS.rules, RULE_HEADERS);
   ensureTab(ss, TABS.connections, CONNECTION_HEADERS);
+  ensureTab(ss, TABS.inboxLog, INBOX_LOG_HEADERS);
+  ensureTab(ss, TABS.preview, TRANSACTION_HEADERS);
+  ensureTab(ss, TABS.budgets, BUDGET_HEADERS);
   ensureConfig(ss, seed, firstRun);
+  fillNewConfig(ss, seed);
+  seedRules(ss, seed, log);
+  if (!firstRun && fromVersion < 2) migrateAccountHints(ss, seed, log);
 
   if (firstRun) {
     writeCategories(ss, seed.slots);

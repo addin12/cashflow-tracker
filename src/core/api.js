@@ -1,0 +1,238 @@
+// The web app's server API, written against a small store interface so the same code runs on
+// the spreadsheet (gas/sheetstore.js) and in tests (an in-memory store).
+//
+// store: {
+//   read(tab) -> object[]                     rows keyed by header
+//   append(tab, rows)
+//   update(tab, [{ id, changes }])            by the "id" column
+//   remove(tab, id)
+//   replace(tab, rows)                        whole table body
+//   config(key) / setConfig(key, value)
+//   slots() / setSlots({ income: [6], expense: [28] })   category names in CASHFLOW K5:K38
+// }
+// env: { now(): Date, sync(): object }
+
+import { TABS } from './schema.js';
+import { buildCategorySlots, validateAccounts } from './categories.js';
+import {
+  categoryLists, summarizeMonth, streamBalances, budgetPerDay, reviewItems, ruleFromApproval, pendingMatching,
+  manualRows, balanceCorrection, renamedCategories, budgetUsage, filterTransactions, isoDate, newId,
+} from './app.js';
+import { compileRule } from './rules.js';
+
+const PUBLIC_FIELDS = ['date', 'time', 'stream', 'direction', 'amount', 'category', 'description', 'details', 'status'];
+
+export function createApi(store, env) {
+  const now = () => env.now();
+  const nowIso = () => now().toISOString();
+  const owner = () => String(store.config('owner_name') || '');
+  const cats = () => categoryLists(store.slots());
+  const rows = () => store.read(TABS.transactions);
+  const accounts = () => store.read(TABS.accounts);
+  const year = () => Number(String(store.config('start_date') || '').slice(0, 4)) || now().getFullYear();
+  const findRow = (id) => {
+    const r = rows().find((x) => String(x.id) === String(id));
+    if (!r) throw new Error(`transaction ${id} not found`);
+    return r;
+  };
+  const allCategories = () => { const c = cats(); return new Set([...c.income, ...c.expense, ...c.fixed]); };
+  const touch = (changes) => ({ ...changes, updated_by: owner() || 'app', updated_at: nowIso() });
+
+  return {
+    bootstrap() {
+      const c = cats();
+      return {
+        owner: owner(), language: String(store.config('language') || ''), today: isoDate(now()), year: year(), sheetUrl: env.sheetUrl || '',
+        payday: Number(store.config('payday_day')) || 28, categories: c,
+        accounts: accounts().map((a) => ({ stream: a.stream, type: a.type, owner: a.owner, institution: a.institution })),
+        connections: store.read(TABS.connections).map((x) => ({ gmail: x.gmail, last_sync: x.last_sync, last_status: x.last_status })),
+        pendingCount: rows().filter((r) => r.status === 'pending').length,
+      };
+    },
+
+    review() {
+      return reviewItems(rows(), store.read(TABS.inboxLog), { today: now() });
+    },
+
+    approve({ id, category, stream, always }) {
+      const row = findRow(id);
+      if (!allCategories().has(category)) throw new Error(`unknown category ${category}`);
+      const s = stream || row.stream;
+      if (!accounts().some((a) => a.stream === s)) throw new Error('choose an account');
+      store.update(TABS.transactions, [{ id, changes: touch({ category, stream: s, status: 'approved' }) }]);
+      let alsoApproved = 0;
+      if (always && row.description) {
+        const rule = ruleFromApproval(row, category, newId('r'), owner(), nowIso());
+        store.append(TABS.rules, [rule]);
+        const others = pendingMatching(rows(), compileRule(rule)).filter((r) => r.id !== id);
+        store.update(TABS.transactions, others.map((r) => ({ id: r.id, changes: touch({ category, status: 'approved', rule_id: rule.id }) })));
+        alsoApproved = others.length;
+      }
+      return { ok: true, alsoApproved };
+    },
+
+    ignore({ id }) {
+      findRow(id);
+      store.update(TABS.transactions, [{ id, changes: touch({ status: 'ignored' }) }]);
+      return { ok: true };
+    },
+
+    restore({ id }) {
+      findRow(id);
+      store.update(TABS.transactions, [{ id, changes: touch({ status: 'pending' }) }]);
+      return { ok: true };
+    },
+
+    list(filter = {}) {
+      return filterTransactions(rows(), filter);
+    },
+
+    update({ id, fields }) {
+      findRow(id);
+      const changes = {};
+      for (const k of PUBLIC_FIELDS) if (fields && k in fields) changes[k] = fields[k];
+      if ('amount' in changes) {
+        changes.amount = Math.abs(Number(changes.amount));
+        if (!(changes.amount > 0)) throw new Error('amount must be more than 0');
+      }
+      if ('category' in changes && changes.category && !allCategories().has(changes.category)) throw new Error(`unknown category ${changes.category}`);
+      if ('stream' in changes && !accounts().some((a) => a.stream === changes.stream)) throw new Error('unknown account');
+      if ('direction' in changes && !['in', 'out'].includes(changes.direction)) throw new Error('direction must be in or out');
+      if ('date' in changes && !/^\d{4}-\d{2}-\d{2}$/.test(changes.date)) throw new Error('date must be YYYY-MM-DD');
+      store.update(TABS.transactions, [{ id, changes: touch(changes) }]);
+      return { ok: true };
+    },
+
+    remove({ id }) {
+      const row = findRow(id);
+      // Rows from email stay (as ignored) so the sync never adds them again.
+      if (row.gmail_id) store.update(TABS.transactions, [{ id, changes: touch({ status: 'ignored' }) }]);
+      else store.remove(TABS.transactions, id);
+      return { ok: true, ignoredInstead: !!row.gmail_id };
+    },
+
+    add(input) {
+      if (input.kind !== 'transfer' && input.kind !== 'adjust' && !allCategories().has(input.category)) throw new Error('choose a category');
+      const valid = new Set(accounts().map((a) => a.stream));
+      if (!valid.has(input.stream) || (input.kind === 'transfer' && !valid.has(input.toStream))) throw new Error('choose an account');
+      const added = manualRows(input, { owner: owner(), nowIso: nowIso(), transferCategory: String(store.config('cat_transfer') || 'trf ke bank lain') });
+      store.append(TABS.transactions, added);
+      return { ok: true, ids: added.map((r) => r.id) };
+    },
+
+    dashboard({ month, owner: who } = {}) {
+      const today = now();
+      const m = month || isoDate(today).slice(0, 7);
+      const all = rows();
+      const summary = summarizeMonth(all, cats(), m, who || '');
+      const balances = streamBalances(all, accounts(), { year: year(), asOf: isoDate(today) });
+      return {
+        month: m, summary, balances,
+        perDay: budgetPerDay(balances, today, Number(store.config('payday_day')) || 28),
+        budgets: budgetUsage(summary, store.read(TABS.budgets)),
+        pendingCount: all.filter((r) => r.status === 'pending').length,
+      };
+    },
+
+    settings() {
+      return {
+        accounts: accounts(), rules: store.read(TABS.rules), budgets: store.read(TABS.budgets), categories: cats(),
+        config: {
+          payday_day: store.config('payday_day'), language: store.config('language'), owner_name: store.config('owner_name'),
+          owner_bank_names: store.config('owner_bank_names'), start_date: store.config('start_date'),
+        },
+        connections: store.read(TABS.connections), selftest: store.config('last_selftest'),
+      };
+    },
+
+    saveAccounts({ accounts: list }) {
+      const clean = list.map((a) => ({
+        stream: String(a.stream || '').trim(), type: a.type, owner: a.owner || owner(), institution: String(a.institution || '').trim(),
+        match_hint: String(a.match_hint || '').trim(), opening_balance: Number(a.opening_balance) || 0, notes: a.notes || '',
+      }));
+      validateAccounts(clean);
+      const used = new Set(rows().map((r) => r.stream).filter(Boolean));
+      const kept = new Set(clean.map((a) => a.stream));
+      const missing = [...used].filter((s) => !kept.has(s));
+      if (missing.length) throw new Error(`these accounts have transactions and can't be removed: ${missing.join(', ')}`);
+      store.replace(TABS.accounts, clean);
+      return { ok: true };
+    },
+
+    saveCategories({ income, expense }) {
+      const before = store.slots();
+      const next = buildCategorySlots({ income, expense });
+      const renamed = renamedCategories(before, next);
+      const nextSet = new Set([...next.income, ...next.expense]);
+      const inUse = new Set(rows().map((r) => r.category));
+      const dropped = [...before.income, ...before.expense].filter((c) => c !== '-' && !nextSet.has(c) && !renamed[c] && inUse.has(c));
+      if (dropped.length) throw new Error(`these categories are used by transactions; rename them instead of removing: ${dropped.join(', ')}`);
+      store.setSlots(next);
+      if (Object.keys(renamed).length) {
+        store.update(TABS.transactions, rows().filter((r) => renamed[r.category]).map((r) => ({ id: r.id, changes: { category: renamed[r.category] } })));
+        store.update(TABS.rules, store.read(TABS.rules).filter((r) => renamed[r.category]).map((r) => ({ id: r.id, changes: { category: renamed[r.category] } })));
+        store.replace(TABS.budgets, store.read(TABS.budgets).map((b) => ({ ...b, category: renamed[b.category] || b.category })));
+      }
+      return { ok: true, renamed };
+    },
+
+    saveRules({ rules }) {
+      const known = allCategories();
+      const clean = rules.map((r) => {
+        const c = compileRule(r);
+        if (!c.re) throw new Error(`rule "${r.pattern}": ${c.error}`);
+        if (!known.has(r.category)) throw new Error(`rule "${r.pattern}": unknown category ${r.category}`);
+        return {
+          id: r.id || newId('r'), field: r.field || 'description', pattern: r.pattern, category: r.category,
+          stream_override: r.stream_override || '', auto_approve: r.auto_approve !== false && r.auto_approve !== 'FALSE',
+          hits: Number(r.hits) || 0, created_by: r.created_by || owner(), created_at: r.created_at || nowIso(),
+        };
+      });
+      store.replace(TABS.rules, clean);
+      return { ok: true };
+    },
+
+    saveBudgets({ budgets }) {
+      const known = new Set(cats().expense);
+      const clean = budgets.filter((b) => Number(b.monthly_budget) > 0).map((b) => {
+        if (!known.has(b.category)) throw new Error(`unknown expense category ${b.category}`);
+        return { category: b.category, monthly_budget: Number(b.monthly_budget) };
+      });
+      store.replace(TABS.budgets, clean);
+      return { ok: true };
+    },
+
+    saveConfig(values) {
+      if ('payday_day' in values) {
+        const d = Number(values.payday_day);
+        if (!Number.isInteger(d) || d < 1 || d > 31) throw new Error('payday must be a day 1-31');
+        store.setConfig('payday_day', d);
+      }
+      if ('language' in values) {
+        if (!['', 'id', 'en'].includes(values.language)) throw new Error('language must be id or en');
+        store.setConfig('language', values.language);
+      }
+      if ('owner_bank_names' in values) store.setConfig('owner_bank_names', String(values.owner_bank_names || ''));
+      return { ok: true };
+    },
+
+    balanceCheck({ stream, actual, date }) {
+      const d = date || isoDate(now());
+      const balances = streamBalances(rows(), accounts(), { year: year(), asOf: d });
+      const fix = balanceCorrection(balances, stream, actual, {
+        owner: owner(), nowIso: nowIso(), date: d, adjustCategory: 'Penyesuaian',
+      });
+      if (fix) store.append(TABS.transactions, [fix]);
+      return { ok: true, adjusted: fix ? (fix.direction === 'in' ? fix.amount : -fix.amount) : 0 };
+    },
+
+    syncNow() {
+      return env.sync();
+    },
+  };
+}
+
+export const API_METHODS = [
+  'bootstrap', 'review', 'approve', 'ignore', 'restore', 'list', 'update', 'remove', 'add', 'dashboard', 'settings',
+  'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow',
+];

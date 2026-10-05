@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 1;
+export const SETUP_VERSION = 3;
 
 export const TABS = {
   transactions: 'Transactions',
@@ -9,8 +9,15 @@ export const TABS = {
   rules: 'Rules',
   connections: 'Connections',
   config: 'Config',
+  inboxLog: 'Inbox Log',
+  preview: 'Preview',
+  budgets: 'Budgets',
   selfTest: 'Self-test',
 };
+
+export const BUDGET_HEADERS = ['category', 'monthly_budget'];
+
+export const INBOX_LOG_HEADERS = ['gmail_id', 'received', 'from', 'subject', 'status', 'parser', 'reason', 'rows', 'gmail'];
 
 // Column order matters: formulas reference these letters (see TX_COL).
 export const TRANSACTION_HEADERS = [
@@ -32,6 +39,13 @@ export const CONFIG_KEYS = [
   { key: 'owner_name', name: 'CFG_OWNER', note: 'Short name used as the owner of rows' },
   { key: 'setup_version', name: 'CFG_SETUP_VERSION', note: 'Written by setup; do not edit' },
   { key: 'last_selftest', name: 'CFG_LAST_SELFTEST', note: 'Result of the last self-test' },
+  // Added in setup version 2 (rows are only ever appended, so named ranges stay valid).
+  { key: 'owner_bank_names', name: 'CFG_OWNER_BANK_NAMES', note: 'Your name as banks print it (comma-separated); used to spot transfers between your own accounts' },
+  { key: 'sync_mode', name: 'CFG_SYNC_MODE', note: 'live = write to Transactions; preview = write to the Preview tab only; empty = app default' },
+  { key: 'cat_transfer', name: 'CFG_CAT_TRANSFER', note: 'Category for transfers between your own accounts' },
+  { key: 'cat_fee', name: 'CFG_CAT_FEE', note: 'Category for bank fees' },
+  { key: 'cat_dividend', name: 'CFG_CAT_DIVIDEND', note: 'Category for dividends' },
+  { key: 'language', name: 'CFG_LANGUAGE', note: 'Web app language: id or en (empty = follow the phone)' },
 ];
 
 export const STATUS = ['pending', 'approved', 'ignored'];

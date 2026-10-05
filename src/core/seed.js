@@ -17,6 +17,15 @@ export function validateSeed(seed) {
   let slots;
   try { slots = buildCategorySlots(seed.categories); } catch (e) { errors.push(e.message); }
   try { validateAccounts(seed.accounts); } catch (e) { errors.push(e.message); }
+  const known = new Set([...(seed.categories?.income || []), ...(seed.categories?.expense || []), 'Penyesuaian', 'trf ke bank lain']);
+  const defaults = { transfer: 'trf ke bank lain', fee: 'Biaya Admin', dividend: 'Dividen & Bunga', ...(seed.default_categories || {}) };
+  for (const [k, v] of Object.entries(defaults)) if (!known.has(v)) errors.push(`default_categories.${k} "${v}" is not a category`);
+  const rules = seed.rules || [];
+  rules.forEach((r, i) => {
+    if (!known.has(r.category)) errors.push(`rules[${i}]: category "${r.category}" is not a category`);
+    try { new RegExp(r.pattern, 'i'); } catch (e) { errors.push(`rules[${i}]: invalid pattern (${e.message})`); }
+  });
+  if (seed.owner_bank_names && !Array.isArray(seed.owner_bank_names)) errors.push('owner_bank_names must be a list');
   if (errors.length) throw new Error(`Invalid seed:\n${errors.join('\n')}`);
-  return { ...seed, slots };
+  return { ...seed, slots, defaults, rules, owner_bank_names: seed.owner_bank_names || [] };
 }

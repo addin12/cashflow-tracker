@@ -1,0 +1,190 @@
+// Gmail -> Transactions. Runs every 10 minutes (time trigger) and from the menu.
+/* global SpreadsheetApp, LockService, ScriptApp, PropertiesService, Utilities */
+
+import { TABS, TRANSACTION_HEADERS, CONNECTION_HEADERS, INBOX_LOG_HEADERS, RULE_HEADERS, SETUP_VERSION } from '../core/schema.js';
+import { parseEmail, SENDERS } from '../core/parsers/index.js';
+import { planSync } from '../core/plan.js';
+import { readTable, appendRows, updateRows } from './store.js';
+import { listMessageIds, getEmail, myAddress } from './gmail.js';
+import { configValue, runSetup } from './setup.js';
+
+const OVERLAP_MS = 2 * 24 * 3600 * 1000;
+const TIME_BUDGET_MS = 4.5 * 60 * 1000; // Apps Script stops a run at 6 minutes
+const SHEET_KEY = 'SHEET_ID';
+const MAX_EMAILS_PER_RUN = 80; // a backlog is worked off over several 10-minute runs
+const PAUSE_MS = 300; // stays well under Gmail's per-minute quota for personal scripts
+export const TRIGGER_HANDLER = 'syncTrigger';
+
+/** The spreadsheet, also when running from a time trigger. */
+export function appSpreadsheet() {
+  const active = SpreadsheetApp.getActive();
+  if (active) {
+    PropertiesService.getScriptProperties().setProperty(SHEET_KEY, active.getId());
+    return active;
+  }
+  const id = PropertiesService.getScriptProperties().getProperty(SHEET_KEY);
+  if (!id) throw new Error('Spreadsheet unknown: open it once and use the Cashflow Tracker menu.');
+  return SpreadsheetApp.openById(id);
+}
+
+function syncConfig(ss) {
+  const names = String(configValue(ss, 'owner_bank_names') || '').split(',').map((s) => s.trim()).filter(Boolean);
+  return {
+    owner: String(configValue(ss, 'owner_name') || ''),
+    ownerNames: names,
+    categories: {
+      transfer: String(configValue(ss, 'cat_transfer') || 'trf ke bank lain'),
+      fee: String(configValue(ss, 'cat_fee') || 'Biaya Admin'),
+      dividend: String(configValue(ss, 'cat_dividend') || 'Dividen & Bunga'),
+    },
+  };
+}
+
+function modeOf(ss, defaultMode) {
+  const m = String(configValue(ss, 'sync_mode') || '').trim().toLowerCase();
+  return m === 'live' || m === 'preview' ? m : defaultMode;
+}
+
+function upsertConnection(ss, gmail, changes) {
+  const rows = readTable(ss, TABS.connections);
+  const row = rows.find((r) => String(r.gmail).toLowerCase() === gmail.toLowerCase());
+  if (row) {
+    const sh = ss.getSheetByName(TABS.connections);
+    for (const [h, v] of Object.entries(changes)) {
+      const col = CONNECTION_HEADERS.indexOf(h) + 1;
+      if (col > 0) sh.getRange(row._row, col).setValue(v);
+    }
+    return { ...row, ...changes };
+  }
+  const fresh = { gmail, owner: configValue(ss, 'owner_name'), method: 'own trigger', connected_at: new Date(), ...changes };
+  appendRows(ss, TABS.connections, CONNECTION_HEADERS, [fresh]);
+  return fresh;
+}
+
+/**
+ * One sync run.
+ * @param {{defaultMode?: 'live'|'preview', budgetMs?: number}} opts
+ * @returns {object} summary (also written to the Connections row)
+ */
+export function runSync(opts = {}) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return { status: 'busy' };
+  try {
+    return syncOnce(opts);
+  } catch (e) {
+    // Leave a trace where the owner (and the developer, via the sheet) can see it.
+    try {
+      const ss = appSpreadsheet();
+      upsertConnection(ss, safeAddress(), { last_sync: new Date(), last_status: `ERROR: ${e.message} | ${String(e.stack || '').split('\n').slice(0, 3).join(' / ')}` });
+    } catch (ignored) { /* nothing more we can do */ }
+    throw e;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function safeAddress() {
+  try { return myAddress(); } catch (e) { return 'unknown'; }
+}
+
+function syncOnce(opts) {
+  const started = Date.now();
+  {
+    const ss = appSpreadsheet();
+    if ((Number(configValue(ss, 'setup_version')) || 0) < SETUP_VERSION) runSetup(ss, opts.seed);
+    const mode = modeOf(ss, opts.defaultMode || 'preview');
+    const gmail = myAddress();
+    const conn = readTable(ss, TABS.connections).find((r) => String(r.gmail).toLowerCase() === gmail.toLowerCase()) || {};
+
+    const startDate = configValue(ss, 'start_date');
+    const startMs = startDate instanceof Date ? startDate.getTime() : Date.parse(startDate) || 0;
+    const checkpoint = mode === 'live' ? Number(conn.checkpoint) || 0 : 0;
+    const sinceMs = Math.max(startMs, checkpoint - OVERLAP_MS);
+    const query = `from:(${SENDERS.join(' OR ')}) after:${Math.floor(sinceMs / 1000)}`;
+
+    const existing = readTable(ss, TABS.transactions);
+    const logged = mode === 'live' ? readTable(ss, TABS.inboxLog) : [];
+    const done = new Set([...existing.map((r) => r.gmail_id), ...logged.map((r) => r.gmail_id)].filter(Boolean).map(String));
+    const ids = listMessageIds(query, 2000).filter((id) => !done.has(id)).reverse(); // oldest first
+
+    const emails = [];
+    let complete = true;
+    let note = '';
+    for (const id of ids) {
+      if (Date.now() - started > (opts.budgetMs || TIME_BUDGET_MS) || emails.length >= MAX_EMAILS_PER_RUN) { complete = false; break; }
+      let e;
+      try {
+        e = getEmail(id);
+      } catch (err) {
+        // Gmail's per-minute quota: keep what we have; the next run continues from here.
+        if (/quota|rate limit|too many/i.test(err.message)) { complete = false; note = 'Gmail rate limit, continuing next run'; break; }
+        throw err;
+      }
+      emails.push({ id: e.id, from: e.from, subject: e.subject, epochMs: e.epochMs, gmail, result: parseEmail(e) });
+      Utilities.sleep(PAUSE_MS);
+    }
+
+    const accounts = readTable(ss, TABS.accounts);
+    const rules = readTable(ss, TABS.rules);
+    const plan = planSync({ emails, existing, accounts, rules, config: syncConfig(ss), nowIso: new Date().toISOString() });
+    const byId = Object.fromEntries(emails.map((e) => [e.id, e]));
+    const logRows = plan.log.map((l) => ({
+      gmail_id: l.gmailId, received: new Date(byId[l.gmailId].epochMs), from: byId[l.gmailId].from, subject: byId[l.gmailId].subject,
+      status: l.status, parser: l.parser || '', reason: l.reason || '', rows: l.rows, gmail,
+    }));
+    const counts = { seen: emails.length, parsed: 0, skipped: 0, errors: 0 };
+    plan.log.forEach((l) => { if (l.status === 'ok') counts.parsed += 1; else if (l.status === 'error') counts.errors += 1; else counts.skipped += 1; });
+
+    if (mode === 'live') {
+      appendRows(ss, TABS.transactions, TRANSACTION_HEADERS, plan.add);
+      updateRows(ss, TABS.transactions, TRANSACTION_HEADERS, plan.update);
+      appendRows(ss, TABS.inboxLog, INBOX_LOG_HEADERS, logRows);
+      bumpRuleHits(ss, rules, plan.ruleHits);
+    } else {
+      const pv = ss.getSheetByName(TABS.preview);
+      if (pv.getLastRow() > 1) pv.getRange(2, 1, pv.getLastRow() - 1, pv.getLastColumn()).clearContent();
+      appendRows(ss, TABS.preview, TRANSACTION_HEADERS, plan.add);
+      writePreviewLog(ss, logRows);
+    }
+
+    const newest = emails.reduce((m, e) => Math.max(m, e.epochMs), Number(conn.checkpoint) || 0);
+    const summary = {
+      status: complete ? 'ok' : 'partial', mode, gmail, ...counts, added: plan.add.length, updated: plan.update.length,
+      remaining: ids.length - emails.length, seconds: Math.round((Date.now() - started) / 1000),
+    };
+    upsertConnection(ss, gmail, {
+      last_sync: new Date(), last_status: `${mode} ${summary.status}: +${summary.added} rows, ${counts.errors} errors${summary.remaining ? `, ${summary.remaining} left` : ''}${note ? ` (${note})` : ''}`,
+      seen: counts.seen, parsed: counts.parsed, skipped: counts.skipped, errors: counts.errors,
+      ...(mode === 'live' && complete ? { checkpoint: newest } : {}),
+    });
+    return summary;
+  }
+}
+
+function bumpRuleHits(ss, rules, hits) {
+  const sh = ss.getSheetByName(TABS.rules);
+  const col = RULE_HEADERS.indexOf('hits') + 1;
+  for (const r of rules) if (hits[r.id]) sh.getRange(r._row, col).setValue((Number(r.hits) || 0) + hits[r.id]);
+}
+
+function writePreviewLog(ss, rows) {
+  let sh = ss.getSheetByName('Preview Log');
+  if (!sh) sh = ss.insertSheet('Preview Log');
+  sh.clear();
+  sh.getRange(1, 1, 1, INBOX_LOG_HEADERS.length).setValues([INBOX_LOG_HEADERS]).setFontWeight('bold');
+  if (rows.length) sh.getRange(2, 1, rows.length, INBOX_LOG_HEADERS.length).setValues(rows.map((r) => INBOX_LOG_HEADERS.map((h) => r[h] ?? '')));
+}
+
+/** (Re)installs the 10-minute trigger for the person running this. */
+export function installTrigger() {
+  ScriptApp.getProjectTriggers().filter((t) => t.getHandlerFunction() === TRIGGER_HANDLER).forEach((t) => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger(TRIGGER_HANDLER).timeBased().everyMinutes(10).create();
+}
+
+export function connect(seed, defaultMode) {
+  const ss = appSpreadsheet();
+  installTrigger();
+  const gmail = myAddress();
+  upsertConnection(ss, gmail, { method: 'own trigger', connected_at: new Date() });
+  return runSync({ seed, defaultMode });
+}
