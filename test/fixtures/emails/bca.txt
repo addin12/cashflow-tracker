@@ -1,0 +1,110 @@
+=== bca-qris
+from: BCA <bca@bca.co.id>
+subject: Internet Transaction Journal
+epoch: 1791166652000
+---
+| |
+
+| |
+| [](https://bca.id/2xpv2w0) |
+
+| | Hello BUDI SANTOSO PUTRA,
+You just made a transaction through myBCA.
+Here are the details of your transaction :
+
+| Status | : | Successful |
+| Transaction Date | : | 05 Oct 2026 09:17:32 |
+| Transaction Type | : | QRIS Payment |
+| Payment to | : | CIRCLEKA INDONESIA UTAMA |
+| Merchant Location | : | JAKARTA TIMUR, 13320, ID |
+| Acquirer | : | BCA |
+| Merchant PAN | : | 9360001430000000001 |
+| Terminal ID | : | A1100001 |
+| Source of Fund | : | TAHAPAN - 1234****56 |
+| Customer PAN | : | 9360001410000000002 |
+| Total Payment | : | IDR 25,500.00 |
+| RRN | : | 100000001 |
+| Reference No. | : | 9527120261005091700000QRS1000000001 |
+
+Please save this email as your transaction reference.
+
+| |
+
+| | |
+=== bca-transfer-bca
+from: bca@bca.co.id
+subject: Internet Transaction Journal
+epoch: 1790656691000
+---
+| | Hi BUDI SANTOSO PUTRA,
+You just made a transaction through myBCA.
+
+| Status | : | Successful |
+| Transaction Date | : | 29 Sep 2026 11:36:59 |
+| Transfer Type | : | Transfer to BCA Account |
+| Source of Fund | : | 1234xxxx56 |
+| Source Currency | : | IDR - Indonesian Rupiah |
+| Beneficiary Account | : | 6040000003 |
+| Transfer Currency | : | IDR - Indonesian Rupiah |
+| Beneficiary Name | : | DEWI LESTARI |
+| Save to Beneficiary List | : | Yes |
+| Transfer Amount | : | IDR 20,000.00 |
+| Remarks | : | Uang Kas |
+| Reference No. | : | 9527120260929113600000TRF1000000002 |
+=== bca-transfer-other-bank
+from: bca@bca.co.id
+subject: Internet Transaction Journal
+epoch: 1790881636000
+---
+| | Hello BUDI SANTOSO PUTRA,
+
+| Status | : | Successful |
+| Transaction Date | : | 01 Oct 2026 21:25:07 |
+| Transfer Type | : | Transfer to BLU BY BCA DIGITAL |
+| Source of Fund | : | 1234xxxx56 |
+| Beneficiary Account | | |
+| Beneficiary Name | : | BUDI SANTOSO PUTRA |
+| Beneficiary Bank | : | BLU BY BCA DIGITAL |
+| Beneficiary Account No. | : | 001234567890 |
+| Amount | : | IDR 1,000,000.00 |
+| Fee | : | IDR 2,500.00 |
+| Transfer Method | : | BI FAST |
+| Remarks | : | Freelance |
+| Transaction Purpose | : | Purchase |
+| Reference No. | : | 20261001CENAIDJA00000000001 |
+=== bca-pocket-creation
+from: bca@bca.co.id
+subject: Internet Transaction Journal
+epoch: 1790590248000
+---
+| Status | : | Pocket Creation Successful |
+| Transaction Date | : | 28 Sep 2026 16:27:19 |
+| Pocket Name | : | Hobby |
+| Purpose | : | Savings |
+| Source of Fund | : | 123 - 4** - **56 |
+| Initial Deposit | : | IDR 500,000.00 |
+| Reference No. | : | 9527120260928162700000TPK0000000003 |
+=== bca-pocket-transfer
+from: bca@bca.co.id
+subject: Internet Transaction Journal
+epoch: 1790599362000
+---
+| Status | : | Transfer Pocket Successful |
+| Transaction Date | : | 28 Sep 2026 18:40:47 |
+| Beneficiary Name | : | BUDI SANTOSO PUTRA |
+| Beneficiary Account | : | 1234567856 |
+| Source Pocket | : | Hobby |
+| Source Pocket Account No. | : | 8880***********01 |
+| Amount | : | IDR 300,000.00 |
+| Transaction Type | : | Pocket Transaction |
+| Reference No. | : | 9527120260928184000000TPK0000000004 |
+=== bca-failed
+from: bca@bca.co.id
+subject: Internet Transaction Journal
+epoch: 1789000000000
+---
+| Status | : | Failed |
+| Transaction Date | : | 12 Sep 2026 10:00:00 |
+| Transaction Type | : | QRIS Payment |
+| Payment to | : | SOME SHOP |
+| Total Payment | : | IDR 10,000.00 |

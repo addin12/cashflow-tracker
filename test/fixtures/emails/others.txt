@@ -1,0 +1,274 @@
+=== blu-card
+from: receipts@blubybcadigital.id
+subject: Transaksimu Pakai blu Berhasil
+epoch: 1791181177000
+---
+| |
+| Hai B, Terima kasih sudah menggunakan blu untuk transaksimu. Ini detail transaksi yang telah kamu lakukan: |
+| Total Bayar |
+| Rp49.000,00 |
+| |
+
+| |
+| Budi Santoso Putra bluAccount | | APPLE.COM/BILL bluDebit Card •••• •••• •••• 1111 |
+
+| |
+| Tgl & Jam Transaksi |
+
+| |
+| 05 Okt 2026 13:18:32 WIB |
+
+| |
+| Tipe Transaksi |
+
+| |
+| Debit Online (Recurring/Autopay) |
+
+| |
+| Lokasi |
+
+| |
+| Internasional |
+
+| |
+| No. Ref blu |
+
+| |
+| 600000000001 |
+
+| |
+| Cheers ✨, |
+| #teamblu |
+=== blu-qr
+from: receipts@blubybcadigital.id
+subject: Transaksimu Pakai blu Berhasil!
+epoch: 1790442052000
+---
+| Hai B, Terima kasih sudah menggunakan blu untuk transaksimu. Ini detail transaksi yang telah kamu lakukan: |
+| Total |
+| Rp15.900,00 |
+| |
+
+| |
+| Budi Santoso Putra bluAccount | | ALFA_J837_HALIM3 Jakarta Timur |
+
+| |
+| Nominal Tagihan |
+
+| |
+| Rp15.900,00 |
+
+| |
+| Nama Acquirer |
+
+| |
+| Virgo |
+
+| |
+| Source of Fund |
+
+| |
+| 0012 3456 7890 |
+
+| |
+| Tgl & Jam Transaksi |
+
+| |
+| 27 Sep 2026 00:00:51 WIB |
+
+| |
+| Tipe Transaksi |
+
+| |
+| QRIS Pembayaran |
+
+| |
+| No. Ref blu |
+
+| |
+| 1790 0000 0000 0002 |
+=== blu-transfer-out
+from: receipts@blubybcadigital.id
+subject: Transaksimu Pakai blu Berhasil
+epoch: 1790444243000
+---
+| Hai B, Terima kasih sudah menggunakan blu untuk transaksimu. Ini detail transaksi yang telah kamu lakukan: |
+| Nominal |
+| Rp100.000,00 |
+| |
+
+| |
+| Budi Santoso Putra bluAccount | | ANDI WIJAYA BCA 5295 0000 01 |
+
+| |
+| Biaya Admin |
+
+| |
+| Rp2.500,00 |
+
+| |
+| bluRewards |
+
+| |
+| -Rp2.500,00 |
+
+| |
+| Total |
+
+| |
+| Rp100.000,00 |
+
+| |
+| Tgl & Jam Transaksi |
+
+| |
+| 27 Sep 2026 00:37:21 WIB |
+
+| |
+| Tipe Transaksi |
+
+| |
+| BI-FAST |
+
+| |
+| No. Ref blu |
+
+| |
+| 1790 0000 0000 0003 |
+=== blu-transfer-out-fee
+from: receipts@blubybcadigital.id
+subject: Transaksimu Pakai blu Berhasil
+epoch: 1790444243000
+---
+| Nominal |
+| Rp100.000,00 |
+| Budi Santoso Putra bluAccount | | ANDI WIJAYA BANK CENTRAL ASIA 5295 0000 01 |
+| Biaya Admin |
+| Rp2.500,00 |
+| Total |
+| Rp102.500,00 |
+| Tgl & Jam Transaksi |
+| 27 Sep 2026 00:37:21 WIB |
+| Tipe Transaksi |
+| BI-FAST |
+=== blu-incoming
+from: receipts@blubybcadigital.id
+subject: Info Transaksi Masuk ke blu Kamu 💸
+epoch: 1790864711000
+---
+| Hai B, Ada transaksi masuk ke rekening bluAccount kamu. Ini detailnya: |
+| Nominal Transfer |
+| Rp1.000.000,00 |
+| “Freelance” |
+| |
+
+| |
+| BUDI SANTOSO PUTRA BCA | | Budi Santoso Putra bluAccount 0012 3456 7890 |
+
+| |
+| Tgl & Jam Transaksi |
+
+| |
+| 01 Okt 2026 21:25:07 WIB |
+
+| |
+| Tipe Transaksi |
+
+| |
+| BI-FAST |
+=== jago-transfer
+from: noreply@jago.com
+subject: Kamu telah melakukan transfer💸
+epoch: 1790603385000
+---
+ Jago Mail
+[](https://example.invalid/track)
+
+Halo Budi,
+
+Terima kasih sudah bertransaksi dengan Jago! Kamu baru saja melakukan transfer uang, berikut rinciannya:
+
+| Ringkasan transaksi | | |
+| Dari | MA • 109876543210 |
+| Ke | BUDI SANTOSO PUT Mandiri • 60010002468 |
+| Jumlah | Rp2.000.000 |
+| Tanggal transaksi | 28 September 2026 20:49 WIB |
+
+Cek detil riwayat transaksi di aplikasi Jago melalui Rincian Kantong.
+=== jago-kantong
+from: noreply@jago.com
+subject: Kamu memindahkan uang dari salah satu Kantong kamu
+epoch: 1790603344000
+---
+ Jago Mail
+
+Halo Budi,
+
+Kamu baru saja melakukan penarikan sebesar Rp2.000.000 dari Kantong Dana Darurat.
+
+Kamu bisa melihat riwayat transaksi di Rincian Kantong melalui aplikasi Jago.
+=== jago-contact
+from: noreply@jago.com
+subject: Kamu telah memperbarui salah satu rincian kontak
+epoch: 1789000000000
+---
+Halo Budi, kontak kamu sudah diperbarui.
+=== jago-promo
+from: info@jago.com
+subject: Selesai semua misi & kumpulkan cashback s.d. 300 ribu!
+epoch: 1789000000000
+---
+Cukup pake Kartu Jago! cashback hingga Rp300.000
+=== sekuritas-dividend
+from: corporate_action@mandirisekuritas.co.id
+subject: Pembayaran Dividen Tunai' BANK MANDIRI (PERSERO) TBK (BMRI)'
+epoch: 1790934303000
+---
+Jakarta, 02 Oct 2026
+
+Kepada yang terhormat,
+
+Bapak/Ibu (BUDI SANTOSO PUTRA / XX0000XX)
+
+Sesuai dengan jadwal "Dividen Tunai" atas efek BANK MANDIRI (PERSERO) TBK
+(BMRI), bersama ini kami
+informasikan bahwa dividen tunai telah di distribusikan ke RDN/MTBI dengan
+perincian, sebagai berikut :
+
+Dividen Tunai
+
+Jumlah Kepemilikan Saham (lembar)	100
+Dividen per Saham (Rp)	66
+Pajak Dividen	0
+
+Perhitungan Dividen
+Nilai Dividen (Rp)	6,600
+Pajak Dividen (Rp) 	0
+Dividen Bersih (Rp)	6,600
+
+Dividen dibayarkan ke RDN/ MTBI pada tanggal 	2 Okt 2026
+=== sekuritas-schedule
+from: corporate_action@mandirisekuritas.co.id
+subject: Jadwal Pembagian Dividen Tunai BANK CENTRAL ASIA Tbk (BBCA)
+epoch: 1789000000000
+---
+Jadwal pembagian dividen: cum date ..., payment date ...
+=== gopay-summary
+from: GoPay <no-reply@customers.go-pay.co.id>
+subject: Ini total pengeluaranmu di September
+epoch: 1791003591000
+---
+ Laporan Bulananmu di GoPay Udah Siap, Nih
+Berikut ringkasan aktivitas keuangan kamu bulan September ini.
+
+| Hi, Budi! |
+| Berikut ringkasan aktivitas keuangan kamu bulan September ini : |
+
+| |
+| Pengeluaran -Rp90.000 | Pemasukan +Rp500 |
+=== gopay-summary-december
+from: no-reply@customers.go-pay.co.id
+subject: Ini total pengeluaranmu di Desember
+epoch: 1799193600000
+---
+| Pengeluaran -Rp1.234.567 | Pemasukan +Rp0 |

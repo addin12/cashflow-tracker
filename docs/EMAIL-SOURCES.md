@@ -10,13 +10,14 @@ The allow-list below is shared by all connected accounts. Adding a parser for a 
 
 | Sender | Subjects | Produces | Parser |
 |---|---|---|---|
-| `bca@bca.co.id` | Internet Transaction Journal | QRIS payment (out), transfer (out), pocket transfer (internal) | `bca` |
-| `noreply.livin@bankmandiri.co.id` | Pembayaran Berhasil! · Transfer Berhasil · *Pembayaran Tidak Berhasil* | payment (out), transfer (out), **failed → ignored** | `livin` |
-| `receipts@blubybcadigital.id` | Transaksimu Pakai blu Berhasil · Info Transaksi Masuk ke blu Kamu | card/QR/transfer (out), incoming transfer (in) | `blu` |
-| `noreply@jago.com` | Kamu telah melakukan transfer · Kamu memindahkan uang dari salah satu Kantong | transfer (out), Kantong move (internal) | `jago` |
-| `corporate_action@mandirisekuritas.co.id` | Pembayaran Dividen Tunai … | dividend (in) | `sekuritas` |
+| `bca@bca.co.id` | Internet Transaction Journal | QRIS payment, transfer to BCA or another bank (with fee), pocket transfer. *Pocket creation* and *Failed* → skipped | `bca` |
+| `noreply.livin@bankmandiri.co.id` | Pembayaran Berhasil! · Transfer Berhasil · Transfer dengan BI Fast Berhasil · Transfer Online Berhasil · Top-up Berhasil · Top-up e-money Berhasil · *Pembayaran Tidak Berhasil* | payment (QR or virtual account, with fee), transfer (with fee), e-wallet / e-money top-up, **failed → skipped** | `livin` |
+| `receipts@blubybcadigital.id` | Transaksimu Pakai blu Berhasil(!) · Info Transaksi Masuk ke blu Kamu | debit card / QRIS / transfer (out, fee only when actually charged), incoming transfer (in) | `blu` |
+| `noreply@jago.com` | Kamu telah melakukan transfer · Kamu memindahkan uang dari salah satu Kantong · *contact updates* | transfer (out), Kantong move (pocket ↔ main), **contact emails skipped** | `jago` |
+| `corporate_action@mandirisekuritas.co.id` | Pembayaran Dividen Tunai … · *Jadwal Pembagian Dividen …* | dividend (in) · **schedule skipped** | `sekuritas` |
 | `no-reply@customers.go-pay.co.id` | Ini total pengeluaranmu di <bulan> | monthly totals → **suggested Penyesuaian**, no per-transaction rows | `gopay` |
-| `noreply@tokopedia.com` | Pesanan Selesai: … | **no money row** (already paid via bank). Item names are added to the matching bank row's Details (Phase 5) | `tokopedia` |
+
+Inventory on 2026-10-05: about 200 emails from these senders between 2 Aug and 5 Oct 2026, in 19 distinct formats, all covered. Tokopedia order emails were left out: the bank email already records the money, and the item list is a nice-to-have.
 
 **Never parsed:** promotional senders from the same banks (`info@jago.com`, `informasi@klikbca.com`, `official.info@marketing.bankmandiri.co.id`), Stockbit/Bibit newsletters and statements, job alerts, shop surveys.
 
@@ -69,3 +70,13 @@ Indonesian text.
 Over the scanned window, emails covered QRIS and transfers on BCA, Livin' and blu, card payments on blu, Jago transfers and Kantong moves, and a dividend. **Not covered by email:** GoPay individual spends, cash, and any debit-card swipe a bank doesn't email about. These are handled as described in DESIGN.md §6.
 
 Tip: in each bank app, turn on email notifications for *all* transactions. For example, myBCA emails "Internet Transaction Journal" for app transactions, but card swipes may need a separate setting.
+
+## 5. Implementation notes (Phase 1, 2026-10-05)
+
+- Code: `src/core/parsers/` (one module per sender), `src/core/text.js` (email body → tokens), `src/core/money.js` (amounts and dates).
+- Every email body is turned into a list of **tokens** (one per table cell, paragraph or line). The same parser handles the raw HTML that Apps Script receives and the text view used in the tests. `test/parsers.test.js` checks both forms on the same Livin' email.
+- Results are `ok` (events), `skip` (with a reason: promo, failed, pocket creation…) or `error` (a transaction email that couldn't be read, e.g. no amount). Errors are never silent: Phase 2 lists them in Review.
+- Account hints the parsers extract: BCA *Source of Fund* trailing digits, Livin' `****1234`, blu account number or debit-card last 4, Jago account last 4, Jago/BCA pocket names. `Accounts.match_hint` holds a comma-separated list of these per stream.
+- **BCA pockets** count as part of the BCA account: creating a pocket and moving pocket money back to the owner's BCA are internal. A pocket transfer to someone else is a normal transfer out.
+- **Top-ups** (DANA, e-money card, …) are transfers when the wallet exists in `Accounts`. Otherwise they go to Review without a category.
+- Test fixtures (`test/fixtures/emails/`) are real formats with fake names, account numbers, reference numbers and amounts.

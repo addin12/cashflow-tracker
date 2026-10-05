@@ -1,0 +1,181 @@
+=== livin-qr
+from: noreply.livin@bankmandiri.co.id
+subject: Pembayaran Berhasil!
+epoch: 1790907842000
+---
+Livin' by Mandiri
+
+| |
+
+| ## Pembayaran Berhasil |
+| Halo BUDI SANTOSO PUTRA, Berikut adalah detail transaksi Anda dengan QR: |
+
+| |
+| Penerima#### CIRCLEKA INDONESIA UTAMA JAKARTA TIMUR - ID |
+
+| Tanggal | 2 Okt 2026 |
+| |
+| Jam | 09:23:59 WIB |
+| |
+| Nominal Transaksi | Rp 21.500,00 |
+| |
+| No. Referensi | 2610021100000000001 |
+| |
+| No. Ref. QRIS | 610400000001 |
+| |
+| Pengakuisisi | Bank BCA |
+| |
+| Terminal ID | A1100001 |
+
+| Sumber Dana#### BUDI SANTOSO PUT ****2468 |
+
+| Simpan email ini sebagai referensi transaksi Anda. |
+=== livin-va
+from: noreply.livin@bankmandiri.co.id
+subject: Pembayaran Berhasil!
+epoch: 1790993419000
+---
+| ## Pembayaran Berhasil |
+| Halo BUDI SANTOSO PUTRA, Berikut adalah detail transaksi Anda: |
+
+| |
+| Penerima #### Tokopedia 8870800000000001 |
+
+| Tanggal | 3 Okt 2026 |
+| |
+| Jam | 09:10:14 WIB |
+| |
+| Nominal Transaksi | IDR 250.000,00 |
+| |
+| Biaya Transaksi | IDR 1.000,00 |
+| |
+| Total Transaksi | IDR 251.000,00 |
+| |
+| No. Referensi | 702610030900000001 |
+
+| Sumber Dana BUDI SANTOSO PUT ****2468 |
+=== livin-transfer
+from: noreply.livin@bankmandiri.co.id
+subject: Transfer Berhasil
+epoch: 1790663088000
+---
+| ## Transfer Berhasil |
+| Halo BUDI SANTOSO PUTRA, Berikut adalah detail transaksi Anda: |
+
+| |
+| Penerima#### SITI AMINAH Bank Mandiri - 1310000000001 |
+
+| Tanggal | 29 Sep 2026 |
+| |
+| Jam | 13:24:48 WIB |
+| |
+| Jumlah Transfer | Rp 50.000,00 |
+| |
+| No. Referensi | 2609291100000000002 |
+| |
+| Keterangan | Patungan makan |
+
+| Rekening Sumber#### BUDI SANTOSO PUT ****2468 |
+=== livin-bifast
+from: noreply.livin@bankmandiri.co.id
+subject: Transfer dengan BI Fast Berhasil
+epoch: 1789992643000
+---
+| ## Transfer dengan BI Fast Berhasil |
+| Halo BUDI SANTOSO PUTRA , Berikut adalah detail transaksi Anda: |
+
+| |
+| Penerima#### RUDI Bank Central Asia - 7410000002 |
+
+| Tanggal | 21 Sep 2026 |
+| |
+| Jam | 19:10:43 WIB |
+| |
+| Nominal Transfer | Rp 140.000,00 |
+| |
+| Biaya Transfer | Rp 2.500,00 |
+| |
+| Total Transaksi | Rp 142.500,00 |
+| |
+| Tujuan Transaksi | Pembelian |
+| |
+| No. Referensi BI Fast | 20260921BMRIIDJA000000000001 |
+| |
+| Keterangan | - |
+
+| Rekening Sumber#### BUDI SANTOSO PUT ****2468 |
+=== livin-transfer-online
+from: noreply.livin@bankmandiri.co.id
+subject: Transfer Online Berhasil
+epoch: 1787658152000
+---
+| ## Transfer Online Berhasil |
+| Penerima#### ANDI WIJAYA Bank Central Asia - 5295000001 |
+
+| Tanggal | 25 Agu 2026 |
+| |
+| Jam | 18:42:31 WIB |
+| |
+| Nominal Transfer | Rp 100.000,00 |
+| |
+| Biaya Transfer | Rp 2.500,00 |
+| |
+| No. Referensi | 2608251100000000003 |
+| |
+| Keterangan | - |
+
+| Rekening Sumber#### BUDI SANTOSO PUT ****2468 |
+=== livin-topup-dana
+from: noreply.livin@bankmandiri.co.id
+subject: Top-up Berhasil
+epoch: 1787714840000
+---
+| ## Top-up Berhasil |
+| Halo BUDI SANTOSO PUTRA, Berikut adalah detail transaksi Anda: |
+
+| |
+| Penyedia Jasa#### Danatopup ****1357 |
+
+| Tanggal | 26 Agu 2026 |
+| |
+| Jam | 10:27:20 WIB |
+| |
+| Nominal Top-up | Rp 200.000,00 |
+| |
+| Biaya Transaksi | Rp 1.000,00 |
+| |
+| Total Transaksi | Rp 201.000,00 |
+| |
+| No. Referensi | 702608261000000004 |
+
+| Rekening Sumber#### BUDI SANTOSO PUT ****2468 |
+=== livin-topup-emoney
+from: noreply.livin@bankmandiri.co.id
+subject: Top-up e-money Berhasil
+epoch: 1788577867000
+---
+| ## Top-up e-money Berhasil |
+| Penyedia Jasa #### e-money ****9753 |
+
+| Tanggal | 5 Sep 2026 |
+| |
+| Jam | 10:11:07 WIB |
+| |
+| Nominal Top-up | Rp 100.000,00 |
+| |
+| Nomor Referensi | 702609051000000005 |
+
+| Rekening Sumber #### BUDI SANTOSO PUT ****2468 |
+=== livin-failed
+from: noreply.livin@bankmandiri.co.id
+subject: Pembayaran Tidak Berhasil
+epoch: 1790256226000
+---
+| ## Pembayaran Tidak Berhasil |
+| Penerima#### SOME BOOKSTORE JAKARTA PUSAT - ID |
+
+| Tanggal | 24 Sep 2026 |
+| |
+| Jam | 20:23:43 WIB |
+| |
+| Nominal Transaksi | Rp 150.000,00 |
