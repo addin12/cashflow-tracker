@@ -236,31 +236,45 @@ The full template reports (Growth Analysis, Quarter Report, Final Statement) sta
 
 ```
 Cashflow Tracker/
-├─ README.md
+├─ README.md                 overview + development commands
 ├─ docs/                     DESIGN.md · TEMPLATE-ANALYSIS.md · EMAIL-SOURCES.md · mockup.html
-├─ template/                 original xlsx (untouched) + adapted "Cashflow 2026" xlsx
-├─ apps-script/
-│  ├─ appsscript.json        timezone Asia/Jakarta, gmail.readonly, Gmail advanced service
-│  ├─ src/
-│  │  ├─ parsers/            bca.js · livin.js · blu.js · jago.js · sekuritas.js · gopay.js · index.js
-│  │  ├─ money.js            amount/date parsing (ID & EN formats)
-│  │  ├─ sync.js             fetch → parse → map → pair → categorize → write
-│  │  ├─ transfers.js · rules.js · sheet.js · setup.js (builds/fixes the template tabs)
-│  │  └─ webapp.js           doGet + server functions for the UI
-│  └─ ui/                    index.html · app.js · styles.css
-├─ test/
-│  ├─ fixtures/              real email bodies, redacted (names/accounts masked)
-│  └─ *.test.js              parser, transfer pairing, rules (Node + Vitest)
-└─ package.json              build (esbuild → single Apps Script bundle), test, deploy via clasp
+├─ config/seed.example.json  public example of the first-run data (categories, accounts, payday)
+├─ private/                  git-ignored: seed.json (your real data), secret-terms.txt, NOTES.md
+├─ template/                 git-ignored: your copy of the template .xlsx (paid product)
+├─ src/
+│  ├─ appsscript.json        manifest: time zone Asia/Jakarta, V8, minimal OAuth scopes
+│  ├─ main.js                Apps Script entry points (menu, setup, self-test)
+│  ├─ core/                  pure logic, no Google APIs, unit-tested on the PC
+│  │  ├─ schema.js           tab layouts and template coordinates
+│  │  ├─ formulas.js         every change to the template, as a list of patches
+│  │  ├─ categories.js · seed.js · payday.js
+│  │  ├─ expected.js         independent JS calculation of every report cell (for the self-test)
+│  │  └─ sample.js           synthetic self-test data
+│  │     (Phase 1+: parsers/, money.js, transfers.js, rules.js)
+│  └─ gas/                   thin Apps Script layer
+│     ├─ setup.js            applies the patches, creates tabs, seeds first-run data
+│     └─ selftest.js         fills a reused test spreadsheet with sample data and checks every report
+│        (Phase 2+: sync.js · Phase 3+: webapp.js + ui/)
+├─ test/                     Vitest: core logic, plus patch checks against the local template file
+├─ scripts/
+│  ├─ build.mjs              esbuild → dist/Code.js (one bundle + top-level stubs, seed injected)
+│  ├─ check-secrets.mjs      pre-commit scan for personal data
+│  ├─ upload-template.mjs    one-time: upload template as a Google Sheet, bind the script
+│  └─ read-tab.mjs           dev helper: print a tab of the live sheet (via .xlsx export)
+└─ .githooks/pre-commit      check-secrets + tests
 ```
 
-The parsers, transfer pairing and rules are plain functions with no Google APIs, so they are unit-tested on your PC against real (redacted) emails. Only the thin Gmail/Sheets layer needs Apps Script.
+The parsers, transfer pairing, rules and the report reference are plain functions with no Google APIs, so they are unit-tested on your PC. Only the thin Gmail/Sheets layer needs Apps Script, and the self-test covers it on the real spreadsheet.
+
+**Development commands:** `npm test` · `npm run build` · `npm run push` (build + `clasp push`) · `node scripts/read-tab.mjs "<tab>" [A1:B10]` · `npm run check:secrets -- --all`.
+
+**What still needs your click in Google:** Google requires a person to approve new permissions, so each phase that adds a permission needs one click from you on the consent screen. Phase 2 will ask for read-only Gmail and permission to run on a schedule. Pushing code I can do from here. Running *setup* or the *self-test* needs a menu click in the sheet, because a remote "run" endpoint was rejected as a security weakening (2026-10-05). From Phase 2 on, the sync itself runs on Google's schedule, with no clicks.
 
 ## 10. Build plan
 
 | Phase | What gets built | How it's verified | Size |
 |---|---|---|---|
-| **0. Foundation** | Repo + tooling (Node, Vitest, esbuild, clasp). Adapted template: TEMPLATE-ANALYSIS.md fixes, `Transactions`/`Accounts`/`Rules`/`Connections` tabs, CASHFLOW pull formula. Upload to your Drive as Google Sheet | Template totals equal hand-calculated totals on sample data | S |
+| **0. Foundation** ✅ *done 2026-10-05* | Tooling (Node, Vitest, esbuild, clasp, pre-commit scan). Template uploaded as Google Sheet "Cashflow 2026" and adapted by `setup`: 14 fixes, `Transactions`/`Accounts`/`Rules`/`Connections`/`Config` tabs, ledger pulled from Transactions, your categories + 8 accounts, payday 28 | 41 unit tests (incl. hand-calculated totals). Self-test on Google Sheets: **11,828 report cells PASS** in `en_US` and `id_ID` | S |
 | **1. Parsers** | BCA, Livin', blu (out + in), Jago (transfer + Kantong), Mandiri Sekuritas dividend, failure/promo filters | Unit tests on ~30 real redacted emails from your inbox: every field exact | M |
 | **2. Sync** | Fetch, dedupe, stream mapping, transfer pairing, rules, write rows. **Dry-run mode** writes to a `Preview` tab only | Dry run over the last 30 days of your Gmail; you compare against your bank apps | M |
 | **3. Web app v1** | Review, Add, Transactions | You use it on your phone for a week | M |

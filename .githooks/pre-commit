@@ -1,0 +1,4 @@
+#!/bin/sh
+# Blocks commits that contain personal data or break the tests.
+node scripts/check-secrets.mjs || exit 1
+npx vitest run --silent || exit 1

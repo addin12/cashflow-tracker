@@ -52,28 +52,36 @@ Most categories are still placeholders (`Income #2`, `Expenxe #2…#28`). You've
 
 ## 4. Problems found, and fixes for the adapted copy
 
-| # | Where | Problem | Fix |
-|---|---|---|---|
-| 1 | CASHFLOW all SUMPRODUCTs | Input range is only rows 6–296 (≈290 rows). Automatic email capture can create thousands of rows a year (more once a partner joins) | Open-ended ranges (`$B$6:$B`), data pulled from `Transactions` |
-| 2 | CASHFLOW all SUMPRODUCTs | `TEXT(date,"mmm")="JAN"` depends on the spreadsheet locale. With an **Indonesia** locale, month names come out in Indonesian (`Mei/Agu/Okt/Des`), so **May, Aug, Oct and Dec would silently sum to 0** (to be confirmed in Phase 0) | Compare `MONTH(date)` with the column's month number. Also check `YEAR(date)` = Setup year |
-| 3 | CASHFLOW Y52 | Payday hard-coded to **2025-07-25**, so "days left" = −437 and budget/day is negative | Compute the next payday from a day-of-month setting (28) |
-| 4 | BUDGET TRACKER E35 | Income total `SUM(E29:E32)` skips 2 of 6 income rows | `SUM(E29:E34)` |
-| 5 | BUDGET TRACKER J37 | Spending streams total `SUM(J29:J34)` skips 2 of 8 streams | `SUM(J29:J36)` |
-| 6 | BUDGET TRACKER L37 | Saving streams total `SUM(L29:L31)` skips 5 of 8 | `SUM(L29:L36)` |
-| 7 | QUARTER REPORT AA11 | Q3 "Income #3" sums row 8 instead of row 7 | `SUM(CASHFLOW!R7:T7)` |
-| 8 | rawdata S2:W… | References a deleted `MONTHLY REPORT` tab (`#REF!`) | Remove the dead helper cells |
-| 9 | Setup / Streams block | Room for only 8 spending + 8 saving streams, and the IN/OUT blocks are hand-built per stream | Rebuild the block from the `Accounts` tab (setup script) |
-| 10 | GUIDELINE | Mentions a "Trx" tab that doesn't exist, and old row numbers (Balance is row 41, not 36) | Update the text |
+All fixes are applied by `src/gas/setup.js` from the patch list in `src/core/formulas.js`. They were **verified on Google Sheets on 2026-10-05**: the self-test passed 11,828 report cells against an independent JS calculation, in both the `en_US` and `id_ID` locales. Problems 11–14 were found by an automated scan of every formula during Phase 0.
 
-Fixes 1, 2 and 9 change formulas but not what any report means. The other fixes correct wrong totals.
+| # | Where | Problem | Fix (status) |
+|---|---|---|---|
+| 1 | CASHFLOW all SUMPRODUCTs | Input range is only rows 6–296 (≈290 rows). Automatic email capture can create thousands of rows a year (more once a partner joins) | Open-ended `SUMIFS($G$6:$G, …)` ranges. The ledger is pulled from `Transactions` (**fixed**) |
+| 2 | CASHFLOW all SUMPRODUCTs | `TEXT(date,"mmm")="JAN"` depends on the spreadsheet locale. With an **Indonesia** locale, month names come out in Indonesian (`Mei/Agu/Okt/Des`), so **May, Aug, Oct and Dec would silently sum to 0** | Sum by a real date range: `DATE(year, month, 1)` ≤ date < `DATE(year, month+1, 1)`. The month number comes from the column header (`MATCH(L$1, {"JAN",…}, 0)`). It also filters by the Setup year (**fixed**, verified in `id_ID`) |
+| 3 | CASHFLOW Y52 | Payday hard-coded to **2025-07-25**, so "days left" = −437 and budget/day is negative | Next payday computed from Config `payday_day` = 28. The payday itself counts as paid (**fixed**) |
+| 4 | BUDGET TRACKER E35 | Income total `SUM(E29:E32)` skips 2 of 6 income rows | `SUM(E29:E34)` (**fixed**) |
+| 5 | BUDGET TRACKER J37 | Spending streams total `SUM(J29:J34)` skips 2 of 8 streams | `SUM(J29:J36)` (**fixed**) |
+| 6 | BUDGET TRACKER L37 | Saving streams total `SUM(L29:L31)` skips 5 of 8 | `SUM(L29:L36)` (**fixed**) |
+| 7 | QUARTER REPORT Q3/Q4 | Income rows 11–14 of **Q3 and Q4** read one row too low (`AA11:AA14`, `AL11:AL14`). Q3/Q4 "Income #6" even read the first *expense* category | Every quarter income row is rewritten as `SUM(CASHFLOW!<months><row-4>)` (**fixed**) |
+| 8 | rawdata S1:W… | References a deleted `MONTHLY REPORT` tab (`#REF!`) | Cleared (**fixed**) |
+| 9 | Setup / Streams block | Room for only 8 spending + 8 saving streams | Setup slots now read the `Accounts` tab, and unused slots show `-`. Expanding beyond 8 + 8 is **deferred** to the partner phase (DESIGN.md §12): your 8 accounts fit |
+| 10 | GUIDELINE | Mentions a "Trx" tab that doesn't exist, and old row numbers (Balance is row 41, not 36) | Links and texts updated (**fixed**) |
+| 11 | QUARTER REPORT row 15 | Every quarter's income total `SUM(x9:x13)` skips the 6th income row | `SUM(x9:x14)` (**fixed**) |
+| 12 | BUDGET TRACKER H57 | Expense total `SUM(H29:H54)` skips 2 of 28 rows | `SUM(H29:H56)` (**fixed**) |
+| 13 | FINAL STATEMENT S14 / U14 | Stream totals `SUM(S6:S11)` / `SUM(U6:U11)` skip 2 of 8 streams | `SUM(S6:S13)` / `SUM(U6:U13)` (**fixed**) |
+| 14 | BUDGET TRACKER rows 6–8 | Demo budgets point at placeholder categories, and an empty row shows `#N/A` / `#DIV/0!` | Demo values cleared on first setup, and the cells wrapped in `IFERROR` (**fixed**) |
+
+Fixes 1, 2 and 9 change formulas but not what any report means. The others correct wrong totals or error cells.
+
+**Things the setup deliberately kept:** the template's own semantics (Debit = income, Penyesuaian and transfers left out of Income/Expense, the budget "percentage" formula `(budget − realization) / realization`), its layout, charts and dropdowns. CASHFLOW's month headers `L1:W2` are merged cells, which is why the month number is read from the header text and not from a helper row.
 
 ## 5. Starter category list (proposal, for you to edit)
 
 This list is based on your real transactions from the last weeks, and keeps the names you already chose. Capacity is 6 income + 28 expense, plus the two fixed ones.
 
-**Income (6):** gaji · jajan dari ibu · Proyek / Freelance · Dividen & Bunga · Cashback & Refund · Lainnya
+**Income (6):** gaji · jajan dari ibu · Proyek / Freelance · Dividen & Bunga · Cashback & Refund · Pemasukan Lainnya
 
-**Expense (up to 28):** fnb (makan & minum) · Belanja Harian (minimarket) · Belanja Online · Transportasi & Bensin · Servis & Cuci Kendaraan · Langganan Digital · Hobi & Board Game · Buku · Kesehatan & Optik · skincare · Tagihan & Utilitas · Pulsa & Internet · Rumah Tangga · Pakaian · Nongkrong & Hiburan · Hadiah & Sosial · Iuran & Kas · Pendidikan · Biaya Admin · Lainnya
+**Expense (up to 28):** fnb (makan & minum) · Belanja Harian (minimarket) · Belanja Online · Transportasi & Bensin · Servis & Cuci Kendaraan · Langganan Digital · Hobi & Board Game · Buku · Kesehatan & Optik · skincare · Tagihan & Utilitas · Pulsa & Internet · Rumah Tangga · Pakaian · Nongkrong & Hiburan · Hadiah & Sosial · Iuran & Kas · Pendidikan · Biaya Admin · Pengeluaran Lainnya
 
 **Fixed:** Penyesuaian · trf ke bank lain
 

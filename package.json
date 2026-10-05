@@ -1,0 +1,24 @@
+{
+  "name": "cashflow-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Gmail bank emails -> Google Sheets cashflow template (Apps Script).",
+  "scripts": {
+    "test": "vitest run",
+    "build": "node scripts/build.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "push": "npm run build && clasp push --force",
+    "upload-template": "node scripts/upload-template.mjs",
+    "prepare": "git config core.hooksPath .githooks"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@google/clasp": "^3.4.1",
+    "esbuild": "^0.28.2",
+    "exceljs": "^4.4.0",
+    "vitest": "^5.0.3"
+  }
+}

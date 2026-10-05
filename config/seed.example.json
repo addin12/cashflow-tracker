@@ -1,0 +1,21 @@
+{
+  "year": 2026,
+  "start_date": "2026-09-01",
+  "payday_day": 28,
+  "owner_name": "Me",
+  "categories": {
+    "income": ["gaji", "jajan dari ibu", "Proyek / Freelance", "Dividen & Bunga", "Cashback & Refund", "Pemasukan Lainnya"],
+    "expense": [
+      "fnb", "Belanja Harian", "Belanja Online", "Transportasi & Bensin", "Servis & Cuci Kendaraan",
+      "Langganan Digital", "Hobi & Board Game", "Buku", "Kesehatan & Optik", "skincare",
+      "Tagihan & Utilitas", "Pulsa & Internet", "Rumah Tangga", "Pakaian", "Nongkrong & Hiburan",
+      "Hadiah & Sosial", "Iuran & Kas", "Pendidikan", "Biaya Admin", "Pengeluaran Lainnya"
+    ]
+  },
+  "accounts": [
+    { "stream": "Bank 1", "type": "Spending", "owner": "Me", "institution": "Bank 1", "match_hint": "", "opening_balance": 0 },
+    { "stream": "E-wallet", "type": "Spending", "owner": "Me", "institution": "E-wallet", "match_hint": "", "opening_balance": 0 },
+    { "stream": "Cash", "type": "Spending", "owner": "Me", "institution": "", "match_hint": "manual", "opening_balance": 0 },
+    { "stream": "Savings", "type": "Saving", "owner": "Me", "institution": "Bank 1", "match_hint": "", "opening_balance": 0 }
+  ]
+}
