@@ -3,7 +3,8 @@
 /* global google */
 import { STRINGS, pickLanguage } from './i18n.js';
 
-const state = { boot: null, tab: 'review', month: '', filters: { status: '' }, limit: 50, addKind: 'out', busy: false };
+const state = { boot: null, tab: 'review', month: '', filters: { status: '' }, limit: 50, addKind: 'out', busy: false, rowsById: new Map() };
+const remember = (rows) => rows.forEach((r) => state.rowsById.set(String(r.id), r));
 let T = STRINGS.id;
 
 const $ = (sel, el = document) => el.querySelector(sel);
@@ -61,9 +62,10 @@ function syncLine() {
 }
 
 // ---------------------------------------------------------------- Review
-async function viewReview() {
-  loading();
-  const r = await call('review');
+async function viewReview(preloaded) {
+  if (!preloaded) loading();
+  const r = preloaded || await call('review');
+  remember([...r.pending, ...r.recentAuto]);
   const pending = r.pending.map((x) => `
     <div class="card" data-id="${esc(x.id)}">
       <div class="row"><span class="merchant">${esc(x.description || x.details || '—')}</span><span class="amt ${x.direction}">${x.direction === 'in' ? '+' : '−'}${rp(x.amount)}</span></div>
@@ -95,9 +97,9 @@ async function viewReview() {
 }
 
 // ---------------------------------------------------------------- Dashboard
-async function viewDashboard() {
-  loading();
-  const d = await call('dashboard', { month: state.month });
+async function viewDashboard(preloaded) {
+  if (!preloaded) loading();
+  const d = preloaded || await call('dashboard', { month: state.month });
   state.month = d.month;
   const s = d.summary;
   const budgets = d.budgets.map((b) => `<div><div class="row"><span>${esc(b.category)}</span><span class="meta">${rp(b.spent)} / ${rp(b.budget)}</span></div>
@@ -128,6 +130,7 @@ async function viewTransactions() {
   loading();
   const f = state.filters;
   const r = await call('list', { ...f, month: f.month ?? state.month, limit: state.limit });
+  remember(r.rows);
   const c = state.boot.categories;
   const items = r.rows.map((x) => `
     <div class="line" data-action="edit" data-id="${esc(x.id)}">
@@ -149,8 +152,12 @@ async function viewTransactions() {
 }
 
 async function openEditor(id) {
-  const r = await call('list', { q: '', limit: 100000 });
-  const x = r.rows.find((row) => String(row.id) === String(id));
+  // Rows already on screen are reused; only an unknown id asks the server.
+  let x = state.rowsById.get(String(id));
+  if (!x) {
+    const r = await call('list', { q: '', limit: 100000 });
+    x = r.rows.find((row) => String(row.id) === String(id));
+  }
   if (!x) return;
   $('#modal').innerHTML = `
     <form class="sheet" data-form="edit" data-id="${esc(x.id)}">
@@ -248,10 +255,36 @@ async function viewSettings(local) {
 // ---------------------------------------------------------------- shell
 const VIEWS = { review: viewReview, dashboard: viewDashboard, transactions: viewTransactions, add: viewAdd, settings: viewSettings };
 
-async function show(tab) {
+async function show(tab, preloaded) {
   state.tab = tab;
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
-  try { await VIEWS[tab](); } catch (e) { failed(e); }
+  try { await VIEWS[tab](preloaded); } catch (e) { failed(e); }
+}
+
+// The last startup data is kept on the phone so the app can paint instantly next time,
+// then it is replaced by fresh data from the server.
+const CACHE_KEY = 'cashflow.init.v1';
+function readCache() {
+  try { return JSON.parse(window.localStorage.getItem(CACHE_KEY) || 'null'); } catch (e) { return null; }
+}
+function writeCache(data) {
+  try { window.localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch (e) { /* storage unavailable */ }
+}
+function setStale(on) {
+  const el = $('#stale');
+  if (el) el.className = on ? 'stale show' : 'stale';
+}
+
+/** Render startup data. First paint picks the tab; later paints refresh the tab still showing. */
+async function paint(data, { first }) {
+  state.boot = { ...data.boot, lang: state.boot?.lang };
+  applyLanguage(state.boot.language);
+  if (!state.month || state.month === data.dashboard.month) state.month = data.boot.today.slice(0, 7);
+  const tab = first ? (data.boot.pendingCount ? 'review' : 'dashboard') : state.tab;
+  if (first || !state.userMoved) {
+    if (tab === 'review') await show('review', data.review);
+    else if (tab === 'dashboard' && state.month === data.dashboard.month) await show('dashboard', data.dashboard);
+  }
 }
 
 async function run(label, fn, after) {
@@ -275,8 +308,8 @@ function onClick(e) {
   if (!el) return;
   const a = el.dataset.action;
   const card = el.closest('[data-id]');
-  if (!a && el.dataset.tab) return show(el.dataset.tab);
-  if (a === 'go') return show(el.dataset.tab);
+  if (!a && el.dataset.tab) { state.userMoved = true; return show(el.dataset.tab); }
+  if (a === 'go') { state.userMoved = true; return show(el.dataset.tab); }
   if (a === 'reload') return show(state.tab);
   if (a === 'month') { state.month = monthAdd(state.month, Number(el.dataset.k)); return show('dashboard'); }
   if (a === 'kind') { state.addKind = el.dataset.kind; return viewAdd(); }
@@ -392,13 +425,19 @@ export async function start() {
   document.addEventListener('input', (e) => {
     if (e.target.matches('[data-filter=q]')) { clearTimeout(searchTimer); searchTimer = setTimeout(() => onChange(e), 400); }
   });
+  const cached = readCache();
+  if (cached) {
+    await paint(cached, { first: true });
+    setStale(true);
+  }
   try {
-    state.boot = await call('bootstrap');
-    applyLanguage(state.boot.language);
-    state.month = state.boot.today.slice(0, 7);
-    await show(state.boot.pendingCount ? 'review' : 'dashboard');
+    const fresh = await call('init');
+    writeCache(fresh);
+    await paint(fresh, { first: !cached });
   } catch (e) {
-    failed(e);
+    if (!cached) failed(e); else toast(`${T.error}: ${e.message}`, 'bad');
+  } finally {
+    setStale(false);
   }
 }
 

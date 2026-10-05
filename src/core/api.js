@@ -54,6 +54,12 @@ export function createApi(store, env) {
       return reviewItems(rows(), store.read(TABS.inboxLog), { today: now() });
     },
 
+    /** Everything the first screen needs, in one round trip. */
+    init() {
+      const boot = this.bootstrap();
+      return { boot, review: this.review(), dashboard: this.dashboard({}) };
+    },
+
     approve({ id, category, stream, always }) {
       const row = findRow(id);
       if (!allCategories().has(category)) throw new Error(`unknown category ${category}`);
@@ -233,6 +239,6 @@ export function createApi(store, env) {
 }
 
 export const API_METHODS = [
-  'bootstrap', 'review', 'approve', 'ignore', 'restore', 'list', 'update', 'remove', 'add', 'dashboard', 'settings',
+  'init', 'bootstrap', 'review', 'approve', 'ignore', 'restore', 'list', 'update', 'remove', 'add', 'dashboard', 'settings',
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow',
 ];

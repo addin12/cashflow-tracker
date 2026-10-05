@@ -41,7 +41,8 @@ function memoryStore() {
   };
 }
 
-let dom; let store; let doc;
+let dom; let store; let doc; let api; let html;
+const calls = [];
 const tick = () => new Promise((r) => setTimeout(r, 0));
 async function until(fn, what) {
   for (let i = 0; i < 200; i += 1) { if (fn()) return; await new Promise((r) => setTimeout(r, 5)); }
@@ -53,8 +54,8 @@ const tab = async (name, text) => { click(doc.querySelector(`.tabs [data-tab=${n
 
 beforeAll(async () => {
   store = memoryStore();
-  const api = createApi(store, { now: () => new Date(2026, 9, 5, 10, 0, 0), sync: () => ({ added: 0 }), sheetUrl: 'https://example.invalid/sheet' });
-  const html = await buildUiHtml();
+  api = createApi(store, { now: () => new Date(2026, 9, 5, 10, 0, 0), sync: () => ({ added: 0 }), sheetUrl: 'https://example.invalid/sheet' });
+  html = await buildUiHtml();
   dom = new JSDOM(html, {
     runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.invalid/',
     beforeParse(window) {
@@ -65,6 +66,7 @@ beforeAll(async () => {
           withSuccessHandler(f) { ok = f; return r; },
           withFailureHandler(f) { fail = f; return r; },
           api(name, json) {
+            calls.push(name);
             setTimeout(() => {
               try { ok(JSON.stringify({ data: api[name](JSON.parse(json)) })); } catch (e) { ok(JSON.stringify({ error: e.message })); }
               void fail;
@@ -82,6 +84,10 @@ beforeAll(async () => {
 });
 
 describe('web app', () => {
+  it('starts with a single server call', () => {
+    expect(calls).toEqual(['init']);
+  });
+
   it('opens on Review when something waits, with the unread email and recent automatic rows', () => {
     expect(view()).toContain('Perlu dicek');
     expect(doc.querySelectorAll('.card[data-id]')).toHaveLength(2);
@@ -146,6 +152,26 @@ describe('web app', () => {
     await until(() => doc.querySelector('.tabs [data-tab=review] b').textContent === 'Review', 'english tabs');
     expect(store.cfg.language).toBe('en');
     await until(() => view().includes('Month-end balance check'), 'english settings');
+  });
+
+  it('a second visit paints from the phone cache before the server answers', async () => {
+    const cached = dom.window.localStorage.getItem('cashflow.init.v1');
+    expect(cached).toBeTruthy();
+    let answer;
+    const second = new JSDOM(html, {
+      runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.invalid/',
+      beforeParse(window) {
+        window.localStorage.setItem('cashflow.init.v1', cached);
+        const r = { withSuccessHandler(f) { answer = f; return r; }, withFailureHandler() { return r; }, api() { /* server is slow: never answers in this test */ } };
+        window.google = { script: { get run() { return r; } } };
+      },
+    });
+    const d2 = second.window.document;
+    for (let i = 0; i < 200 && !d2.querySelector('#view .card, #view .kpis'); i += 1) await new Promise((res) => setTimeout(res, 5));
+    expect(d2.querySelector('#view .card, #view .kpis')).not.toBeNull(); // painted from cache
+    expect(d2.querySelector('#stale').className).toContain('show'); // and says it is updating
+    expect(typeof answer).toBe('function');
+    second.window.close();
   });
 
   it('the page has no references to outside scripts or styles', async () => {

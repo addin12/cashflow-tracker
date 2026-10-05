@@ -60,10 +60,14 @@ export function updateRows(ss, tab, headers, updates) {
   for (const { id, changes } of updates) {
     const row = ids.indexOf(String(id)) + 1;
     if (row < 2) continue;
+    // One read and one write per row (each call to the sheet is slow).
+    const range = sh.getRange(row, 1, 1, headers.length);
+    const values = range.getValues()[0];
     for (const [h, v] of Object.entries(changes)) {
-      const col = headers.indexOf(h) + 1;
-      if (col > 0) sh.getRange(row, col).setValue(toCell(h, v));
+      const col = headers.indexOf(h);
+      if (col >= 0) values[col] = toCell(h, v);
     }
+    range.setValues([values]);
     n += 1;
   }
   return n;

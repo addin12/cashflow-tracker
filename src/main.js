@@ -64,7 +64,7 @@ export function doGet() {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
 }
 
-const READ_ONLY = new Set(['bootstrap', 'review', 'list', 'dashboard', 'settings']);
+const READ_ONLY = new Set(['init', 'bootstrap', 'review', 'list', 'dashboard', 'settings']);
 
 /**
  * The web app's single server entry point: google.script.run.api(name, payloadJson).

@@ -67,3 +67,7 @@ input.big.out { color: var(--out); } input.big.in { color: var(--in); }
 .toast { position: fixed; left: 50%; bottom: 80px; transform: translateX(-50%) translateY(20px); opacity: 0; transition: .2s; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 14px; z-index: 6; max-width: 90vw; pointer-events: none; }
 .toast.show { opacity: 1; transform: translateX(-50%); } .toast.bad { background: var(--out); color: #fff; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.stale { position: fixed; top: 8px; right: 12px; z-index: 4; background: var(--brand-soft); color: var(--brand); font-size: 12px; padding: 4px 10px; border-radius: 999px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.stale.show { opacity: 1; } .stale span { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .stale span { animation: none; } }
