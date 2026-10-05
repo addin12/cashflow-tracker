@@ -14,8 +14,9 @@ const seedPath = existsSync(p('private/seed.json')) ? 'private/seed.json' : 'con
 const seed = JSON.parse(readFileSync(p(seedPath), 'utf8'));
 validateSeed(seed);
 
-// Where the sync writes when Config sync_mode is empty: 'preview' (Preview tab) or 'live'.
-const syncDefault = process.env.CT_SYNC_MODE === 'live' ? 'live' : 'preview';
+// Where the sync writes when Config sync_mode is empty: 'live' (Transactions, the default since
+// the preview on the owner's inbox passed on 2026-10-05) or 'preview' (CT_SYNC_MODE=preview).
+const syncDefault = process.env.CT_SYNC_MODE === 'preview' ? 'preview' : 'live';
 const out = await build({
   entryPoints: [p('src/main.js')],
   bundle: true,
