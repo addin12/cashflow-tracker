@@ -12,7 +12,7 @@ const known = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null;
 const out = known
   ? clasp('update-deployment', known.deploymentId, '--description', 'Cashflow web app')
   : clasp('create-deployment', '--description', 'Cashflow web app');
-const m = out.match(/Deployed (\S+) @(\d+)/);
+const m = out.match(/(?:Re)?[Dd]eployed (\S+) @(\d+)/);
 if (!m) throw new Error(`unexpected clasp output: ${out}`);
 const info = { deploymentId: m[1], version: Number(m[2]), url: `https://script.google.com/macros/s/${m[1]}/exec` };
 writeFileSync(file, JSON.stringify(info, null, 2));

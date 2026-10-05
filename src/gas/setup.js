@@ -87,16 +87,26 @@ function migrateAccountHints(ss, seed, log) {
   if (n) log.push(`Updated ${n} account hint(s)`);
 }
 
-function seedRules(ss, seed, log) {
+/**
+ * Starter rules: all of them into an empty Rules tab; on an upgrade only the rules marked
+ * `since` a newer setup version (so a starter rule the owner deleted doesn't come back).
+ */
+function seedRules(ss, seed, log, fromVersion) {
   const sh = ss.getSheetByName(TABS.rules);
-  if (sh.getLastRow() >= 2 || !seed.rules.length) return;
+  const empty = sh.getLastRow() < 2;
+  const existing = empty ? [] : sh.getRange(2, 1, sh.getLastRow() - 1, RULE_HEADERS.length).getValues();
+  const patterns = new Set(existing.map((r) => String(r[RULE_HEADERS.indexOf('pattern')])));
+  const wanted = seed.rules
+    .map((r, i) => ({ ...r, n: i + 1 }))
+    .filter((r) => (empty || Number(r.since || 0) > fromVersion) && !patterns.has(r.pattern));
+  if (!wanted.length) return;
   const now = new Date();
-  const rows = seed.rules.map((r, i) => RULE_HEADERS.map((h) => ({
-    id: `r_seed_${i + 1}`, field: r.field || 'description', pattern: r.pattern, category: r.category, stream_override: r.stream_override || '',
+  const rows = wanted.map((r) => RULE_HEADERS.map((h) => ({
+    id: `r_seed_${r.n}`, field: r.field || 'description', pattern: r.pattern, category: r.category, stream_override: r.stream_override || '',
     auto_approve: r.auto_approve !== false, hits: 0, created_by: 'setup', created_at: now,
   })[h]));
-  sh.getRange(2, 1, rows.length, RULE_HEADERS.length).setValues(rows);
-  log.push(`Added ${rows.length} starter rules`);
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, RULE_HEADERS.length).setValues(rows);
+  log.push(`Added ${rows.length} starter rule(s)`);
 }
 
 /** Writes the category names into CASHFLOW K5:K38 (K39/K40 are the template's fixed rows). */
@@ -187,7 +197,7 @@ export function runSetup(ss, seedRaw) {
   ensureTab(ss, TABS.budgets, BUDGET_HEADERS);
   ensureConfig(ss, seed, firstRun);
   fillNewConfig(ss, seed);
-  seedRules(ss, seed, log);
+  seedRules(ss, seed, log, fromVersion);
   if (!firstRun && fromVersion < 2) migrateAccountHints(ss, seed, log);
 
   if (firstRun) {

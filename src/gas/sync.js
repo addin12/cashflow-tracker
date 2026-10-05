@@ -102,8 +102,12 @@ function syncOnce(opts) {
     const sinceMs = Math.max(startMs, checkpoint - OVERLAP_MS);
     const query = `from:(${SENDERS.join(' OR ')}) after:${Math.floor(sinceMs / 1000)}`;
 
-    const existing = readTable(ss, TABS.transactions);
-    const logged = mode === 'live' ? readTable(ss, TABS.inboxLog) : [];
+    // Preview mode works like live mode but on its own tabs, continuing where it stopped.
+    // A new PREVIEW_EPOCH (a parser change) clears them so the preview restarts from scratch.
+    if (mode === 'preview') resetPreviewIfStale(ss);
+    const previewRows = mode === 'preview' ? readTable(ss, TABS.preview) : [];
+    const existing = [...readTable(ss, TABS.transactions), ...previewRows];
+    const logged = readTable(ss, mode === 'live' ? TABS.inboxLog : PREVIEW_LOG);
     const done = new Set([...existing.map((r) => r.gmail_id), ...logged.map((r) => r.gmail_id)].filter(Boolean).map(String));
     const ids = listMessageIds(query, 2000).filter((id) => !done.has(id)).reverse(); // oldest first
 
@@ -141,10 +145,9 @@ function syncOnce(opts) {
       appendRows(ss, TABS.inboxLog, INBOX_LOG_HEADERS, logRows);
       bumpRuleHits(ss, rules, plan.ruleHits);
     } else {
-      const pv = ss.getSheetByName(TABS.preview);
-      if (pv.getLastRow() > 1) pv.getRange(2, 1, pv.getLastRow() - 1, pv.getLastColumn()).clearContent();
       appendRows(ss, TABS.preview, TRANSACTION_HEADERS, plan.add);
-      writePreviewLog(ss, logRows);
+      updateRows(ss, TABS.preview, TRANSACTION_HEADERS, plan.update);
+      appendRows(ss, PREVIEW_LOG, INBOX_LOG_HEADERS, logRows);
     }
 
     const newest = emails.reduce((m, e) => Math.max(m, e.epochMs), Number(conn.checkpoint) || 0);
@@ -167,12 +170,19 @@ function bumpRuleHits(ss, rules, hits) {
   for (const r of rules) if (hits[r.id]) sh.getRange(r._row, col).setValue((Number(r.hits) || 0) + hits[r.id]);
 }
 
-function writePreviewLog(ss, rows) {
-  let sh = ss.getSheetByName('Preview Log');
-  if (!sh) sh = ss.insertSheet('Preview Log');
-  sh.clear();
-  sh.getRange(1, 1, 1, INBOX_LOG_HEADERS.length).setValues([INBOX_LOG_HEADERS]).setFontWeight('bold');
-  if (rows.length) sh.getRange(2, 1, rows.length, INBOX_LOG_HEADERS.length).setValues(rows.map((r) => INBOX_LOG_HEADERS.map((h) => r[h] ?? '')));
+const PREVIEW_LOG = 'Preview Log';
+const PREVIEW_EPOCH = 'parsers-2026-10-05c';
+
+function resetPreviewIfStale(ss) {
+  const props = PropertiesService.getScriptProperties();
+  let log = ss.getSheetByName(PREVIEW_LOG);
+  if (!log) log = ss.insertSheet(PREVIEW_LOG);
+  if (props.getProperty('PREVIEW_EPOCH') === PREVIEW_EPOCH && log.getLastRow() >= 1) return;
+  const pv = ss.getSheetByName(TABS.preview);
+  if (pv.getLastRow() > 1) pv.getRange(2, 1, pv.getLastRow() - 1, pv.getLastColumn()).clearContent();
+  log.clear();
+  log.getRange(1, 1, 1, INBOX_LOG_HEADERS.length).setValues([INBOX_LOG_HEADERS]).setFontWeight('bold');
+  props.setProperty('PREVIEW_EPOCH', PREVIEW_EPOCH);
 }
 
 /** (Re)installs the 10-minute trigger for the person running this. */

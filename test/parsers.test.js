@@ -188,6 +188,67 @@ describe('Jago, Sekuritas, GoPay', () => {
   });
 });
 
+describe('real HTML layouts that split one field over several elements', () => {
+  it('Jago: name and "Bank • number" in two paragraphs of the "Ke" cell', () => {
+    const html = readFileSync(new URL('./fixtures/emails/jago-transfer.html', import.meta.url), 'utf8');
+    const r = parseEmail({ ...F['jago-transfer'], body: html, isHtml: true });
+    expect(r.status).toBe('ok');
+    expect(r.events[0]).toMatchObject({
+      amount: 3500000, date: '2026-09-15', time: '13:00:00', account: { institution: 'Jago', hint: '3210' },
+      counterparty: { name: 'BUDI SANTOSO PUT', institution: 'Mandiri', account: '60010002468' },
+    });
+  });
+
+  const bluIn = (parts) => parseEmail({
+    id: 'x', from: 'receipts@blubybcadigital.id', subject: 'Info Transaksi Masuk ke blu Kamu', epochMs: 0, isHtml: true,
+    body: `<p>Hai B, Ada transaksi masuk ke rekening bluAccount kamu. Ini detailnya:</p><p>Nominal Transfer</p><p>Rp1.500.000,00</p>
+      <table><tr><td>${parts.sender}</td><td>${parts.me}</td></tr></table><p>Tgl &amp; Jam Transaksi</p><p>15 Sep 2026 12:59:47 WIB</p><p>Tipe Transaksi</p><p>BI-FAST</p>`,
+  });
+  it('blu incoming: sender name and bank, and the owner side, each split over elements', () => {
+    const r = bluIn({ sender: '<p>BUDI SANTOSO PUTRA</p><p>BANK JAGO</p>', me: '<p>Budi Santoso Putra</p><p>bluAccount</p><p>0012 3456 7890</p>' });
+    expect(r.events[0]).toMatchObject({ amount: 1500000, account: { institution: 'blu', hint: '7890' }, counterparty: { name: 'BUDI SANTOSO PUTRA', institution: 'Jago' } });
+  });
+  it('blu incoming: owner name and "bluAccount" together, number apart', () => {
+    const r = bluIn({ sender: '<p>BUDI SANTOSO PUTRA BANK JAGO</p>', me: '<p>Budi Santoso Putra bluAccount</p><p>0012 3456 7890</p>' });
+    expect(r.events[0]).toMatchObject({ account: { hint: '7890' }, counterparty: { name: 'BUDI SANTOSO PUTRA', institution: 'Jago' } });
+  });
+  it('blu incoming, real layout: amount styled in pieces, parties in divs, number after a <br>', () => {
+    const r = parseEmail({
+      id: 'z', from: 'receipts@blubybcadigital.id', subject: 'Info Transaksi Masuk ke blu Kamu 💸', epochMs: 0, isHtml: true,
+      body: `<div>Hai <strong>B</strong>,<br>Ada transaksi masuk ke rekening bluAccount kamu. Ini detailnya:</div>
+        <div>Nominal Transfer</div><div><span>Rp</span><span><span>1.500.000</span></span><span>,00</span></div>
+        <table><tr><td><div><img src="x"></div><div><span>BUDI SANTOSO PUTRA</span></div><div><span>BANK JAGO</span></div></td>
+        <td><img src="arrow"></td><td><div><img src="y"></div><div><span>Budi Santoso Putra</span></div><div><span>bluAccount<br/>0012 3456 7890</span></div></td></tr></table>
+        <div>Tgl &amp; Jam Transaksi</div><div><span>15 Sep 2026 12:59:43 WIB</span></div><div>Tipe Transaksi</div><div><span>BI-FAST</span></div>`,
+    });
+    expect(r.events[0]).toMatchObject({
+      amount: 1500000, time: '12:59:43', account: { institution: 'blu', hint: '7890' },
+      counterparty: { name: 'BUDI SANTOSO PUTRA', institution: 'Jago' }, description: 'BUDI SANTOSO PUTRA',
+    });
+  });
+  it('blu card payment in a foreign currency keeps the original amount as a detail', () => {
+    const r = parseEmail({
+      id: 'u', from: 'receipts@blubybcadigital.id', subject: 'Transaksimu Pakai blu Berhasil', epochMs: 0, isHtml: true,
+      body: '<div>Total Bayar</div><div><span>Rp</span><span>431.531</span><span>,91</span></div><div>Budi Santoso Putra</div><div>bluAccount</div><div>MY MINI FACTORY LTD</div><div>bluDebit Card •••• •••• •••• 1111</div><div>Nominal dalam USD</div><div>USD 23,97</div><div>Tgl &amp; Jam Transaksi</div><div>05 Sep 2026 10:00:00 WIB</div><div>Tipe Transaksi</div><div>Debit Online</div>',
+    });
+    expect(r.events[0]).toMatchObject({ amount: 431531.91, account: { hint: '1111' }, description: 'MY MINI FACTORY LTD', details: 'Kartu debit · Debit Online · USD 23,97' });
+  });
+  it('blu to blu transfer ("Antar blu") names the payee', () => {
+    const r = parseEmail({
+      id: 'v', from: 'receipts@blubybcadigital.id', subject: 'Transaksimu Pakai blu Berhasil', epochMs: 0, isHtml: true,
+      body: '<div>Nominal</div><div>Rp165.000,00</div><div>Budi Santoso Putra</div><div>bluAccount</div><div>SITI A...</div><div>BCA Digital</div><div>0099 8877 6655</div><div>Tgl &amp; Jam Transaksi</div><div>22 Sep 2026 10:00:00 WIB</div><div>Tipe Transaksi</div><div>Antar blu</div>',
+    });
+    expect(r.events[0]).toMatchObject({ type: 'transfer', amount: 165000, counterparty: { name: 'SITI A...', institution: 'blu', account: '009988776655' } });
+  });
+  it('blu card payment with the card on its own line', () => {
+    const r = parseEmail({
+      id: 'y', from: 'receipts@blubybcadigital.id', subject: 'Transaksimu Pakai blu Berhasil', epochMs: 0, isHtml: true,
+      body: '<p>Total Bayar</p><p>Rp526.000,00</p><table><tr><td><p>Budi Santoso Putra</p><p>bluAccount</p></td><td><p>UDEMY ONLINE COURSES</p><p>bluDebit Card •••• •••• •••• 1111</p></td></tr></table><p>Tgl &amp; Jam Transaksi</p><p>03 Sep 2026 10:00:00 WIB</p><p>Tipe Transaksi</p><p>Debit Online</p>',
+    });
+    expect(r.events[0]).toMatchObject({ amount: 526000, account: { hint: '1111' }, description: 'UDEMY ONLINE COURSES', details: 'Kartu debit · Debit Online' });
+  });
+});
+
 describe('robustness', () => {
   it('a transaction email without an amount is an error, not a silent skip', () => {
     const r = parseEmail({ ...F['bca-qris'], body: F['bca-qris'].body.replace('IDR 25,500.00', '-') });

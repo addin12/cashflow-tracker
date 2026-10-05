@@ -29,12 +29,22 @@ export const blu = {
     const when = parseDateTime(get('Tgl & Jam Transaksi'));
     const refNo = digits(get('No. Ref blu'));
     // The owner's side ends with "bluAccount" (+ account number); the greeting also mentions it.
+    // The HTML may split each side over several elements ("Name" / "bluAccount" / "0012 …"),
+    // so the sides are collected as runs of tokens.
     const meAt = findToken(t, /bluAccount[\d\s]*$/i);
+    const isLabel = (x) => LABELS.some((l) => l.toLowerCase() === String(x).trim().toLowerCase());
+    // Amounts are styled in pieces ("Rp" "1.500.000" ",00") and become "Rp 1.500.000 ,00".
+    const isAmount = (x) => /^-?Rp[\d.,]+$/i.test(String(x).replace(/\s/g, ''));
+    const isNote = (x) => /^[“"].*[”"]$/.test(String(x).trim());
+    const meStart = meAt > 0 && /^bluAccount/i.test(t[meAt]) ? meAt - 1 : meAt;
+    const meEnd = meAt >= 0 && /^\d[\d\s]{3,}$/.test(t[meAt + 1] || '') ? meAt + 1 : meAt;
+    const me = meAt >= 0 ? t.slice(meAt, meEnd + 1).join(' ') : '';
 
     if (/masuk/i.test(m.subject)) {
       if (!when) throw new Error('no transaction date');
-      const me = meAt >= 0 ? t[meAt] : '';
-      const sender = meAt > 0 ? t[meAt - 1] : '';
+      const label = t.findIndex((x) => /^nominal transfer$/i.test(x.trim()));
+      const sender = meStart > 0 ? t.slice(label >= 0 ? label + 1 : 0, meStart)
+        .filter((x) => !isLabel(x) && !isAmount(x) && !isNote(x) && !/bluAccount/i.test(x)).join(' ') : '';
       // "M SOMEONE BCA": the last word is the sending bank when it is a known institution.
       const { name, institution: bank } = splitNameBank(sender);
       const note = (t.find((x) => /^[“"].*[”"]$/.test(x)) || '').replace(/^[“"]|[”"]$/g, '');
@@ -48,8 +58,11 @@ export const blu = {
 
     if (!/berhasil/i.test(m.subject)) return skip('not a transaction email');
     if (!when) throw new Error('no transaction date');
-    const other = meAt >= 0 ? (t[meAt + 1] || '') : '';
-    const card = other.match(/^(.*?)\s*bluDebit Card[\s•*]*(\d{4})$/i);
+    let stop = meEnd + 1;
+    while (stop < t.length && !isLabel(t[stop])) stop += 1;
+    const other = meAt >= 0 ? t.slice(meEnd + 1, stop).join(' ') : '';
+    // "MERCHANT bluDebit Card •••• 1111" (+ "Nominal dalam USD USD 23,97" for foreign currency)
+    const card = other.match(/^(.*?)\s*bluDebit Card[\s•*]*(\d{4})\b\s*(.*)$/i);
     const principalRaw = firstValue(t, ['Nominal', 'Nominal Tagihan', 'Total Bayar', 'Total'], LABELS);
     const totalRaw = firstValue(t, ['Total Bayar', 'Total'], LABELS) || principalRaw;
     const amount = amountOf(principalRaw);
@@ -61,10 +74,10 @@ export const blu = {
       return ok({
         type: 'payment', direction: 'out', ...when, amount, fee,
         account: { institution: 'blu', hint: card[2] }, counterparty: { name: card[1].trim() },
-        description: card[1].trim(), details: joinDetails('Kartu debit', type), refNo,
+        description: card[1].trim(), details: joinDetails('Kartu debit', type, card[3].replace(/^Nominal dalam\s*[A-Z]{3}\s*/i, '')), refNo,
       });
     }
-    const payee = /bi-?fast|transfer/i.test(type) ? payeeWithAccount(other) : null;
+    const payee = /bi-?fast|transfer|antar|online|skn|rtgs/i.test(type) ? payeeWithAccount(other) : null;
     if (payee) {
       return ok({
         type: 'transfer', direction: 'out', ...when, amount, fee,

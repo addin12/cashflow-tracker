@@ -7,7 +7,8 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import ExcelJS from 'exceljs';
 
-const [tab = 'Self-test', range] = process.argv.slice(2);
+const json = process.argv.includes('--json');
+const [tab = 'Self-test', range] = process.argv.slice(2).filter((a) => a !== '--json');
 const sheetId = JSON.parse(readFileSync('.clasp.json', 'utf8')).parentId;
 const cred = JSON.parse(readFileSync(join(homedir(), '.clasprc.json'), 'utf8')).tokens.default;
 const tok = await (await fetch('https://oauth2.googleapis.com/token', {
@@ -31,6 +32,15 @@ const show = (v) => {
   if (typeof v === 'object') return v.result instanceof Date ? v.result.toISOString().slice(0, 10) : String(v.result ?? v.text ?? v.error ?? '');
   return String(v);
 };
+if (json) {
+  // Rows as objects keyed by the header row.
+  const all = [];
+  const full = (v) => (v instanceof Date ? v.toISOString() : v && v.result instanceof Date ? v.result.toISOString() : show(v));
+  ws.eachRow((row) => all.push(row.values.slice(1).map(full)));
+  const [head, ...body] = all;
+  console.log(JSON.stringify(body.map((r) => Object.fromEntries(head.map((h, i) => [h, r[i] ?? ''])))));
+  process.exit(0);
+}
 const rows = [];
 if (range) {
   const [a, b = a] = range.split(':');

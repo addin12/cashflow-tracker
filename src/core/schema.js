@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 3;
+export const SETUP_VERSION = 4;
 
 export const TABS = {
   transactions: 'Transactions',

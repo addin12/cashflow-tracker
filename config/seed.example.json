@@ -137,6 +137,34 @@
       "pattern": "TELKOMSEL|INDOSAT|\\bXL\\b|AXIS|SMARTFREN|\\bTRI\\b|PULSA|INDIHOME|BIZNET|FIRST ?MEDIA|MYREPUBLIC",
       "category": "Pulsa & Internet",
       "auto_approve": true
+    },
+    {
+      "field": "description",
+      "pattern": "\\bIDM\\b|ALFAMIDI|ALFA ?EXPRESS",
+      "category": "Belanja Harian",
+      "auto_approve": true,
+      "since": 4
+    },
+    {
+      "field": "description",
+      "pattern": "PARKEE|SECURE PARKING|SKY PARKING|CENTREPARK",
+      "category": "Transportasi & Bensin",
+      "auto_approve": true,
+      "since": 4
+    },
+    {
+      "field": "description",
+      "pattern": "UDEMY|COURSERA|SKILLSHARE|DICODING",
+      "category": "Pendidikan",
+      "auto_approve": true,
+      "since": 4
+    },
+    {
+      "field": "description",
+      "pattern": "BOARD ?GAME",
+      "category": "Hobi & Board Game",
+      "auto_approve": true,
+      "since": 4
     }
   ]
 }

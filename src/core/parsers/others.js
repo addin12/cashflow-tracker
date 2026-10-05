@@ -18,7 +18,13 @@ export const jago = {
   parse(m) {
     const t = m.tokens;
     if (/melakukan transfer/i.test(m.subject)) {
-      const get = (l) => valueAfter(t, l, JAGO_LABELS);
+      // The HTML puts the name and "Bank • number" in two paragraphs of one cell: join them.
+      const get = (l) => {
+        const v = valueAfter(t, l, JAGO_LABELS);
+        const i = t.indexOf(v, t.findIndex((x) => x.trim().toLowerCase() === l.toLowerCase()));
+        const next = i >= 0 ? t[i + 1] || '' : '';
+        return v && !v.includes('•') && next.includes('•') && !JAGO_LABELS.includes(next) ? `${v} ${next}` : v;
+      };
       const when = parseDateTime(get('Tanggal transaksi'));
       if (!when) throw new Error('no transaction date');
       const from = jagoParty(get('Dari'));

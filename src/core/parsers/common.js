@@ -52,7 +52,11 @@ export function splitNameBank(raw) {
   const words = String(raw || '').trim().split(/\s+/).filter(Boolean);
   for (let k = 1; k <= Math.min(4, words.length - 1); k += 1) {
     const bank = knownInstitution(words.slice(-k).join(' '));
-    if (bank) return { name: words.slice(0, -k).join(' '), institution: bank };
+    if (bank) {
+      const name = words.slice(0, -k);
+      while (name.length > 1 && /^(bank|bk)$/i.test(name[name.length - 1])) name.pop(); // "… BANK JAGO"
+      return { name: name.join(' '), institution: bank };
+    }
   }
   return { name: words.join(' '), institution: '' };
 }

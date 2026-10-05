@@ -113,8 +113,15 @@ export function planSync({ emails, existing, accounts, rules, config, nowIso }) 
         return;
       }
 
+      // The other side of a transfer recorded earlier (its mirror leg is waiting): link, whatever
+      // the counterparty text says. Catches emails whose sender name can't be read.
+      const waiting = src && pool.find((x) => x.transfer_id && !x.gmail_id
+        && sameMovement(x, { stream: src, direction: ev.direction, amount: ev.amount, date: ev.date, time: ev.time }));
       const own = ownCounterparty(ev, accounts, config.ownerNames);
-      if (own.own && src && own.stream === src) {
+      if (waiting) {
+        change(waiting, { gmail_id: email.id, ref_no: ev.refNo || waiting.ref_no, sender: email.from, details: ev.details || waiting.details });
+        notes.push('linked to an existing transfer');
+      } else if (own.own && src && own.stream === src) {
         notes.push('internal move within one account');
       } else if (own.own && src && own.stream) {
         const thisLeg = base(email, ev, { id, stream: src, category: cat.transfer, status: 'approved' });

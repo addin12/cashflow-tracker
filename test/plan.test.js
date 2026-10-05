@@ -128,6 +128,15 @@ describe('planSync', () => {
     expect(transfers.every((r) => r.gmail_id)).toBe(true);
   });
 
+  it('an email whose sender can\'t be read still links to the waiting transfer leg', () => {
+    const first = plan([email('bca-transfer-other-bank')]); // creates the blu "in" mirror
+    const unreadable = email('blu-incoming');
+    unreadable.result.events[0].counterparty = { name: 'Rp 1.000.000 ,00 ???', institution: '' };
+    const second = plan([unreadable], first.add);
+    expect(second.add).toEqual([]);
+    expect(second.update[0]).toMatchObject({ id: first.add[1].id, changes: { gmail_id: 'blu-incoming' } });
+  });
+
   it('Jago Kantong -> Jago -> own Mandiri are two transfers', () => {
     const { add } = plan([email('jago-kantong'), email('jago-transfer')]);
     expect(add.map((r) => [r.stream, r.direction, r.amount, r.category])).toEqual([
