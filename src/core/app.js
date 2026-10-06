@@ -67,7 +67,10 @@ export function reviewItems(rows, inboxLog, { today, recentDays = 7 }) {
     .filter((r) => approved(r) && r.updated_by === 'sync' && r.rule_id && String(r.date) >= since)
     .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
   const handled = new Set(rows.map((r) => r.gmail_id).filter(Boolean));
-  const errors = inboxLog.filter((l) => l.status === 'error' && !handled.has(l.gmail_id));
+  // An email's latest log line counts: a retried email that worked since isn't shown as unread.
+  const latest = new Map();
+  inboxLog.forEach((l) => latest.set(l.gmail_id, l));
+  const errors = [...latest.values()].filter((l) => l.status === 'error' && !handled.has(l.gmail_id));
   return { pending, recentAuto, errors };
 }
 

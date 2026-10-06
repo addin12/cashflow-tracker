@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseEmail } from '../src/core/parsers/index.js';
 import { planSync } from '../src/core/plan.js';
+import { reviewItems } from '../src/core/app.js';
 
 const html = (file) => readFileSync(new URL(`./fixtures/emails/${file}`, import.meta.url), 'utf8');
 const RECEIPT = { from: 'Apple <no_reply@email.apple.com>', subject: 'Your receipt from Apple.', isHtml: true };
@@ -86,5 +87,16 @@ describe('naming the APPLE.COM/BILL charge', () => {
     expect(plan([older], [bankRow('t1', { details: 'x · Apple order MX1' })]).update).toHaveLength(0);
     expect(plan([older], [bankRow('t1', { amount: 49000 })]).update).toHaveLength(0);
     expect(plan([older], [bankRow('t1', { date: '2026-09-25' })]).update).toHaveLength(0);
+  });
+});
+
+describe('unread emails in Review', () => {
+  it('an email that failed once and worked on a retry is not shown as unread', () => {
+    const log = [
+      { gmail_id: 'a1', status: 'error', reason: 'no items in the Apple receipt' },
+      { gmail_id: 'b1', status: 'error', reason: 'no amount found' },
+      { gmail_id: 'a1', status: 'ok', reason: 'named Apple charge t1' },
+    ];
+    expect(reviewItems([], log, { today: new Date(2026, 9, 6) }).errors.map((e) => e.gmail_id)).toEqual(['b1']);
   });
 });
