@@ -45,8 +45,10 @@ export function streamBalances(rows, accounts, { year, asOf }) {
   const bal = new Map(accounts.map((a) => [a.stream, num(a.opening_balance)]));
   for (const r of rows) {
     if (!approved(r) || !bal.has(r.stream)) continue;
+    // Every approved row up to asOf, whatever the year: balances carry on past New Year. (`year` is
+    // kept in the signature for callers; the spreadsheet does its own per-year opening balances.)
     const d = String(r.date);
-    if (!d.startsWith(`${year}-`) || d > asOf) continue;
+    if (d > asOf) continue;
     bal.set(r.stream, bal.get(r.stream) + (r.direction === 'in' ? num(r.amount) : -num(r.amount)));
   }
   return accounts.map((a) => ({ stream: a.stream, type: a.type, owner: a.owner, balance: round2(bal.get(a.stream)) }));

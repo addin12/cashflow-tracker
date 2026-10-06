@@ -9,7 +9,7 @@ import { recordStartup } from './gas/perf.js';
 import { cachedInit, storeInit } from './gas/initcache.js';
 import { sheetStore } from './gas/sheetstore.js';
 import { createApi, API_METHODS } from './core/api.js';
-import { sendWeeklySummary, clearSelfTestTrigger } from './gas/weekly.js';
+import { sendWeeklySummary, clearSelfTestTrigger, runDaily } from './gas/weekly.js';
 
 const MENU = 'Cashflow Tracker';
 
@@ -122,6 +122,11 @@ export function syncTrigger() {
 /** Time-driven trigger (Mondays 07:00): the weekly summary email. */
 export function weeklySummaryTrigger() {
   return sendWeeklySummary(appSpreadsheet());
+}
+
+/** Time-driven trigger (every day 07:00): monthly report on the 1st, balance-check reminder on payday. */
+export function dailyTrigger() {
+  return runDaily(appSpreadsheet());
 }
 
 /** One-off time trigger after an upgrade: runs the self-test by itself, then removes itself. */

@@ -623,6 +623,8 @@ function unsplit(id) {
 
 // ---------------------------------------------------------------- Add
 function viewAdd() {
+  // The duplicate check needs the transactions: fetched in the background if missing or out of date.
+  if (!state.all || state.allStale) call('list', { limit: 1000000 }).then((r) => setAll(r.rows)).catch(() => {});
   const k = state.addKind;
   const kinds = [['out', T.kindOut], ['in', T.kindIn], ['transfer', T.kindTransfer], ['adjust', T.kindAdjust]];
   const last = state.addLast || {};
@@ -639,8 +641,18 @@ function viewAdd() {
       </div>
       ${field(T.description, '<input name="description" autocomplete="off">', { help: T.descriptionHelp })}
       ${field(T.notes, '<input name="details" autocomplete="off">', { help: T.optional })}
+      <div id="addDup"></div>
       <div class="actions"><span class="state" id="addState" role="status"></span><button class="btn primary" type="submit">${esc(T.saveTransaction)}</button></div>
     </form></div>`);
+}
+
+/** Rows that look like the same money: same amount, same direction, within a day, not ignored. */
+function possibleDuplicates({ kind, amount, date, stream, toStream }) {
+  if (!state.all || kind === 'adjust' || !(amount > 0) || !date) return [];
+  const day = (iso) => Date.parse(`${String(iso).slice(0, 10)}T00:00:00Z`) / 86400000;
+  const dir = kind === 'in' ? 'in' : 'out';
+  return state.all.filter((r) => r.status !== 'ignored' && r.direction === dir && Math.abs(Number(r.amount) - amount) < 0.5
+    && Math.abs(day(r.date) - day(date)) <= 1 && (kind !== 'transfer' || r.stream === stream || r.stream === toStream)).slice(0, 3);
 }
 
 function submitAdd(form) {
@@ -653,6 +665,17 @@ function submitAdd(form) {
   ok = fieldMessage(el('stream'), d.stream ? '' : T.errNoAccount) && ok;
   if (el('toStream')) ok = fieldMessage(el('toStream'), !d.toStream ? T.errNoAccount : d.toStream === d.stream ? T.errSameAccount : '') && ok;
   if (!ok) { const bad = form.querySelector('[aria-invalid=true]'); if (bad) bad.focus(); return; }
+  // Already recorded (e.g. by the bank's email)? Ask before saving the same money twice.
+  const dups = state.addForce ? [] : possibleDuplicates({ kind: k, amount, date: d.date, stream: d.stream, toStream: d.toStream });
+  state.addForce = false;
+  if (dups.length) {
+    $('#addDup').innerHTML = `<div class="dup-warning" role="alert"><b>⚠ ${esc(T.dupTitle)}</b><p>${esc(T.dupHint)}</p>
+      <div class="rows">${dups.map((x) => `<div class="rowi"><span class="what"><b>${esc(x.description || '—')}</b><span class="meta">${esc(when(x))} · ${esc(x.stream)} · ${tag(x.category)}</span></span><span class="amt ${esc(x.direction)}">${signed(x)}</span></div>`).join('')}</div>
+      <div class="actions"><button class="btn secondary" type="button" data-action="dupcancel">${esc(T.dupCancel)}</button><button class="btn primary" type="button" data-action="dupsave">${esc(T.dupSave)}</button></div></div>`;
+    $('#addDup .btn.primary').focus();
+    return;
+  }
+  $('#addDup').innerHTML = '';
   const label = `${d.description || d.category || T[`kind${k[0].toUpperCase()}${k.slice(1)}`]} ${rp(amount)}`;
   state.addLast = { stream: d.stream, date: d.date };
   ['amount', 'description', 'details'].forEach((n) => { el(n).value = ''; });
@@ -735,11 +758,15 @@ async function viewSettings(local) {
       <form class="card" data-form="budgets" novalidate><h2>${esc(T.budgetsTitle)}</h2><p class="lead">${esc(T.budgetsHint)}</p><div class="budget-grid">${budgets}</div>${saveRow(T.saveBudgets)}</form>
       <form class="card" data-form="rules" novalidate><h2>${esc(T.rulesTitle)}</h2><p class="lead">${esc(T.rulesHint)}</p>${rules || `<p class="hint">${esc(T.noRules)}</p>`}
         <div class="actions"><button class="btn secondary left" type="button" data-action="addrule">＋ ${esc(T.addRule)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveRules)}</button></div></form>
-      <form class="card" data-form="weekly" novalidate><h2>${esc(T.weeklyTitle)}</h2><p class="lead">${esc(T.weeklyHint)}</p>
+      <form class="card" data-form="weekly" novalidate><h2>${esc(T.emailsTitle)}</h2><p class="lead">${esc(T.emailsHint)}</p>
         <label class="check"><input type="checkbox" name="weekly_email" ${cfg.weekly_email !== 'off' ? 'checked' : ''}> ${esc(T.weeklyOn)}</label>
+        <label class="check"><input type="checkbox" name="monthly_email" ${cfg.monthly_email !== 'off' ? 'checked' : ''}> ${esc(T.monthlyOn)}</label>
+        <label class="check"><input type="checkbox" name="payday_email" ${cfg.payday_email !== 'off' ? 'checked' : ''}> ${esc(T.paydayOn)}</label>
+        <p class="hint">${esc(T.alertsAlways)}</p>
         <div class="actions"><button class="btn secondary left" type="button" data-action="sendsummary">${esc(T.weeklySendNow)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div></form>
       <section class="card"><h2>${esc(T.more)}</h2>
-        <div class="rows"><div class="rowi"><span class="what"><b>${esc(T.selftest)}</b><span class="meta">${esc(s.selftest || '—')}</span></span></div></div>
+        <div class="rows"><div class="rowi"><span class="what"><b>${esc(T.selftest)}</b><span class="meta">${esc(s.selftest || '—')}</span></span></div>
+          ${(s.archives || []).map((a) => `<a class="rowi" target="_blank" rel="noopener" href="${esc(a.url)}"><span class="what"><b>${esc(T.archiveOf(a.year))}</b><span class="meta">${esc(T.archiveHint)}</span></span><span class="chev">↗</span></a>`).join('')}</div>
         <div class="actions"><a class="btn secondary" target="_blank" rel="noopener" href="${esc(state.boot.sheetUrl || '#')}">${esc(T.openSheet)} ↗</a></div></section>
     </div></div>`);
   $$('.rule').forEach(previewRule);
@@ -856,6 +883,8 @@ function onClick(e) {
     return null;
   }
   if (a === 'sendsummary') return sendSummaryNow(el);
+  if (a === 'dupcancel') { $('#addDup').innerHTML = ''; return null; }
+  if (a === 'dupsave') { state.addForce = true; return submitAdd(el.closest('form')); }
   if (a === 'close') return closeModal();
   if (a === 'sync') return syncNow(el);
   if (a === 'approve') return approve(card);
@@ -1003,7 +1032,8 @@ function onSubmit(e) {
     return saveForm(form, 'saveRules', { rules }, () => { state.settings.rules = rules; });
   }
   if (kind === 'weekly') {
-    return saveForm(form, 'saveConfig', { weekly_email: form.querySelector('[name=weekly_email]').checked ? 'on' : 'off' });
+    const v = (n) => (form.querySelector(`[name=${n}]`).checked ? 'on' : 'off');
+    return saveForm(form, 'saveConfig', { weekly_email: v('weekly_email'), monthly_email: v('monthly_email'), payday_email: v('payday_email') });
   }
   return null;
 }

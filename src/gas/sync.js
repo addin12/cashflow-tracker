@@ -9,7 +9,8 @@ import { listMessageIds, getEmail, myAddress } from './gmail.js';
 import { configValue, runSetup } from './setup.js';
 import { flushStartupTimings } from './perf.js';
 import { refreshInit } from './initcache.js';
-import { installWeeklyTrigger, scheduleSelfTest } from './weekly.js';
+import { installMailTriggers, scheduleSelfTest, sendSyncAlert } from './weekly.js';
+import { rolloverYear } from './rollover.js';
 
 const OVERLAP_MS = 2 * 24 * 3600 * 1000;
 const TIME_BUDGET_MS = 4.5 * 60 * 1000; // Apps Script stops a run at 6 minutes
@@ -79,6 +80,8 @@ export function runSync(opts = {}) {
     try {
       const ss = appSpreadsheet();
       upsertConnection(ss, safeAddress(), { last_sync: new Date(), last_status: `ERROR: ${e.message} | ${String(e.stack || '').split('\n').slice(0, 3).join(' / ')}` });
+      // …and tell the owner by email (at most once per 12 hours for the same message).
+      sendSyncAlert(ss, { error: e.message });
     } catch (ignored) { /* nothing more we can do */ }
     throw e;
   } finally {
@@ -94,12 +97,19 @@ function syncOnce(opts) {
   const started = Date.now();
   {
     const ss = appSpreadsheet();
+    // An archived year (a copy made at New Year) keeps its data as it was.
+    if (configValue(ss, 'archived')) return { status: 'archived' };
     if ((Number(configValue(ss, 'setup_version')) || 0) < SETUP_VERSION) {
       runSetup(ss, opts.seed);
-      // After an upgrade: make sure the Monday email is scheduled, and check the reports again.
-      try { installWeeklyTrigger(); scheduleSelfTest(); } catch (e) { /* tried again at the next upgrade */ }
+      // After an upgrade: make sure the email triggers exist, and check the reports again.
+      try { installMailTriggers(); scheduleSelfTest(); } catch (e) { /* tried again at the next upgrade */ }
     }
     const mode = modeOf(ss, opts.defaultMode || 'preview');
+    let yearNote = '';
+    if (mode === 'live') {
+      const y = rolloverYear(ss);
+      if (y) yearNote = `new year ${y.target}, ${y.year} archived`;
+    }
     const gmail = myAddress();
     const conn = readTable(ss, TABS.connections).find((r) => String(r.gmail).toLowerCase() === gmail.toLowerCase()) || {};
 
@@ -170,6 +180,13 @@ function syncOnce(opts) {
       updateRows(ss, TABS.preview, TRANSACTION_HEADERS, plan.update);
       appendRows(ss, PREVIEW_LOG, INBOX_LOG_HEADERS, logRows);
     }
+
+    // A new bank email that couldn't be read: tell the owner (the app also shows it in Review).
+    const unread = logRows.filter((l) => l.status === 'error');
+    if (mode === 'live' && unread.length) {
+      try { sendSyncAlert(ss, { unread: unread.map((l) => ({ subject: l.subject, from: l.from, reason: l.reason })) }); } catch (e) { /* the app shows them anyway */ }
+    }
+    if (yearNote) note = note ? `${note}; ${yearNote}` : yearNote;
 
     try { flushStartupTimings(ss); } catch (e) { /* timings are optional */ }
     try { if (mode === 'live') refreshInit(ss); } catch (e) { /* the page then fetches its data itself */ }

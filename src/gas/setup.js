@@ -67,6 +67,8 @@ function fillNewConfig(ss, seed) {
   fill('cat_transfer', seed.defaults.transfer);
   fill('cat_fee', seed.defaults.fee);
   fill('weekly_email', 'on');
+  fill('monthly_email', 'on');
+  fill('payday_email', 'on');
   fill('cat_dividend', seed.defaults.dividend);
 }
 

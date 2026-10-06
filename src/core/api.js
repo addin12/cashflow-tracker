@@ -21,6 +21,7 @@ import {
 import { compileRule } from './rules.js';
 import { recurringCharges } from './recurring.js';
 import { weeklySummary } from './summary.js';
+import { monthlyReport } from './notices.js';
 
 const cents = (n) => Math.round(Number(n) * 100);
 export const SPLIT_REF = 'split:';
@@ -44,6 +45,7 @@ export function createApi(store, env) {
   };
   const allCategories = () => { const c = cats(); return new Set([...c.income, ...c.expense, ...c.fixed]); };
   const touch = (changes) => ({ ...changes, updated_by: owner() || 'app', updated_at: nowIso() });
+  const onOff = (key) => (String(store.config(key) || 'on').toLowerCase() === 'off' ? 'off' : 'on');
 
   return {
     bootstrap() {
@@ -202,6 +204,11 @@ export function createApi(store, env) {
       return weeklySummary({ rows: all, cats: cats(), budgets: store.read(TABS.budgets), recurring: recurringCharges(all, { today: now(), skipCategories: fixedNames() }), today: now() });
     },
 
+    /** Data for the monthly report email: `month` against the month before. */
+    monthly({ month }) {
+      return monthlyReport({ rows: rows(), cats: cats(), budgets: store.read(TABS.budgets), month });
+    },
+
     sendSummary() {
       if (!env.sendSummary) throw new Error('sending email is not available here');
       return env.sendSummary();
@@ -213,8 +220,10 @@ export function createApi(store, env) {
         config: {
           payday_day: store.config('payday_day'), language: store.config('language'), owner_name: store.config('owner_name'),
           owner_bank_names: store.config('owner_bank_names'), start_date: store.config('start_date'),
-          weekly_email: String(store.config('weekly_email') || 'on').toLowerCase() === 'off' ? 'off' : 'on',
+          weekly_email: onOff('weekly_email'), monthly_email: onOff('monthly_email'), payday_email: onOff('payday_email'),
         },
+        archives: String(store.config('archives') || '').split('\n').filter(Boolean)
+          .map((line) => { const [year, url] = line.split(' '); return { year, url }; }),
         connections: store.read(TABS.connections), selftest: store.config('last_selftest'),
       };
     },
@@ -282,7 +291,7 @@ export function createApi(store, env) {
         store.setConfig('language', values.language);
       }
       if ('owner_bank_names' in values) store.setConfig('owner_bank_names', String(values.owner_bank_names || ''));
-      if ('weekly_email' in values) store.setConfig('weekly_email', values.weekly_email === 'off' ? 'off' : 'on');
+      for (const key of ['weekly_email', 'monthly_email', 'payday_email']) if (key in values) store.setConfig(key, values[key] === 'off' ? 'off' : 'on');
       return { ok: true };
     },
 

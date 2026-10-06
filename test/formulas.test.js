@@ -20,11 +20,21 @@ describe('generated formulas', () => {
   });
 
   it('every SUMIFS uses fully anchored, open-ended columns', () => {
-    for (const p of templatePatches().filter((x) => x.op === 'formulas')) {
+    for (const p of templatePatches().filter((x) => x.op === 'formulas' && x.sheet !== 'Setup')) {
       for (const f of p.formulas.flat().filter((x) => x.includes('SUMIFS('))) {
         expect(f).toMatch(/SUMIFS\(\$[GH]\$6:\$[GH],\$[CD]\$6:\$[CD],/);
       }
     }
+  });
+
+  it('a year opens with the account balance plus everything approved before 1 January', () => {
+    const setup = templatePatches().find((x) => x.sheet === 'Setup' && x.range === 'B6:E13');
+    const [name, opening] = setup.formulas[0];
+    expect(name).toBe('=IFERROR(INDEX(FILTER(Accounts!$A$2:$A,Accounts!$B$2:$B="Spending"),1),"-")');
+    expect(opening).toContain('IFERROR(INDEX(FILTER(Accounts!$F$2:$F,Accounts!$B$2:$B="Spending"),1),0)+IF(OR($B6="",$B6="-"),0,');
+    expect(opening).toContain('SUMIFS(Transactions!$G$2:$G,Transactions!$E$2:$E,$B6,Transactions!$F$2:$F,"in",Transactions!$P$2:$P,"approved",Transactions!$B$2:$B,"<"&DATE(Setup!$D$3,1,1))');
+    expect(opening).toContain('-SUMIFS(Transactions!$G$2:$G,Transactions!$E$2:$E,$B6,Transactions!$F$2:$F,"out"');
+    expect(setup.formulas[7][3]).toContain('$D13');
   });
 
   it('ledger keeps only approved rows of the Setup year and maps in/out to Debit/Credit', () => {

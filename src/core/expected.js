@@ -60,7 +60,11 @@ export function expectedReport({ year, slots, accounts, transactions, budgetMont
   put('CASHFLOW', 'X41', sum(income) - sum(expense));
 
   // Streams: the template's 8 spending + 8 saving slots, in Accounts order, unused = "-".
-  const pad = (list, n) => [...list, ...Array(n - list.length).fill({ stream: EMPTY_SLOT, opening_balance: 0 })];
+  // Opening balance of the year: the account's own plus every approved row before 1 January.
+  const carried = (name) => sum(transactions.filter((t) => t.status === 'approved' && t.stream === name && String(t.date) < `${year}-01-01`)
+    .map((t) => (t.direction === 'in' ? t.amount : -t.amount)));
+  const withCarry = (list) => list.map((a) => ({ ...a, opening_balance: Number(a.opening_balance || 0) + carried(a.stream) }));
+  const pad = (list, n) => [...withCarry(list), ...Array(n - list.length).fill({ stream: EMPTY_SLOT, opening_balance: 0 })];
   const spending = pad(accounts.filter((a) => a.type === 'Spending'), SLOTS.spending);
   const saving = pad(accounts.filter((a) => a.type === 'Saving'), SLOTS.saving);
   const streamMonth = (name, month) => (name === EMPTY_SLOT ? 0 : sum(ledger

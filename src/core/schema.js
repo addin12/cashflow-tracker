@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 8;
+export const SETUP_VERSION = 9;
 
 export const TABS = {
   transactions: 'Transactions',
@@ -48,6 +48,11 @@ export const CONFIG_KEYS = [
   { key: 'language', name: 'CFG_LANGUAGE', note: 'Web app language: id or en (empty = follow the phone)' },
   // Added in setup version 8.
   { key: 'weekly_email', name: 'CFG_WEEKLY_EMAIL', note: 'Weekly summary email on Mondays: on / off' },
+  // Added in setup version 9.
+  { key: 'monthly_email', name: 'CFG_MONTHLY_EMAIL', note: 'Monthly report email on the 1st: on / off' },
+  { key: 'payday_email', name: 'CFG_PAYDAY_EMAIL', note: 'Balance-check reminder email on payday: on / off' },
+  { key: 'archives', name: 'CFG_ARCHIVES', note: 'Copies of finished years ("2026 <link>", one per line); written at New Year' },
+  { key: 'archived', name: 'CFG_ARCHIVED', note: 'Set in an archive copy (the year it holds); an archive never syncs' },
 ];
 
 export const STATUS = ['pending', 'approved', 'ignored'];

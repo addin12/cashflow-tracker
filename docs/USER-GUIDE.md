@@ -30,7 +30,9 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 - **Langganan & tagihan rutin** (di **Ringkasan**): tagihan berikutnya dan perkiraan totalnya per bulan.
 - **Tren kategori:** di **Transaksi**, pilih satu kategori → tren 6 bulannya muncul di atas daftar.
 - **Aturan otomatis** (di **Pengaturan**): ubah kata dan kategori, tambah aturan baru; app menunjukkan transaksi mana yang cocok.
-- **Ringkasan mingguan:** email setiap Senin 07.00. Matikan atau kirim sekarang di **Pengaturan → Ringkasan mingguan**.
+- **Email otomatis** (atur di **Pengaturan → Email otomatis**): ringkasan mingguan (Senin 07.00), laporan bulanan (tanggal 1), dan pengingat cek saldo (tanggal gajian). Kalau sinkron Gmail bermasalah atau ada email bank baru yang tidak terbaca, Anda juga dikirimi email.
+- **Peringatan dobel:** saat **Tambah**, kalau sudah ada transaksi dengan jumlah sama di hari yang sama (mis. dari email bank), app bertanya dulu: **Jangan simpan** atau **Tetap simpan**.
+- **Tahun baru:** pada 1 Januari spreadsheet otomatis pindah ke tahun baru dan saldo berlanjut. Tahun yang selesai disimpan sebagai salinan "(arsip)", linknya ada di **Pengaturan → Lainnya**.
 
 > Shop receipts name the APPLE.COM/BILL, Tokopedia, Shopee, Xendit and foreign shop charges with the shop and items. **Split** a payment into parts with their own category (Transactions → tap the row → Split this transaction). **Subscriptions & regular bills** in Summary. Pick a category in Transactions to see its 6-month trend. Edit **automatic rules** in Settings with a live preview. A **weekly summary** email arrives every Monday at 07:00 (Settings → Weekly summary).
 

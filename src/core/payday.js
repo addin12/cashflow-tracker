@@ -19,6 +19,12 @@ export function nextPayday(today, day) {
   return paydayIn(t.getFullYear(), t.getMonth() + 1, day);
 }
 
+/** Is today payday (the configured day, or the month's last day when the month is shorter)? */
+export function isPayday(today, day) {
+  const p = paydayIn(today.getFullYear(), today.getMonth(), day);
+  return p.getDate() === today.getDate();
+}
+
 /** Whole days from today until the next payday (always >= 1). */
 export function daysUntilPayday(today, day) {
   const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());

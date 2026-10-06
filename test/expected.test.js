@@ -18,7 +18,7 @@ const transactions = [
   t('2026-05-20', 'Tab', 'in', 2000, 'trf ke bank lain'),
   t('2026-12-31', 'Bank', 'out', 100, 'Penyesuaian'),
   t('2026-01-07', 'Bank', 'out', 999, 'Makan', 'pending'), // not approved
-  t('2025-12-31', 'Bank', 'out', 777, 'Makan'), // other year
+  t('2025-12-31', 'Bank', 'out', 777, 'Makan'), // last year: not in 2026's months, but lowers Bank's 2026 opening (1000 - 777 = 223)
 ];
 const r = expectedReport({ year: 2026, slots, accounts, transactions, budgetMonth: 1 });
 const v = (k) => r.get(k);
@@ -44,10 +44,10 @@ describe('expectedReport (hand-calculated)', () => {
     expect(v('CASHFLOW!L46')).toBe(3800); // 5000 - 1200
     expect(v('CASHFLOW!P46')).toBe(-2300); // -300 - 2000
     expect(v('CASHFLOW!W46')).toBe(-100);
-    expect(v('CASHFLOW!X46')).toBe(2400); // 3800 - 2300 - 100 + 1000
+    expect(v('CASHFLOW!X46')).toBe(1623); // 3800 - 2300 - 100 + 223 (opening carried from last year)
     expect(v('CASHFLOW!P55')).toBe(2000);
     expect(v('CASHFLOW!X55')).toBe(2500);
-    expect([v('CASHFLOW!X63'), v('CASHFLOW!X64'), v('CASHFLOW!X65')]).toEqual([2400, 2500, 4900]);
+    expect([v('CASHFLOW!X63'), v('CASHFLOW!X64'), v('CASHFLOW!X65')]).toEqual([1623, 2500, 4123]);
     expect(v('CASHFLOW!X47')).toBe(0); // "-" slot
   });
 
@@ -61,14 +61,14 @@ describe('expectedReport (hand-calculated)', () => {
   it('final statement', () => {
     expect([v('FINAL STATEMENT!D6'), v('FINAL STATEMENT!D12')]).toEqual([5000, 5000]);
     expect([v('FINAL STATEMENT!F6'), v('FINAL STATEMENT!F34'), v('FINAL STATEMENT!F35')]).toEqual([1500, 1500, 3500]);
-    expect([v('FINAL STATEMENT!S6'), v('FINAL STATEMENT!S7'), v('FINAL STATEMENT!S14')]).toEqual([2400, 0, 2400]);
-    expect([v('FINAL STATEMENT!U6'), v('FINAL STATEMENT!U14'), v('FINAL STATEMENT!U15')]).toEqual([2500, 2500, 4900]);
+    expect([v('FINAL STATEMENT!S6'), v('FINAL STATEMENT!S7'), v('FINAL STATEMENT!S14')]).toEqual([1623, 0, 1623]);
+    expect([v('FINAL STATEMENT!U6'), v('FINAL STATEMENT!U14'), v('FINAL STATEMENT!U15')]).toEqual([2500, 2500, 4123]);
   });
 
   it('budget tracker for January', () => {
     expect([v('BUDGET TRACKER!E29'), v('BUDGET TRACKER!E35')]).toEqual([5000, 5000]);
     expect([v('BUDGET TRACKER!H29'), v('BUDGET TRACKER!H57')]).toEqual([1200, 1200]);
-    expect([v('BUDGET TRACKER!J29'), v('BUDGET TRACKER!J37')]).toEqual([4800, 4800]); // 3800 + 1000 opening
+    expect([v('BUDGET TRACKER!J29'), v('BUDGET TRACKER!J37')]).toEqual([4023, 4023]); // 3800 + 223 opening
     expect([v('BUDGET TRACKER!L29'), v('BUDGET TRACKER!L37')]).toEqual([500, 500]);
   });
 });

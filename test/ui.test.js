@@ -220,6 +220,32 @@ describe('web app', () => {
     expect(store.t[TABS.transactions].find((r) => r.description === 'kopi')).toMatchObject({ amount: 15000, stream: 'Cash', category: 'fnb', source: 'manual', status: 'approved' });
   });
 
+  it('warns before saving what looks recorded already, and saves only when asked', async () => {
+    await until(() => calls.filter((c) => c === 'add').length === 1 && !doc.querySelector('#stale.show:not(.done)'), 'first add done');
+    const lists = calls.filter((c) => c === 'list').length;
+    await tab('add', 'Simpan transaksi'); // the Add screen refreshes the list (now with the cash expense) for this check
+    await until(() => calls.filter((c) => c === 'list').length > lists, 'list refreshed');
+    await tick(); await tick();
+    const form = doc.querySelector('form[data-form=add]');
+    const fill = (stream, name) => {
+      form.querySelector('[name=amount]').value = '15000';
+      form.querySelector('[name=category]').value = 'fnb';
+      form.querySelector('[name=stream]').value = stream;
+      form.querySelector('[name=description]').value = name;
+      form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+    };
+    fill('Cash', 'kopi lagi');
+    expect(doc.querySelector('.dup-warning').textContent).toContain('Mungkin sudah tercatat');
+    expect(doc.querySelector('.dup-warning').textContent).toContain('kopi');
+    click(doc.querySelector('[data-action=dupcancel]'));
+    expect(doc.querySelector('.dup-warning')).toBeNull();
+    fill('BCA', 'parkir');
+    expect(doc.querySelector('.dup-warning')).not.toBeNull();
+    click(doc.querySelector('[data-action=dupsave]'));
+    await until(() => store.t[TABS.transactions].some((r) => r.description === 'parkir'), 'saved anyway');
+    expect(store.t[TABS.transactions].some((r) => r.description === 'kopi lagi')).toBe(false);
+  });
+
   it('settings: month-end check posts an adjustment', async () => {
     await tab('settings', 'Cek saldo akhir bulan');
     const form = doc.querySelector('form[data-form=monthend]');
@@ -239,7 +265,8 @@ describe('web app', () => {
     const pattern = added.querySelector('[data-r=pattern]');
     pattern.value = 'kopi';
     pattern.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
-    expect(added.querySelector('.rule-preview').textContent).toBe('Cocok dengan 1 transaksi, misalnya: kopi');
+    // The list may still be refreshing (the cash expense was just added): the preview redraws when it arrives.
+    await until(() => added.querySelector('.rule-preview').textContent === 'Cocok dengan 1 transaksi, misalnya: kopi', 'kopi preview');
     added.querySelector('[data-r=category]').value = 'fnb';
     added.closest('form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
     await until(() => store.t[TABS.rules].some((r) => r.pattern === 'kopi'), 'rule saved');

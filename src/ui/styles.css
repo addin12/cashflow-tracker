@@ -341,3 +341,10 @@ button.rowi:hover { background: var(--zebra); }
 .trend-card { margin-top: 20px; }
 .rule .check { margin-top: 4px; }
 .rule .actions { margin-top: 4px; }
+
+/* ---------- round 4: duplicate warning */
+.dup-warning { margin-top: 20px; padding: 16px 20px; border-radius: var(--r-card); background: var(--warning-soft); color: var(--ink); }
+.dup-warning > b { color: var(--warning); font-size: 17px; }
+.dup-warning p { margin: 4px 0 8px; color: var(--ink-2); }
+.dup-warning .rowi { border-bottom-color: rgba(0, 0, 0, .06); }
+#addDup:not(:empty) + .actions { display: none; } /* the warning has its own two choices */

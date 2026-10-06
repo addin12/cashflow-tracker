@@ -50,18 +50,25 @@ export function ledgerFormula() {
   return `=ARRAYFORMULA(LET(ok,${ok},rows,FILTER({${cols}},ok),keys,FILTER(${key},ok),IFERROR(SORT(rows,keys,TRUE),"")))`;
 }
 
-/** Setup!B6:E13 read the account lists from the Accounts tab; unused slots show "-". */
+/**
+ * Setup!B6:E13 read the account lists from the Accounts tab; unused slots show "-". The opening
+ * balance of the Setup year is the account's starting balance plus everything approved before
+ * 1 January of that year, so a new year starts where the old one ended.
+ */
 export function setupSlotFormulas() {
   const A = TABS.accounts;
-  const pick = (col, type, k, fallback) =>
-    `=IFERROR(INDEX(FILTER(${A}!$${col}$2:$${col},${A}!$B$2:$B="${type}"),${k}),${fallback})`;
+  const c = (h) => `${T}!$${TX_COL[h]}$2:$${TX_COL[h]}`;
+  const pick = (col, type, k, fallback) => `IFERROR(INDEX(FILTER(${A}!$${col}$2:$${col},${A}!$B$2:$B="${type}"),${k}),${fallback})`;
+  const before = (nameCell, dir) => `SUMIFS(${c('amount')},${c('stream')},${nameCell},${c('direction')},"${dir}",${c('status')},"approved",${c('date')},"<"&DATE(${YEAR},1,1))`;
+  const opening = (type, k, nameCell) => `=${pick('F', type, k, 0)}+IF(OR(${nameCell}="",${nameCell}="${EMPTY_SLOT}"),0,${before(nameCell, 'in')}-${before(nameCell, 'out')})`;
   const rows = [];
   for (let k = 1; k <= SLOTS.spending; k += 1) {
+    const r = 5 + k;
     rows.push([
-      pick('A', 'Spending', k, `"${EMPTY_SLOT}"`),
-      pick('F', 'Spending', k, 0),
-      pick('A', 'Saving', k, `"${EMPTY_SLOT}"`),
-      pick('F', 'Saving', k, 0),
+      `=${pick('A', 'Spending', k, `"${EMPTY_SLOT}"`)}`,
+      opening('Spending', k, `$B${r}`),
+      `=${pick('A', 'Saving', k, `"${EMPTY_SLOT}"`)}`,
+      opening('Saving', k, `$D${r}`),
     ]);
   }
   return rows;
