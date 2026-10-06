@@ -4,11 +4,11 @@
 
 import {
   TABS, TRANSACTION_HEADERS, ACCOUNT_HEADERS, RULE_HEADERS, CONNECTION_HEADERS, CONFIG_KEYS, INBOX_LOG_HEADERS, BUDGET_HEADERS,
-  SETUP_VERSION, CF, TX_COL, STATUS, DIRECTION, ACCOUNT_TYPES,
+  SETUP_VERSION, CF, TX_COL, STATUS, DIRECTION, ACCOUNT_TYPES, FIXED_CATEGORIES,
 } from '../core/schema.js';
 import { templatePatches, isOpenEnded } from '../core/formulas.js';
 import { validateSeed } from '../core/seed.js';
-import { changeCategorySlots } from '../core/api.js';
+import { changeCategorySlots, renameCategoryEverywhere } from '../core/api.js';
 import { slotsAfterChanges } from '../core/categories.js';
 import { sheetStore } from './sheetstore.js';
 
@@ -99,6 +99,17 @@ function applyCategoryChanges(ss, seed, log, fromVersion) {
   if (!changes.length) return;
   const store = sheetStore(ss);
   const renamed = changeCategorySlots(store, slotsAfterChanges(store.slots(), changes));
+  // The fixed transfer category (CASHFLOW K40) isn't a slot: rename the cell, then its rows.
+  const transfer = String(store.config('cat_transfer') || FIXED_CATEGORIES.transfer);
+  const fixed = {};
+  for (const c of changes) {
+    const to = (c.rename || {})[transfer];
+    if (to && to !== transfer) fixed[transfer] = to;
+  }
+  if (fixed[transfer]) {
+    ss.getSheetByName(CF.sheet).getRange(`K${CF.transferRow}`).setValue(fixed[transfer]);
+    Object.assign(renamed, renameCategoryEverywhere(store, fixed)); // also sets cat_transfer
+  }
   log.push(`Categories updated${Object.keys(renamed).length ? ` (renamed ${Object.entries(renamed).map(([a, b]) => `${a} → ${b}`).join(', ')})` : ''}`);
 }
 
@@ -259,6 +270,7 @@ export function runSetup(ss, seedRaw) {
 
   if (firstRun) {
     writeCategories(ss, seed.slots);
+    ss.getSheetByName(CF.sheet).getRange(`K${CF.transferRow}`).setValue(seed.defaults.transfer); // its name may differ from the template's
     if (acc.created || acc.sheet.getLastRow() < 2) writeAccounts(ss, seed.accounts);
     ss.getSheetByName('Setup').getRange('D3').setValue(seed.year);
     // Demo budgets in the template point at placeholder categories.

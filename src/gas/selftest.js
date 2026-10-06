@@ -3,7 +3,7 @@
 // only the report is written back into its "Self-test" tab.
 /* global SpreadsheetApp, PropertiesService, Utilities */
 
-import { TABS, TRANSACTION_HEADERS, CF } from '../core/schema.js';
+import { TABS, TRANSACTION_HEADERS, CF, FIXED_CATEGORIES } from '../core/schema.js';
 import { expectedReport } from '../core/expected.js';
 import { buildCategorySlots } from '../core/categories.js';
 import { nextPayday } from '../core/payday.js';
@@ -114,6 +114,7 @@ export function runSelfTest(ss, seed) {
     const slots = buildCategorySlots(SAMPLE_CATEGORIES);
     const tx = sampleTransactions(SAMPLE_YEAR);
     writeCategories(copy, slots);
+    copy.getSheetByName(CF.sheet).getRange(`K${CF.transferRow}`).setValue(FIXED_CATEGORIES.transfer); // sample data uses the default name
     writeAccounts(copy, SAMPLE_ACCOUNTS);
     writeTransactions(copy, tx);
     copy.getSheetByName('Setup').getRange('D3').setValue(SAMPLE_YEAR);

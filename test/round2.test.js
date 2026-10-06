@@ -1,7 +1,7 @@
 // Category changes (setup v5), the dashboard trend, filtering by direction, and what approve
 // returns so the web app can update its screen without asking again.
 import { describe, expect, it } from 'vitest';
-import { createApi, changeCategorySlots } from '../src/core/api.js';
+import { createApi, changeCategorySlots, renameCategoryEverywhere } from '../src/core/api.js';
 import { buildCategorySlots, slotsAfterChanges } from '../src/core/categories.js';
 import { filterTransactions, renamedCategories } from '../src/core/app.js';
 import { validateSeed } from '../src/core/seed.js';
@@ -117,5 +117,32 @@ describe('web app data', () => {
     const store = memoryStore([tx('a', { status: 'pending', category: '', description: 'WARUNG X' }), tx('b', { status: 'pending', category: '', description: 'WARUNG X' })]);
     const api = createApi(store, { now: () => new Date(2026, 9, 6) });
     expect(api.approve({ id: 'a', category: 'fnb', always: true })).toEqual({ ok: true, alsoApproved: 1, alsoIds: ['b'] });
+  });
+});
+
+describe('renaming the fixed transfer category (setup v7)', () => {
+  it('rows, rules and the cat_transfer setting follow, and the app offers the new name', () => {
+    const store = memoryStore([tx('a', { category: 'trf ke bank lain', direction: 'out' }), tx('b')]);
+    store.t[TABS.rules].push({ id: 'r2', pattern: 'KANTONG', category: 'trf ke bank lain' });
+    store.cfg.cat_transfer = 'trf ke bank lain';
+    renameCategoryEverywhere(store, { 'trf ke bank lain': 'Transfer ke Bank Lain' });
+    expect(store.t[TABS.transactions].map((r) => r.category)).toEqual(['Transfer ke Bank Lain', 'fnb']);
+    expect(store.t[TABS.rules].find((r) => r.id === 'r2').category).toBe('Transfer ke Bank Lain');
+    expect(store.cfg.cat_transfer).toBe('Transfer ke Bank Lain');
+    const api = createApi(store, { now: () => new Date(2026, 9, 6) });
+    expect(api.bootstrap().categories.fixed).toEqual(['Penyesuaian', 'Transfer ke Bank Lain']);
+    store.t[TABS.accounts].push({ stream: 'Cash', type: 'Spending', owner: 'Me', opening_balance: 0 });
+    api.add({ kind: 'transfer', stream: 'BCA', toStream: 'Cash', amount: 5000, date: '2026-10-06' });
+    expect(store.t[TABS.transactions].slice(-2).map((r) => r.category)).toEqual(['Transfer ke Bank Lain', 'Transfer ke Bank Lain']);
+    expect(() => api.saveCategories({ income: ['Gaji'], expense: ['fnb', 'Transfer ke Bank Lain'] })).toThrow(/used more than once/);
+  });
+
+  it('a seed may name the transfer category differently', () => {
+    const seed = {
+      year: 2026, start_date: '2026-09-01', payday_day: 28, owner_name: 'Me', default_categories: { transfer: 'Transfer ke Bank Lain' },
+      categories: { income: ['Gaji'], expense: ['Biaya Admin', 'Dividen & Bunga'] }, accounts: [{ stream: 'BCA', type: 'Spending' }],
+      category_changes: [{ since: 7, rename: { 'trf ke bank lain': 'Transfer ke Bank Lain' } }],
+    };
+    expect(validateSeed(seed).defaults.transfer).toBe('Transfer ke Bank Lain');
   });
 });

@@ -12,7 +12,7 @@
 // }
 // env: { now(): Date, sync(): object }
 
-import { TABS } from './schema.js';
+import { TABS, FIXED_CATEGORIES } from './schema.js';
 import { buildCategorySlots, validateAccounts } from './categories.js';
 import {
   categoryLists, summarizeMonth, streamBalances, budgetPerDay, reviewItems, ruleFromApproval, pendingMatching,
@@ -26,7 +26,9 @@ export function createApi(store, env) {
   const now = () => env.now();
   const nowIso = () => now().toISOString();
   const owner = () => String(store.config('owner_name') || '');
-  const cats = () => categoryLists(store.slots());
+  // The two fixed categories (CASHFLOW K39/K40); the transfer one can be renamed (setting cat_transfer).
+  const fixedNames = () => [FIXED_CATEGORIES.adjustment, String(store.config('cat_transfer') || FIXED_CATEGORIES.transfer)];
+  const cats = () => categoryLists(store.slots(), fixedNames());
   const rows = () => store.read(TABS.transactions);
   const accounts = () => store.read(TABS.accounts);
   const year = () => Number(String(store.config('start_date') || '').slice(0, 4)) || now().getFullYear();
@@ -173,7 +175,7 @@ export function createApi(store, env) {
 
     saveCategories({ income, expense }) {
       const before = store.slots();
-      const next = buildCategorySlots({ income, expense });
+      const next = buildCategorySlots({ income, expense }, fixedNames());
       const renamed = renamedCategories(before, next);
       const nextSet = new Set([...next.income, ...next.expense]);
       const inUse = new Set(rows().map((r) => r.category));
@@ -252,6 +254,11 @@ const monthAdd = (ym, k) => {
 export function changeCategorySlots(store, next) {
   const renamed = renamedCategories(store.slots(), next);
   store.setSlots(next);
+  return renameCategoryEverywhere(store, renamed);
+}
+
+/** Carries renames (old -> new) into transactions, rules, budgets and the default-category settings. */
+export function renameCategoryEverywhere(store, renamed) {
   if (!Object.keys(renamed).length) return renamed;
   const to = (r) => ({ id: r.id, changes: { category: renamed[r.category] } });
   store.update(TABS.transactions, store.read(TABS.transactions).filter((r) => renamed[r.category]).map(to));

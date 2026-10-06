@@ -21,12 +21,12 @@ export function nameProblems(name) {
  * Validates the category lists and returns them padded to the template's slot counts.
  * @param {{income: string[], expense: string[]}} cats
  */
-export function buildCategorySlots(cats) {
+export function buildCategorySlots(cats, fixed = [FIXED_CATEGORIES.adjustment, FIXED_CATEGORIES.transfer]) {
   const errors = [];
   const { income = [], expense = [] } = cats || {};
   if (income.length > SLOTS.income) errors.push(`at most ${SLOTS.income} income categories (got ${income.length})`);
   if (expense.length > SLOTS.expense) errors.push(`at most ${SLOTS.expense} expense categories (got ${expense.length})`);
-  const all = [...income, ...expense, FIXED_CATEGORIES.adjustment, FIXED_CATEGORIES.transfer];
+  const all = [...income, ...expense, ...fixed];
   const seen = new Set();
   for (const name of [...income, ...expense]) {
     for (const p of nameProblems(name)) errors.push(`"${name}": ${p}`);

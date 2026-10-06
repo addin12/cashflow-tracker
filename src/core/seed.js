@@ -17,8 +17,8 @@ export function validateSeed(seed) {
   let slots;
   try { slots = buildCategorySlots(seed.categories); } catch (e) { errors.push(e.message); }
   try { validateAccounts(seed.accounts); } catch (e) { errors.push(e.message); }
-  const known = new Set([...(seed.categories?.income || []), ...(seed.categories?.expense || []), 'Penyesuaian', 'trf ke bank lain']);
   const defaults = { transfer: 'trf ke bank lain', fee: 'Biaya Admin', dividend: 'Dividen & Bunga', ...(seed.default_categories || {}) };
+  const known = new Set([...(seed.categories?.income || []), ...(seed.categories?.expense || []), 'Penyesuaian', 'trf ke bank lain', defaults.transfer]);
   for (const [k, v] of Object.entries(defaults)) if (!known.has(v)) errors.push(`default_categories.${k} "${v}" is not a category`);
   const rules = seed.rules || [];
   rules.forEach((r, i) => {
