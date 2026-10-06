@@ -2,7 +2,7 @@
 /* global SpreadsheetApp, LockService, ScriptApp, PropertiesService, Utilities */
 
 import { TABS, TRANSACTION_HEADERS, CONNECTION_HEADERS, INBOX_LOG_HEADERS, RULE_HEADERS, SETUP_VERSION } from '../core/schema.js';
-import { parseEmail, SENDERS, BACKFILL_SENDERS } from '../core/parsers/index.js';
+import { parseEmail, SENDERS, backfillQuery } from '../core/parsers/index.js';
 import { planSync } from '../core/plan.js';
 import { readTable, appendRows, updateRows } from './store.js';
 import { listMessageIds, getEmail, myAddress } from './gmail.js';
@@ -120,7 +120,7 @@ function syncOnce(opts) {
     const again = (s) => s === 'error' || s === 'waiting';
     const failed = new Set([...latest].filter(([id, s]) => again(s) && !inTransactions.has(id)).map(([id]) => id));
     const done = new Set([...inTransactions, ...[...latest].filter(([, s]) => !again(s)).map(([id]) => id)]);
-    const backfill = `from:(${BACKFILL_SENDERS.join(' OR ')}) after:${Math.floor(startMs / 1000)}`;
+    const backfill = backfillQuery(Math.floor(startMs / 1000));
     const listed = [...new Set([...listMessageIds(query, 2000), ...listMessageIds(backfill, 500)])]
       .filter((id) => !done.has(id) && !failed.has(id)).reverse(); // oldest first (roughly: two lists)
     const ids = [...failed, ...listed];

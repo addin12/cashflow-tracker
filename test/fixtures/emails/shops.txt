@@ -1,0 +1,284 @@
+Redacted copies of real shop emails (Sep–Oct 2026), as the mail tool's plain text. Names,
+addresses, phone numbers and order numbers are made up.
+
+=== tokopedia-done
+from: Tokopedia <noreply@tokopedia.com>
+subject: Pesanan Selesai: “Sleeve Amethyst - 100 Micron” dan 1 Item Lainnya
+epoch: 1790479809000
+---
+                                                            Hai Budi Santoso,
+
+                                                           Pesananmu selesai.
+
+                                                           Terima kasih sudah berbelanja dan mendukung para penjual di Tokopedia. Bagaimana kondisi barangnya?
+
+                                                                 Belanja Lagi
+
+                                                                Beri Ulasan
+
+                                                        No.Invoice: 586200000000000001
+
+                                                        Toko:
+
+                                                                Sultan Supply. id
+
+                                                                Sleeve Amethyst - 100 Micron
+
+                                                                1 x
+
+                                                                    Rp25.000
+
+                                                                Rp25.000
+
+                                                                sultan sleeves emerald board game - 100 Micron
+
+                                                                1 x
+
+                                                                    Rp35.000
+
+                                                                Rp35.000
+
+                                                                        Subtotal harga produk
+
+                                                                        Total ongkos kirim
+
+                                                                        Voucher ongkir platform
+
+                                                                        Asuransi pengiriman
+
+                                                                        Biaya jasa aplikasi
+
+                                                                        1.084 Bonus dipakai
+
+                                                                        Biaya Layanan
+
+                                                                        Rp60.000
+
+                                                                        Rp11.500
+
+                                                                        -Rp11.500
+
+                                                                        Rp500
+
+                                                                        Rp1.000
+
+                                                                        -Rp1.084
+
+                                                                        Rp1.000
+
+                                                                Total belanja
+
+                                                                Rp61.416
+
+                                                                            Detail Kurir
+
+                                                                            Tanggal Terima
+
+                                                                            25 September 2026
+
+                                                                            Tujuan Pengiriman
+
+                                                                                Budi Santoso
+
+                                                                               Jl. Contoh No.1, Jakarta
+
+                                                    Kamu mungkin mau ini juga
+
+                                                                            Congklak Kayu Lipat
+
+                                                                            Rp79.900
+
+=== tokopedia-books
+from: Tokopedia <noreply@tokopedia.com>
+subject: Pesanan Selesai: “Periplus - Buku Import -...” dan 4 Item Lainnya
+epoch: 1790698466000
+---
+                                                        No.Invoice: 586300000000000002
+
+                                                        Toko:
+
+                                                                Periplus Bookshop_NEW
+
+                                                                Periplus - Buku Import - Batman: The Court of Owls Saga: DC Compact Comics - 9781779527271
+
+                                                                1 x
+
+                                                                    Rp238.000
+
+                                                                Rp238.000
+
+                                                                Periplus - Buku Import - Watchmen: DC Compact Comics Edition - 9781779527325
+
+                                                                1 x
+
+                                                                    Rp238.000
+
+                                                                Rp238.000
+
+                                                                Periplus - Buku Import - Batman: Hush: DC Compact Comics Edition - 9781779527264
+
+                                                                1 x
+
+                                                                    Rp238.000
+
+                                                                Rp238.000
+
+                                                                Periplus - Buku Import - Batman: The Long Halloween – DC Compact Comics Edition - 9781799502883
+
+                                                                2 x
+
+                                                                    Rp238.000
+
+                                                                Rp238.000
+
+                                                                        Subtotal harga produk
+
+                                                                        Rp1.190.000
+
+                                                                Total belanja
+
+                                                                Rp960.811
+
+=== tokopedia-va
+from: Tokopedia <noreply@tokopedia.com>
+subject: Menunggu Pembayaran Untuk BNI Tapcash - 150rb
+epoch: 1788265922000
+---
+Tinggal sedikit lagi. Yuk, selesaikan pembayaranmu!
+
+Berikut detail pembelian kamu:
+
+Total Pembayaran
+
+Rp 152.500
+
+Metode Pembayaran
+
+Virtual Account Mandiri
+
+=== tokopedia-login
+from: Tokopedia <noreply@tokopedia.com>
+subject: Akun Anda telah login di perangkat baru
+epoch: 1790484458000
+---
+Halo, Akun kamu baru saja masuk melalui Windows (Chrome 153)
+
+=== shopee
+from: Shopee <info@mail.shopee.co.id>
+subject: Pesanan #26090000TEST01 Telah Dikirim
+epoch: 1789453032000
+---
+| Hai pembeli, |
+| Pesanan #26090000TEST01[](https://shopee.co.id/universal-link/user/purchase/order/1/) telah tiba di alamatmu pada 15/09/2026. |
+| RINCIAN PESANAN |
+| No. Pesanan: | #26090000TEST01 [](https://shopee.co.id/universal-link/user/purchase/order/1/) |
+| Tanggal Pemesanan: | 15/09/2026 10:01:27 |
+| Penjual: | nadapuspitaofficial[](https://shopee.co.id/universal-link/nadapuspitaofficial) |
+| [](https://shopee.co.id/universal-link/x) |
+| 1. Nada Puspita - Marrakesh Series |
+| Variasi: | Atlas,Regular |
+| Jumlah: | 1 |
+| Harga: | Rp 325,000 |
+| 2. Nada Puspita - Puspa Series |
+| Variasi: | Anggrek |
+| Jumlah: | 1 |
+| Harga: | Rp 325,000 |
+| Subtotal: | Rp 650,000 |
+| Ongkos Kirim: | Rp 0 |
+| Diskon Voucher Shopee: | Rp 65,000 |
+| Biaya Layanan: | Rp 4,000 |
+| Total Pembayaran: | Rp 589,000 |
+
+=== shop-order
+from: Dice Haven <orders@dicehaven.example>
+subject: Dice Haven order #1600001 Confirmed! 🎲
+epoch: 1790865065000
+---
+THANK YOU, YOU'RE AWESOME
+
+ORDER NUMBER: #1600001
+
+Please Note: All transactions are conducted in $AUD and we are not responsible for losses incurred as a result of currency conversion.
+
+Order: #1600001
+
+Placed On: 2026-10-02T00:27:54+10:00
+
+https://dicehaven.example/products/d-d-eberron-rising-from-the-last-war-alternate-cover
+
+[D&D Eberron Rising from the Last War Alternative Cover](https://dicehaven.example/products/d-d-eberron-rising-from-the-last-war-alternate-cover)
+
+  Qty: 1
+
+Total: $179.95 AUD
+
+https://dicehaven.example/products/vampire-the-masquerade-5th-edition-dice-set-1
+
+[Vampire: The Masquerade 5th Edition Dice Set](https://dicehaven.example/products/vampire-the-masquerade-5th-edition-dice-set-1)
+
+  Qty: 1
+
+Total: $31.45 AUD
+
+[Reversible Megamat 1 Squares & 1 Hexes 34.5 x 48 Inches](https://dicehaven.example/products/reversible-megamat)
+
+  Qty: 1
+
+Total: $79.95 AUD
+
+SHIPPING ADDRESS:
+
+Budi Santoso
+Jalan Contoh No.1
+
+Discount: -$0.00 AUD
+
+Subtotal: $291.35 AUD
+
+GST (Included): $0.00 AUD
+Shipping: $37.05 AUD
+
+Total: $328.40 AUD
+
+=== myminifactory
+from: MyMiniFactory <no-reply@myminifactory.com>
+subject: Payment confirmation
+epoch: 1789008661000
+---
+ <https://www.myminifactory.com/> Hi budi,
+
+ Thank you for your order (reference 73TEST0001
+<https://www.myminifactory.com/orders/1>). This email is to confirm
+that your order was successful.
+
+   == *Order Details* ==
+
+   *Reference* *73TEST0001* Currency USD *Quantity* *Item* *Original
+Price* *Price (+ VAT/Sale Tax)* 1 Bloom of Putrefy | For Board Game |
+Pre-supported 10.00 10.00 1 Blade of Putrefy | For Board Game |
+Pre-supported 9.00 9.00 *Subtotal* *19.00* *19.00* Adventure
+Discount
+-10% discount -0.00 Library Management Fee ( Learn more
+<https://www.myminifactory.com/fees-explained> ) 0.99 VAT/Sales Tax
+(Indonesia: 0%) 0.00 Wallet Balance applied 0.00 *Total* *19.99*
+Download Invoice <https://www.myminifactory.com/orders/1/invoice>
+
+=== optik
+from: Optik Melawai <e-receipt@optikmelawai.id>
+subject: Invoice
+epoch: 1789997866000
+---
+| ### Optik Melawai - Raya Jatiwaringin Bekasi ### Jl Jatiwaringin Raya No. 61 ### KOTAMADYA BEKASI Terimakasih telah berbelanja di Optik Melawai |
+| ## BUDI SANTOSO A240000000001 ## No Invoice : AE4000000000001 |
+| Nama Konsumen | | : BUDI SANTOSO |
+| Nomor Pesanan | | : F5TEST01 |
+| Tanggal Pesanan | | : 21 September 2026 |
+| ### Detail Pesanan |
+| Nama Barang | Harga | Qty | Discount | Netto |
+|---|---|---|---|---|
+| SINGLE VISION ILLUSTRO | 735,000 | 1 | 0 | 735,000 |
+| TAS KERTAS | 0 | 1 | 0 | 0 |
+| CASE FRAME PAKET | 0 | 1 | 0 | 0 |
+| | Sub Total | 735,000 |
+| | Total Belanja | 735,000 |
+| | DP (C) | 735,000 |

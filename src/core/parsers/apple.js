@@ -53,10 +53,15 @@ export const apple = {
     const totalRaw = (text.match(/TOTAL\s+(Rp\s?[\d.,]+)/i) || [])[1];
     const total = parseAmount(totalRaw || '') || items.reduce((s, i) => s + i.price, 0);
     if (!(total > 0)) throw new Error('no total in the Apple receipt');
+    const name = [...new Set(items.map((i) => i.app))].join(', ');
     return ok({
-      type: 'receipt', direction: 'out', date: when.date, time: '', amount: total, fee: 0,
+      type: 'receipt', source: 'Apple', direction: 'out', date: when.date, time: '', amount: total, fee: 0,
       account: { institution: 'Apple' }, counterparty: { name: 'Apple' },
-      description: [...new Set(items.map((i) => i.app))].join(', '), details: '', refNo: order, items,
+      // The card charge (APPLE.COM/BILL) lands from a day before to 3 days after the receipt date.
+      match: { pattern: 'APPLE\\.COM', from: -1, to: 3, waitDays: 4 },
+      name, description: name, details: '', refNo: order, items,
+      what: items.map((it) => [it.item, it.renews ? it.renews.replace(/^Renews/, 'renews') : it.kind].filter(Boolean).join(', ')).join('; '),
+      subscription: items.some((it) => it.renews || /subscription|langganan/i.test(it.kind)),
     });
   },
 };

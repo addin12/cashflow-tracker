@@ -5,9 +5,10 @@ import { livin } from './livin.js';
 import { blu } from './blu.js';
 import { jago, sekuritas, gopay } from './others.js';
 import { apple } from './apple.js';
+import { SHOP_PARSERS, SHOP_QUERIES } from './shops.js';
 import { fail, skip } from './common.js';
 
-export const PARSERS = [bca, livin, blu, jago, sekuritas, gopay, apple];
+export const PARSERS = [bca, livin, blu, jago, sekuritas, gopay, apple, ...SHOP_PARSERS];
 
 /** Gmail search for every sender a parser exists for. */
 export const SENDERS = [
@@ -16,10 +17,11 @@ export const SENDERS = [
 ];
 
 /**
- * Senders searched from the start date on every run (not only the last two days), so their
- * emails from before they were added are read too. Few emails, and read ones are skipped.
+ * Receipt searches run from the start date on every run (not only the last two days), so
+ * receipts from before a parser existed are read too. Few emails, and read ones are skipped.
  */
-export const BACKFILL_SENDERS = ['no_reply@email.apple.com'];
+export const BACKFILL_QUERIES = ['from:no_reply@email.apple.com subject:receipt', ...SHOP_QUERIES];
+export const backfillQuery = (afterSec) => `(${BACKFILL_QUERIES.map((q) => `(${q})`).join(' OR ')}) after:${afterSec}`;
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 

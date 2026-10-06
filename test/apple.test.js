@@ -80,7 +80,7 @@ describe('naming the APPLE.COM/BILL charge', () => {
     const p = plan([older], [], { now: '2026-09-16T08:00:00.000Z' });
     expect(p.log[0].status).toBe('waiting'); // charge not in yet: tried again next run
     const later = plan([older], [], { now: '2026-09-25T00:00:00.000Z' });
-    expect(later.log[0]).toMatchObject({ status: 'ok', reason: expect.stringContaining('no APPLE.COM charge') }); // gives up after 4 days
+    expect(later.log[0]).toMatchObject({ status: 'ok', reason: expect.stringContaining('no Apple charge') }); // gives up after 4 days
   });
 
   it('never names the same charge twice, and ignores other amounts and dates', () => {

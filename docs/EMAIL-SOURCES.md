@@ -62,6 +62,20 @@ Indonesian text.
 - Category: a rule for the app name wins (made by "Always use this category for …"). Otherwise a purchase goes back to Review (the generic APPLE.COM rule said *Langganan Digital*, which only fits subscriptions) and a subscription keeps its category. Rows someone edited keep their category.
 - Charge not in the sheet yet → logged `waiting` and retried every run for 4 days.
 
+### Shop receipts (added 2026-10-06) · `src/core/parsers/shops.js`
+Same idea as Apple: no new row; the bank's row for that payment gets the shop's name and items. Searched from the start date with receipt-only Gmail queries (`SHOP_QUERIES`), since these senders also send promotions.
+
+| Shop | Email | Finds the bank row by | Name / details |
+|---|---|---|---|
+| Tokopedia | "Pesanan Selesai: …" (comes after paying) · "Menunggu Pembayaran Untuk …" (virtual account) | `TOKOPEDIA`, exact *Total belanja* / *Total Pembayaran*, paid up to 30 days before (completion) or 0–2 days after (waiting) | shop · up to 3 items + "+N lainnya" · `Tokopedia order <invoice>` |
+| Shopee | order emails with *RINCIAN PESANAN* | `SHOPEE`, *Total Pembayaran* (comma thousands), 0–2 days after *Tanggal Pemesanan* | seller · items (variation) |
+| Xendit | "Order confirmation from <merchant>" | `XENDIT`, *Total Amount Paid*, ±1 day | merchant · order no. |
+| Shops abroad | "<Shop> order #… Confirmed!" with "Placed On:" | the shop's name in the card description, and the **foreign** total blu notes in Details (`AUD 328,40`) | shop · items |
+| MyMiniFactory | "Payment confirmation" | `MINI FACTORY`, the **USD** total blu notes (`USD 19,99`) | MyMiniFactory · items |
+| Optik Melawai | e-receipt "Invoice" | `OPTIK MELAWAI`, *Total Belanja*, 0–1 day after *Tanggal Pesanan* | keeps the bank's store name · paid items |
+
+Rows whose category came from a generic rule (Tokopedia, Shopee, Xendit) go back to Review under the shop's name, where "Always use this category for …" makes a rule for that shop. The others already name the shop, so their categories stay. A receipt with no matching charge (paid some other way) is dropped after a few days.
+
 ## 3. Cross-email logic
 
 | Situation | Seen in inbox | Rule |

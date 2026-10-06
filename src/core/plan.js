@@ -12,19 +12,27 @@
 //                                                                   category "trf ke bank lain"
 //  4. Anything else is income/expense, categorized by the first matching rule.
 //  5. A fee becomes its own row (category for fees, e.g. "Biaya Admin").
-//  6. An Apple receipt adds no row: it names the app and item on the bank's "APPLE.COM/BILL" row
-//     (same amount, dated 1 day before to 3 days after the receipt). Purchases then go back to
-//     Review for a category; subscriptions keep theirs. A row someone edited keeps its category.
-//     No such row yet -> "waiting" (retried next run) for up to 4 days.
+//  6. A shop receipt (Apple, Tokopedia, Shopee, Xendit, MyMiniFactory, Optik Melawai, shops abroad)
+//     adds no row: it names the shop and items on the bank's row for that payment (description
+//     pattern, same amount or same foreign amount, within the receipt's date window). If a
+//     generic rule had set the category, the row goes back to Review (or a rule for the shop's
+//     name applies); subscriptions keep theirs; a row someone edited keeps its category.
+//     No such row yet -> "waiting" (retried next run) for a few days.
 // Rows go straight to the reports ("approved") when the stream is known and a rule (or the
 // transfer/fee/dividend logic) is sure; otherwise they wait in Review ("pending").
 
 import { resolveAccount, ownCounterparty } from './accounts.js';
 import { matchRule } from './rules.js';
+import { parseAmount } from './money.js';
+
+/** "Kartu debit · USD 19,99" -> 19.99 for USD (blu writes the card's foreign amount in Details). */
+function foreignAmount(details, currency) {
+  const m = String(details || '').match(new RegExp(`${currency}\\s?([\\d.,]+)`));
+  return m ? parseAmount(m[1]) : NaN;
+}
 
 export const MATCH_WINDOW_MINUTES = 15;
 export const RECEIPT_WAIT_DAYS = 4;
-const APPLE_MARK = 'Apple order';
 const dayNumber = (date) => { const [y, m, d] = String(date).slice(0, 10).split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
 
 function minutesOf(row) {
@@ -98,35 +106,37 @@ export function planSync({ emails, existing, accounts, rules, config, nowIso }) 
       const id = `t_${email.id}${r.events.length > 1 ? `_${i}` : ''}`;
 
       if (ev.type === 'receipt') {
+        // A shop's receipt names the bank's row for the same payment (see parsers/apple.js, shops.js).
+        const m = ev.match;
+        const re = new RegExp(m.pattern, 'i');
+        const mark = `${ev.source} order`;
+        const offset = (x) => dayNumber(x.date) - dayNumber(ev.date);
+        const sameMoney = (x) => (ev.currency ? foreignAmount(x.details, ev.currency) === ev.amount : Math.abs(Number(x.amount) - ev.amount) < 0.005);
         const target = pool
-          .filter((x) => /APPLE\.COM/i.test(String(x.description)) && !String(x.details).includes(APPLE_MARK) && x.direction === 'out'
-            && Math.abs(Number(x.amount) - ev.amount) < 0.005 && dayNumber(x.date) - dayNumber(ev.date) >= -1 && dayNumber(x.date) - dayNumber(ev.date) <= 3)
-          .sort((a, b) => Math.abs(dayNumber(a.date) - dayNumber(ev.date)) - Math.abs(dayNumber(b.date) - dayNumber(ev.date)))[0];
+          .filter((x) => re.test(String(x.description)) && !String(x.details).includes(mark) && x.direction === 'out'
+            && sameMoney(x) && offset(x) >= m.from && offset(x) <= m.to)
+          .sort((a, b) => Math.abs(offset(a)) - Math.abs(offset(b)))[0];
         if (!target) {
           const age = (Date.parse(nowIso) - email.epochMs) / 86400000;
-          if (age < RECEIPT_WAIT_DAYS) waitForCharge = true;
-          notes.push(`no APPLE.COM charge of ${ev.amount} near ${ev.date}${age < RECEIPT_WAIT_DAYS ? ' yet' : ''}`);
+          const wait = age < (m.waitDays ?? RECEIPT_WAIT_DAYS);
+          if (wait) waitForCharge = true;
+          notes.push(`no ${ev.source} charge of ${ev.currency || 'Rp'} ${ev.amount} near ${ev.date}${wait ? ' yet' : ''}`);
           return;
         }
-        const items = ev.items || [];
-        const subscription = items.some((it) => it.renews || /subscription|langganan/i.test(it.kind));
-        const what = items.map((it) => [it.item, it.renews ? it.renews.replace(/^Renews/, 'renews') : it.kind].filter(Boolean).join(', ')).join('; ');
-        const changes = {
-          description: ev.description,
-          details: [what, `${APPLE_MARK} ${ev.refNo}`.trim(), target.details].filter(Boolean).join(' · '),
-        };
-        // Its category came from the generic Apple rule: look again with the app's name.
-        if (target.updated_by === 'sync') {
+        const changes = { details: [ev.what, `${mark} ${ev.refNo || ''}`.trim(), target.details].filter(Boolean).join(' · ') };
+        if (ev.name) changes.description = ev.name;
+        // Its category came from a generic rule (APPLE.COM, TOKOPEDIA…): look again with the shop's name.
+        if (ev.recheck !== false && target.updated_by === 'sync') {
           const rule = matchRule({ ...target, ...changes }, rules);
           if (rule) {
             Object.assign(changes, { category: rule.category, rule_id: rule.id || '', status: rule.autoApprove ? 'approved' : 'pending' });
             if (rule.id) ruleHits[rule.id] = (ruleHits[rule.id] || 0) + 1;
-          } else if (!subscription) {
+          } else if (!ev.subscription) {
             Object.assign(changes, { category: '', rule_id: '', status: 'pending' });
           }
         }
         change(target, changes);
-        notes.push(`named Apple charge ${target.id}`);
+        notes.push(`named ${ev.source} charge ${target.id}`);
         return;
       }
       const src = resolveAccount(ev.account, accounts);
