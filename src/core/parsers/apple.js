@@ -16,7 +16,8 @@ const PRICE = /^Rp\s?[\d.,]+$/i;
 const RENEWS = /^(Renews|Diperpanjang|Berlaku hingga|Expires)\b/i;
 
 function olderItems(html) {
-  const desktop = html.split(/aapl-mobile-div/i)[0];
+  // Cut at the mobile copy's element (its class also appears earlier, in the <style> block).
+  const desktop = html.split(/class="aapl-mobile-div"/i)[0];
   const field = (cls) => [...desktop.matchAll(new RegExp(`class="${cls}"[^>]*>([\\s\\S]*?)</span>`, 'gi'))].map((m) => strip(m[1]));
   const titles = field('title');
   const items = field('artist');
