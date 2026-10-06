@@ -285,9 +285,18 @@ export function runSetup(ss, seedRaw) {
   const cf = ss.getSheetByName(CF.sheet);
   if (cf.getMaxRows() < MIN_LEDGER_ROWS) cf.insertRowsAfter(cf.getMaxRows(), MIN_LEDGER_ROWS - cf.getMaxRows());
 
+  // The patches are written in en-US syntax (commas, {a,b} arrays). In a spreadsheet set to an
+  // Indonesian locale some of them don't parse (#ERROR!, seen in the self-test copy 2026-10-06), so
+  // they are written under en_US and the spreadsheet's own locale is put back afterwards.
+  const locale = ss.getSpreadsheetLocale();
+  if (locale !== 'en_US') { ss.setSpreadsheetLocale('en_US'); SpreadsheetApp.flush(); }
   const patches = templatePatches();
-  patches.forEach((p) => applyPatch(ss, p));
-  log.push(`Applied ${patches.length} template patches`);
+  try {
+    patches.forEach((p) => applyPatch(ss, p));
+  } finally {
+    if (locale !== 'en_US') { SpreadsheetApp.flush(); ss.setSpreadsheetLocale(locale); }
+  }
+  log.push(`Applied ${patches.length} template patches${locale !== 'en_US' ? ` (written in en_US, locale ${locale} restored)` : ''}`);
 
   formatTabs(ss);
   setConfigValue(ss, 'setup_version', SETUP_VERSION);
