@@ -176,7 +176,7 @@ describe('web app', () => {
   });
 
   it('a first visit paints from the snapshot built into the page, without waiting for the server', async () => {
-    const withInit = html.replace('/*INIT*/', () => `window.__INIT__=${JSON.stringify(api.init()).replace(/</g, '\\u003c')};`);
+    const withInit = html.replace('window.__INIT__=null;', () => `window.__INIT__=${JSON.stringify(api.init()).replace(/</g, '\\u003c')};`);
     const third = new JSDOM(withInit, {
       runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.invalid/',
       beforeParse(window) {

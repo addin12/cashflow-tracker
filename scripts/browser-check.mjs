@@ -1,6 +1,7 @@
 // Loads the built web app page (dist/index.html) in a real headless browser (Edge/Chrome) with a
 // fake google.script.run, and prints any script errors plus what ended up on screen.
-//   node scripts/browser-check.mjs [--embedded]
+//   node scripts/browser-check.mjs [--embedded] [--docwrite] [--file private/served-user.html]
+// --file runs another page instead, e.g. the one Google actually serves (scripts/served-html.mjs).
 import { readFileSync, writeFileSync, existsSync, mkdtempSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -9,6 +10,7 @@ import { pathToFileURL } from 'node:url';
 import { createApi } from '../src/core/api.js';
 import { buildCategorySlots } from '../src/core/categories.js';
 import { TABS } from '../src/core/schema.js';
+import { simulateHtmlServiceStripping, INIT_PLACEHOLDER } from './ui-build.mjs';
 
 const browsers = [
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
@@ -29,8 +31,9 @@ const store = {
 };
 const init = createApi(store, { now: () => new Date(2026, 9, 6, 9, 0), sync: () => ({}) }).init();
 
-let html = readFileSync('dist/index.html', 'utf8');
-if (process.argv.includes('--embedded')) html = html.replace('/*INIT*/', () => `window.__INIT__=${JSON.stringify(init).replace(/</g, '\\u003c')};`);
+const fileArg = process.argv.indexOf('--file');
+let html = readFileSync(fileArg > 0 ? process.argv[fileArg + 1] : 'dist/index.html', 'utf8');
+if (process.argv.includes('--embedded')) html = html.replace(INIT_PLACEHOLDER, () => `window.__INIT__=${JSON.stringify(init).replace(/</g, '\\u003c')};`);
 const harness = `<script>
 window.__errors = [];
 window.addEventListener('error', function (e) { window.__errors.push('error: ' + e.message + ' @' + e.lineno + ':' + e.colno); });
@@ -43,6 +46,7 @@ html = html.replace('<head>', `<head>${harness}`);
 const dir = mkdtempSync(join(tmpdir(), 'ct-'));
 const file = join(dir, 'page.html');
 if (process.argv.includes('--docwrite')) {
+  html = simulateHtmlServiceStripping(html);
   // Like Apps Script's HtmlService: the page is written into a frame with document.write and the
   // document may never be closed, so DOMContentLoaded never fires.
   writeFileSync(file, `<!doctype html><html><body><iframe id="f"></iframe><script>

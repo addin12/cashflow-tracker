@@ -121,7 +121,7 @@ async function viewDashboard(preloaded) {
       <div class="card"><div class="merchant">${esc(T.byCategory)}</div><div class="list">${cats || `<p class="hint">—</p>`}</div></div>
       <div class="card"><div class="merchant">${esc(T.accounts)}</div>
         <h4>${esc(T.spending)}</h4><div class="list">${group('Spending')}</div>
-        <h4>${esc(T.saving)}</h4><div class="list">${group('Saving')}</div></div>
+        <h4>${esc(T.savingGroup)}</h4><div class="list">${group('Saving')}</div></div>
     </div>`);
 }
 

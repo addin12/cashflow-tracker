@@ -64,7 +64,7 @@ export function doGet() {
   // The cached first-screen data goes into the page itself, so it paints without a round trip.
   const init = cachedInit();
   const html = HtmlService.createHtmlOutputFromFile('index').getContent()
-    .replace('/*INIT*/', () => (init ? `window.__INIT__=${init.replace(/</g, '\\u003c')};` : ''));
+    .replace('window.__INIT__=null;', () => (init ? `window.__INIT__=${init.replace(/</g, '\\u003c').replace(/\//g, '\\/')};` : 'window.__INIT__=null;'));
   return HtmlService.createHtmlOutput(html)
     .setTitle('Cashflow')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
