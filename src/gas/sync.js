@@ -8,6 +8,7 @@ import { readTable, appendRows, updateRows } from './store.js';
 import { listMessageIds, getEmail, myAddress } from './gmail.js';
 import { configValue, runSetup } from './setup.js';
 import { flushStartupTimings } from './perf.js';
+import { refreshInit } from './initcache.js';
 
 const OVERLAP_MS = 2 * 24 * 3600 * 1000;
 const TIME_BUDGET_MS = 4.5 * 60 * 1000; // Apps Script stops a run at 6 minutes
@@ -158,6 +159,7 @@ function syncOnce(opts) {
     }
 
     try { flushStartupTimings(ss); } catch (e) { /* timings are optional */ }
+    try { if (mode === 'live') refreshInit(ss); } catch (e) { /* the page then fetches its data itself */ }
     const newest = emails.reduce((m, e) => Math.max(m, e.epochMs), Number(conn.checkpoint) || 0);
     const summary = {
       status: complete ? 'ok' : 'partial', mode, gmail, ...counts, added: plan.add.length, updated: plan.update.length,

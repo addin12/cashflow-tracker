@@ -6,6 +6,7 @@ import { runSetup } from './gas/setup.js';
 import { runSelfTest } from './gas/selftest.js';
 import { runSync, connect, appSpreadsheet } from './gas/sync.js';
 import { recordStartup } from './gas/perf.js';
+import { cachedInit, storeInit } from './gas/initcache.js';
 import { sheetStore } from './gas/sheetstore.js';
 import { createApi, API_METHODS } from './core/api.js';
 
@@ -60,7 +61,11 @@ export function menuSelfTest() {
 
 /** Web app page (deployed for the owner only: "execute as me, access: only myself"). */
 export function doGet() {
-  return HtmlService.createHtmlOutputFromFile('index')
+  // The cached first-screen data goes into the page itself, so it paints without a round trip.
+  const init = cachedInit();
+  const html = HtmlService.createHtmlOutputFromFile('index').getContent()
+    .replace('/*INIT*/', () => (init ? `window.__INIT__=${init.replace(/</g, '\\u003c')};` : ''));
+  return HtmlService.createHtmlOutput(html)
     .setTitle('Cashflow')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
 }
@@ -87,8 +92,12 @@ export function api(name, payloadJson) {
     if (lock && !lock.tryLock(20000)) throw new Error('Sedang sinkron, coba lagi sebentar. / A sync is running, try again shortly.');
     try {
       const data = impl[name](payload);
-      if (name === 'init') recordStartup({ open_ms: t1 - t0, work_ms: Date.now() - t1, ...(payload.lastLoad || {}) });
-      return JSON.stringify({ data });
+      const json = JSON.stringify({ data });
+      if (name === 'init') {
+        storeInit(JSON.stringify(data));
+        recordStartup({ open_ms: t1 - t0, work_ms: Date.now() - t1, ...(payload.lastLoad || {}) });
+      }
+      return json;
     } finally {
       if (lock) lock.releaseLock();
     }

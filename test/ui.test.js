@@ -174,6 +174,35 @@ describe('web app', () => {
     second.window.close();
   });
 
+  it('a first visit paints from the snapshot built into the page, without waiting for the server', async () => {
+    const withInit = html.replace('/*INIT*/', () => `window.__INIT__=${JSON.stringify(api.init()).replace(/</g, '\\u003c')};`);
+    const third = new JSDOM(withInit, {
+      runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.invalid/',
+      beforeParse(window) {
+        const r = { withSuccessHandler() { return r; }, withFailureHandler() { return r; }, api() { /* never answers */ } };
+        window.google = { script: { get run() { return r; } } };
+      },
+    });
+    const d3 = third.window.document;
+    for (let i = 0; i < 200 && !d3.querySelector('#view .card, #view .kpis'); i += 1) await new Promise((res) => setTimeout(res, 5));
+    expect(d3.querySelector('#view .card, #view .kpis')).not.toBeNull();
+    third.window.close();
+  });
+
+  it('without any data it counts the seconds instead of sitting on "Loading"', async () => {
+    const fourth = new JSDOM(html, {
+      runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.invalid/',
+      beforeParse(window) {
+        const r = { withSuccessHandler() { return r; }, withFailureHandler() { return r; }, api() { /* never answers */ } };
+        window.google = { script: { get run() { return r; } } };
+      },
+    });
+    const d4 = fourth.window.document;
+    for (let i = 0; i < 200 && !/\d+s/.test(d4.querySelector('#view').textContent); i += 1) await new Promise((res) => setTimeout(res, 5));
+    expect(d4.querySelector('#view').textContent).toMatch(/Memuat… \d+s/);
+    fourth.window.close();
+  });
+
   it('the page has no references to outside scripts or styles', async () => {
     const html = await buildUiHtml();
     expect(html).not.toMatch(/<script[^>]+src=/i);

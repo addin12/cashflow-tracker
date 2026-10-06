@@ -312,6 +312,7 @@ function onClick(e) {
   if (!a && el.dataset.tab) { state.userMoved = true; return show(el.dataset.tab); }
   if (a === 'go') { state.userMoved = true; return show(el.dataset.tab); }
   if (a === 'reload') return show(state.tab);
+  if (a === 'reloadpage') { window.location.reload(); return null; }
   if (a === 'month') { state.month = monthAdd(state.month, Number(el.dataset.k)); return show('dashboard'); }
   if (a === 'kind') { state.addKind = el.dataset.kind; return viewAdd(); }
   if (a === 'more') { state.limit += 50; return show('transactions'); }
@@ -429,26 +430,48 @@ export async function start() {
   // Startup timing (ms since this page began loading), sent with the next startup.
   const t0 = (window.performance && performance.timing && performance.timing.navigationStart) || Date.now();
   const timing = { client_from_cache: false };
-  const cached = readCache();
-  if (cached) {
-    await paint(cached, { first: true });
+  // Data to paint at once: the snapshot built into the page by the server, or the copy saved on
+  // this phone last time, whichever is newer. Fresh data follows in the background.
+  const embedded = window.__INIT__ || null;
+  const saved = readCache();
+  const instant = [embedded, saved].filter(Boolean).sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))[0] || null;
+  let waitTimer = null;
+  if (instant) {
+    await paint(instant, { first: true });
     setStale(true);
     timing.client_from_cache = true;
     timing.client_cached_ms = Date.now() - t0;
+  } else {
+    // Nothing to show yet: count the seconds, and offer a retry if Google is very slow.
+    const began = Date.now();
+    const tick = () => {
+      const secs = Math.round((Date.now() - began) / 1000);
+      setView(secs < 45
+        ? `<div class="empty">${esc(T.loading)} ${secs}s</div>`
+        : `<div class="empty error">${esc(T.slowServer)}<br><button class="btn" data-action="reloadpage">${esc(T.retry)}</button></div>`);
+    };
+    tick();
+    waitTimer = setInterval(tick, 1000);
   }
   try {
     let lastLoad = null;
     try { lastLoad = JSON.parse(window.localStorage.getItem(TIMING_KEY) || 'null'); } catch (e) { /* none */ }
     const fresh = await call('init', { lastLoad });
+    clearInterval(waitTimer);
     writeCache(fresh);
-    await paint(fresh, { first: !cached });
+    await paint(fresh, { first: !instant });
     timing.client_total_ms = Date.now() - t0;
     try { window.localStorage.setItem(TIMING_KEY, JSON.stringify(timing)); } catch (e) { /* storage unavailable */ }
   } catch (e) {
-    if (!cached) failed(e); else toast(`${T.error}: ${e.message}`, 'bad');
+    clearInterval(waitTimer);
+    if (!instant) failed(e); else toast(`${T.error}: ${e.message}`, 'bad');
   } finally {
     setStale(false);
   }
 }
 
-if (typeof window !== 'undefined' && !window.__CT_NO_AUTOSTART__) window.addEventListener('DOMContentLoaded', start);
+// Start whether or not the page has finished loading by the time this script runs.
+if (typeof window !== 'undefined' && !window.__CT_NO_AUTOSTART__) {
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', start);
+  else start();
+}

@@ -3,7 +3,7 @@ export const STRINGS = {
   id: {
     appName: 'Cashflow',
     tabReview: 'Cek', tabDashboard: 'Ringkasan', tabTransactions: 'Transaksi', tabAdd: 'Tambah', tabSettings: 'Atur',
-    loading: 'Memuat…', updating: 'Memperbarui…', saving: 'Menyimpan…', saved: 'Tersimpan', error: 'Gagal', retry: 'Coba lagi',
+    loading: 'Memuat…', slowServer: 'Server Google sedang lambat. Coba muat ulang halaman.', updating: 'Memperbarui…', saving: 'Menyimpan…', saved: 'Tersimpan', error: 'Gagal', retry: 'Coba lagi',
     reviewTitle: 'Perlu dicek', reviewEmpty: 'Semua sudah dicek 🎉', lastSync: 'Sinkron terakhir',
     neverSynced: 'Belum pernah sinkron', syncNow: 'Sinkron sekarang', syncing: 'Sinkron…',
     save: 'Simpan', ignore: 'Abaikan', restore: 'Kembalikan', delete: 'Hapus', cancel: 'Batal', edit: 'Ubah', close: 'Tutup',
@@ -36,7 +36,7 @@ export const STRINGS = {
   en: {
     appName: 'Cashflow',
     tabReview: 'Review', tabDashboard: 'Summary', tabTransactions: 'Transactions', tabAdd: 'Add', tabSettings: 'Settings',
-    loading: 'Loading…', updating: 'Updating…', saving: 'Saving…', saved: 'Saved', error: 'Failed', retry: 'Retry',
+    loading: 'Loading…', slowServer: 'Google’s server is slow right now. Try reloading the page.', updating: 'Updating…', saving: 'Saving…', saved: 'Saved', error: 'Failed', retry: 'Retry',
     reviewTitle: 'To review', reviewEmpty: 'All reviewed 🎉', lastSync: 'Last sync',
     neverSynced: 'Never synced', syncNow: 'Sync now', syncing: 'Syncing…',
     save: 'Save', ignore: 'Ignore', restore: 'Restore', delete: 'Delete', cancel: 'Cancel', edit: 'Edit', close: 'Close',

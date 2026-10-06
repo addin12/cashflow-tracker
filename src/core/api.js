@@ -57,7 +57,7 @@ export function createApi(store, env) {
     /** Everything the first screen needs, in one round trip. */
     init() {
       const boot = this.bootstrap();
-      return { boot, review: this.review(), dashboard: this.dashboard({}) };
+      return { at: nowIso(), boot, review: this.review(), dashboard: this.dashboard({}) };
     },
 
     approve({ id, category, stream, always }) {
