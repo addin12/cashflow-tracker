@@ -94,6 +94,32 @@ describe('web app', () => {
     expect(doc.querySelectorAll('.txcard[data-id]')).toHaveLength(2);
     expect(doc.querySelector('#reviewCount').textContent).toBe('2');
     expect(view()).toContain('Email yang belum terbaca');
+  });
+
+  it('the bell counts what needs attention, lists it, and clears once seen', () => {
+    // 2 rows to review (one notice), 1 unreadable email, Belanja Online 300k of a 200k budget
+    expect(doc.querySelector('#bellCount').textContent).toBe('3');
+    click(doc.querySelector('#bellBtn'));
+    const items = [...doc.querySelectorAll('#modal .notif')];
+    expect(items.map((n) => n.querySelector('b').textContent)).toEqual([
+      '2 transaksi menunggu dicek', 'Email bank belum terbaca', 'Budget Belanja Online terlampaui',
+    ]);
+    expect(items.every((n) => n.classList.contains('new'))).toBe(true);
+    expect(doc.querySelector('#bellCount').hidden).toBe(true);
+    click(doc.querySelector('#modal [data-action=close]'));
+    click(doc.querySelector('#bellBtn'));
+    expect(doc.querySelectorAll('#modal .notif.new')).toHaveLength(0); // seen now
+    click(doc.querySelector('#modal [data-action=close]'));
+  });
+
+  it('the theme button switches between light and dark and remembers it', () => {
+    const html = doc.documentElement;
+    click(doc.querySelector('#themeBtn'));
+    expect(html.getAttribute('data-theme')).toBe('dark');
+    expect(dom.window.localStorage.getItem('cashflow.theme.v1')).toBe('dark');
+    expect(doc.querySelector('#themeBtn').getAttribute('aria-label')).toBe('Ganti ke mode terang');
+    click(doc.querySelector('#themeBtn'));
+    expect(html.getAttribute('data-theme')).toBe('light');
     expect(view()).toContain('no amount found');
     expect(view()).toContain('Tokopedia');
   });

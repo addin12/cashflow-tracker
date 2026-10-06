@@ -241,6 +241,7 @@ function updateNav() {
   if (owner && state.boot) owner.textContent = state.boot.owner || '';
   const foot = $('#navSync');
   if (foot && state.boot) foot.innerHTML = syncLine();
+  updateBell();
 }
 
 // ---------------------------------------------------------------- Review
@@ -741,6 +742,7 @@ async function viewSettings(local) {
           ${field(T.language, `<select name="language"><option value="" ${!cfg.language ? 'selected' : ''}>${esc(T.languageAuto)}</option><option value="id" ${cfg.language === 'id' ? 'selected' : ''}>Bahasa Indonesia</option><option value="en" ${cfg.language === 'en' ? 'selected' : ''}>English</option></select>`)}
           ${field(T.payday, `<input name="payday_day" type="number" min="1" max="31" value="${esc(cfg.payday_day)}">`, { help: T.paydayHelp })}
           ${field(T.ownerNames, `<input name="owner_bank_names" value="${esc(cfg.owner_bank_names)}">`, { help: T.ownerNamesHelp, wide: true })}
+          ${field(T.themeLabel, `<select name="theme">${[['auto', T.themeAuto], ['light', T.themeLight], ['dark', T.themeDark]].map(([v, l]) => `<option value="${v}" ${readTheme() === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`, { help: T.themeHelp })}
         </div>${saveRow(T.saveChanges)}</form>
       <form class="card" data-form="monthend" novalidate><h2>${esc(T.monthEnd)}</h2><p class="lead">${esc(T.monthEndHint)}</p>
         <div class="fields2">
@@ -787,6 +789,96 @@ async function saveForm(form, name, payload, after) {
   } finally {
     btn.disabled = false;
   }
+}
+
+// ---------------------------------------------------------------- Theme
+// Light, dark, or the device's own setting; kept in this browser (each device can differ).
+const THEME_KEY = 'cashflow.theme.v1';
+function readTheme() {
+  try { return window.localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) { return 'auto'; }
+}
+function isDark() {
+  const t = document.documentElement.getAttribute('data-theme');
+  if (t) return t === 'dark';
+  return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+}
+function applyTheme(mode) {
+  const m = mode === 'light' || mode === 'dark' ? mode : 'auto';
+  if (m === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', m);
+  try { window.localStorage.setItem(THEME_KEY, m); } catch (e) { /* storage unavailable */ }
+  const dark = isDark();
+  const btn = $('#themeBtn');
+  if (btn) { btn.setAttribute('aria-label', dark ? T.themeToLight : T.themeToDark); btn.title = dark ? T.themeToLight : T.themeToDark; }
+  const meta = $('meta[name=theme-color]');
+  if (meta) meta.setAttribute('content', dark ? '#000000' : '#f5f5f7');
+}
+function toggleTheme() {
+  applyTheme(isDark() ? 'light' : 'dark');
+  toast(isDark() ? T.themeNowDark : T.themeNowLight);
+}
+
+// ---------------------------------------------------------------- Notifications
+// Things that need the owner: built from the data already on screen. Which ones were already
+// seen is kept in this browser; the bell's number counts the new ones.
+const SEEN_KEY = 'cashflow.seen.v1';
+function readSeen() {
+  try { return new Set(JSON.parse(window.localStorage.getItem(SEEN_KEY) || '[]')); } catch (e) { return new Set(); }
+}
+function notifications() {
+  const out = [];
+  if (!state.boot) return out;
+  const r = state.review;
+  if (r && r.pending.length) {
+    out.push({ id: `pending:${r.pending.length}:${r.pending[0].id}`, kind: 'warn', title: T.notifPending(r.pending.length), text: T.notifPendingSub, go: 'review', goLabel: T.reviewNow });
+  }
+  for (const e of (r && r.errors) || []) {
+    out.push({ id: `unread:${e.gmail_id}`, kind: 'warn', title: T.notifUnread, text: `${e.subject || e.from} · ${e.reason}`, go: 'review', goLabel: T.reviewNow });
+  }
+  const c = (state.boot.connections || [])[0];
+  if (c && /^ERROR/.test(String(c.last_status || ''))) {
+    out.push({ id: `sync:${c.last_sync}`, kind: 'bad', title: T.syncProblem, text: String(c.last_status).replace(/^ERROR:\s*/, '').split(' | ')[0], go: 'settings', goLabel: T.notifOpenSettings });
+  }
+  const month = state.boot.today.slice(0, 7);
+  const d = state.dashByMonth[month];
+  for (const b of (d && d.budgets) || []) {
+    if (b.ratio >= 1) out.push({ id: `budget:${month}:${b.category}:over`, kind: 'bad', title: T.notifBudgetOver(b.category), text: T.notifBudgetSub(rp(b.spent), rp(b.budget)), category: b.category, goLabel: T.seeList });
+    else if (b.ratio >= 0.8) out.push({ id: `budget:${month}:${b.category}:near`, kind: 'warn', title: T.notifBudgetNear(b.category, Math.round(b.ratio * 100)), text: T.notifBudgetSub(rp(b.spent), rp(b.budget)), category: b.category, goLabel: T.seeList });
+  }
+  for (const i of (d && d.recurring && d.recurring.items) || []) {
+    if (i.daysLeft > 3 || i.daysLeft < -7) continue;
+    const whenText = i.daysLeft < 0 ? T.recurringLate(dateLabel(i.nextDate, { weekday: false }), -i.daysLeft) : i.daysLeft === 0 ? T.recurringToday : T.recurringNext(dateLabel(i.nextDate, { weekday: false }), i.daysLeft);
+    out.push({ id: `bill:${i.name}:${i.nextDate}`, kind: 'info', title: T.notifBill(i.name, rp(i.amount)), text: whenText, q: i.name, goLabel: T.seeList });
+  }
+  return out;
+}
+function updateBell() {
+  const btn = $('#bellBtn');
+  if (!btn) return;
+  const seen = readSeen();
+  const fresh = notifications().filter((n) => !seen.has(n.id)).length;
+  const count = $('#bellCount');
+  count.hidden = !fresh;
+  count.textContent = String(fresh);
+  btn.setAttribute('aria-label', fresh ? T.notifNew(fresh) : T.notifications);
+  btn.title = btn.getAttribute('aria-label');
+}
+function openNotifications() {
+  const list = notifications();
+  const seen = readSeen();
+  $('#modal').innerHTML = `<div class="sheet"><h2>${esc(T.notifications)}</h2>${list.length ? `<p class="lead">${esc(T.notifHint)}</p><div class="notif-list">${list.map((n) => `
+    <button type="button" class="notif ${esc(n.kind)} ${seen.has(n.id) ? '' : 'new'}" data-action="notifgo" data-tab="${esc(n.go || '')}" data-category="${esc(n.category || '')}" data-q="${esc(n.q || '')}">
+      <span class="dot" aria-hidden="true"></span><span><b>${esc(n.title)}</b><span class="meta">${esc(n.text)}</span></span>
+      <span class="go">${esc(n.goLabel)} ›</span></button>`).join('')}</div>`
+    : `<div class="empty"><div class="big" aria-hidden="true">✓</div><b>${esc(T.notifEmpty)}</b>${esc(T.notifEmptySub)}</div>`}
+    <div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.close)}</button></div></div>`;
+  $('#modal').classList.add('open');
+  try { window.localStorage.setItem(SEEN_KEY, JSON.stringify(list.map((n) => n.id))); } catch (e) { /* storage unavailable */ }
+  updateBell();
+}
+function goNotification(el) {
+  closeModal();
+  if (el.dataset.category || el.dataset.q) return drill(el);
+  return show(el.dataset.tab || 'dashboard');
 }
 
 // ---------------------------------------------------------------- shell
@@ -848,6 +940,7 @@ function onClick(e) {
   const a = el.dataset.action;
   const card = el.closest('[data-id]');
   if (!a || a === 'go') return show(el.dataset.tab);
+  if (a === 'notifgo') return goNotification(el);
   if (a === 'reload') return show(state.tab);
   if (a === 'reloadpage') { window.location.reload(); return null; }
   if (a === 'setmonth') { state.month = el.dataset.month; return show('dashboard'); }
@@ -887,6 +980,9 @@ function onClick(e) {
   if (a === 'dupsave') { state.addForce = true; return submitAdd(el.closest('form')); }
   if (a === 'close') return closeModal();
   if (a === 'sync') return syncNow(el);
+  if (a === 'theme') return toggleTheme();
+  if (a === 'notifications') return openNotifications();
+  if (a === 'notifgo') return goNotification(el);
   if (a === 'approve') return approve(card);
   if (a === 'ignore') return ignore(card);
   if (a === 'delete') {
@@ -978,6 +1074,7 @@ function onSubmit(e) {
     });
   }
   if (kind === 'config') {
+    applyTheme(d.theme);
     return saveForm(form, 'saveConfig', d, async () => { applyLanguage(d.language); await refresh(); if (state.tab === 'settings') viewSettings(); });
   }
   if (kind === 'monthend') {
@@ -1039,6 +1136,7 @@ function onSubmit(e) {
 }
 
 function onChange(e) {
+  if (e.target.name === 'theme' && e.target.closest('form[data-form=config]')) { applyTheme(e.target.value); return null; }
   const f = e.target.closest('[data-filter]');
   if (f) {
     state.filters[f.dataset.filter] = f.value;
@@ -1061,9 +1159,11 @@ function applyLanguage(configured) {
   document.documentElement.lang = lang;
   $$('[data-t]').forEach((el) => { el.textContent = T[el.dataset.t]; });
   updateNav();
+  applyTheme(readTheme());
 }
 
 export async function start() {
+  applyTheme(readTheme());
   document.addEventListener('click', onClick);
   document.addEventListener('submit', onSubmit);
   document.addEventListener('change', onChange);
