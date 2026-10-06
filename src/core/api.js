@@ -19,6 +19,11 @@ import {
   manualRows, balanceCorrection, renamedCategories, budgetUsage, filterTransactions, isoDate, newId,
 } from './app.js';
 import { compileRule } from './rules.js';
+import { recurringCharges } from './recurring.js';
+import { weeklySummary } from './summary.js';
+
+const cents = (n) => Math.round(Number(n) * 100);
+export const SPLIT_REF = 'split:';
 
 const PUBLIC_FIELDS = ['date', 'time', 'stream', 'direction', 'amount', 'category', 'description', 'details', 'status'];
 
@@ -120,6 +125,48 @@ export function createApi(store, env) {
       return { ok: true, ignoredInstead: !!row.gmail_id };
     },
 
+    /**
+     * Splits one transaction into parts with their own category (e.g. a shop order with books and
+     * hobby items). The first part stays on the original row (an email row keeps its gmail_id, so
+     * the sync never adds it again); the others become rows linked by ref_no "split:<id>".
+     * Splitting again replaces the earlier parts.
+     */
+    split({ id, parts }) {
+      const row = findRow(id);
+      if (String(row.ref_no || '').startsWith(SPLIT_REF)) throw new Error('this is already a part of a split; open the original transaction');
+      const old = rows().filter((r) => r.ref_no === `${SPLIT_REF}${id}`);
+      const total = cents(row.amount) + old.reduce((s, r) => s + cents(r.amount), 0);
+      if (!Array.isArray(parts) || parts.length < 2) throw new Error('a split needs at least 2 parts');
+      if (parts.some((p) => !(cents(p.amount) > 0))) throw new Error('every part needs an amount above 0');
+      if (parts.reduce((s, p) => s + cents(p.amount), 0) !== total) throw new Error(`the parts must add up to ${total / 100}`);
+      const known = allCategories();
+      for (const p of parts) if (!known.has(p.category)) throw new Error(`unknown category ${p.category}`);
+      old.forEach((r) => store.remove(TABS.transactions, r.id));
+      const [first, ...rest] = parts;
+      store.update(TABS.transactions, [{ id, changes: touch({
+        amount: cents(first.amount) / 100, category: first.category, description: String(first.description || row.description), status: 'approved',
+      }) }]);
+      const added = rest.map((p, i) => ({
+        ...Object.fromEntries(Object.keys(row).map((k) => [k, ''])),
+        id: `${id}_s${i + 1}`, date: row.date, time: row.time, owner: row.owner, stream: row.stream, direction: row.direction,
+        amount: cents(p.amount) / 100, category: p.category, description: String(p.description || row.description), details: row.details,
+        source: 'split', ref_no: `${SPLIT_REF}${id}`, status: 'approved', updated_by: owner() || 'app', updated_at: nowIso(),
+      }));
+      store.append(TABS.transactions, added);
+      return { ok: true, ids: added.map((r) => r.id) };
+    },
+
+    /** Puts a split transaction back together. */
+    unsplit({ id }) {
+      const row = findRow(id);
+      const parts = rows().filter((r) => r.ref_no === `${SPLIT_REF}${id}`);
+      if (!parts.length) return { ok: true };
+      const total = cents(row.amount) + parts.reduce((s, r) => s + cents(r.amount), 0);
+      parts.forEach((r) => store.remove(TABS.transactions, r.id));
+      store.update(TABS.transactions, [{ id, changes: touch({ amount: total / 100 }) }]);
+      return { ok: true };
+    },
+
     add(input) {
       if (input.kind !== 'transfer' && input.kind !== 'adjust' && !allCategories().has(input.category)) throw new Error('choose a category');
       const valid = new Set(accounts().map((a) => a.stream));
@@ -145,7 +192,19 @@ export function createApi(store, env) {
         perDay: budgetPerDay(balances, today, Number(store.config('payday_day')) || 28),
         budgets: budgetUsage(summary, store.read(TABS.budgets)),
         pendingCount: all.filter((r) => r.status === 'pending').length,
+        recurring: recurringCharges(all, { today, skipCategories: fixedNames() }),
       };
+    },
+
+    /** Data for the weekly summary email (gas/weekly.js turns it into the email). */
+    weekly() {
+      const all = rows();
+      return weeklySummary({ rows: all, cats: cats(), budgets: store.read(TABS.budgets), recurring: recurringCharges(all, { today: now(), skipCategories: fixedNames() }), today: now() });
+    },
+
+    sendSummary() {
+      if (!env.sendSummary) throw new Error('sending email is not available here');
+      return env.sendSummary();
     },
 
     settings() {
@@ -154,6 +213,7 @@ export function createApi(store, env) {
         config: {
           payday_day: store.config('payday_day'), language: store.config('language'), owner_name: store.config('owner_name'),
           owner_bank_names: store.config('owner_bank_names'), start_date: store.config('start_date'),
+          weekly_email: String(store.config('weekly_email') || 'on').toLowerCase() === 'off' ? 'off' : 'on',
         },
         connections: store.read(TABS.connections), selftest: store.config('last_selftest'),
       };
@@ -222,6 +282,7 @@ export function createApi(store, env) {
         store.setConfig('language', values.language);
       }
       if ('owner_bank_names' in values) store.setConfig('owner_bank_names', String(values.owner_bank_names || ''));
+      if ('weekly_email' in values) store.setConfig('weekly_email', values.weekly_email === 'off' ? 'off' : 'on');
       return { ok: true };
     },
 
@@ -273,5 +334,5 @@ export function renameCategoryEverywhere(store, renamed) {
 
 export const API_METHODS = [
   'init', 'bootstrap', 'review', 'approve', 'ignore', 'restore', 'list', 'update', 'remove', 'add', 'dashboard', 'settings',
-  'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow',
+  'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary',
 ];

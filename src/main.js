@@ -9,6 +9,7 @@ import { recordStartup } from './gas/perf.js';
 import { cachedInit, storeInit } from './gas/initcache.js';
 import { sheetStore } from './gas/sheetstore.js';
 import { createApi, API_METHODS } from './core/api.js';
+import { sendWeeklySummary, clearSelfTestTrigger } from './gas/weekly.js';
 
 const MENU = 'Cashflow Tracker';
 
@@ -20,6 +21,7 @@ export function onOpen() {
     .addSeparator()
     .addItem('Siapkan spreadsheet / Set up', 'menuSetup')
     .addItem('Uji otomatis / Self-test', 'menuSelfTest')
+    .addItem('Kirim ringkasan mingguan / Send weekly summary', 'menuWeeklySummary')
     .addToUi();
 }
 
@@ -87,6 +89,7 @@ export function api(name, payloadJson) {
       now: () => new Date(),
       sync: () => runSync({ seed: SEED, defaultMode: SYNC_DEFAULT }),
       sheetUrl: ss.getUrl(),
+      sendSummary: () => sendWeeklySummary(ss, { force: true }),
     });
     const lock = READ_ONLY.has(name) || name === 'syncNow' ? null : LockService.getScriptLock();
     if (lock && !lock.tryLock(20000)) {
@@ -114,6 +117,23 @@ export function api(name, payloadJson) {
 /** Time-driven trigger (every 10 minutes). */
 export function syncTrigger() {
   return runSync({ seed: SEED, defaultMode: SYNC_DEFAULT });
+}
+
+/** Time-driven trigger (Mondays 07:00): the weekly summary email. */
+export function weeklySummaryTrigger() {
+  return sendWeeklySummary(appSpreadsheet());
+}
+
+/** One-off time trigger after an upgrade: runs the self-test by itself, then removes itself. */
+export function selfTestTrigger() {
+  clearSelfTestTrigger();
+  return runSelfTest(appSpreadsheet(), SEED);
+}
+
+export function menuWeeklySummary() {
+  const ui = SpreadsheetApp.getUi();
+  const r = sendWeeklySummary(appSpreadsheet(), { force: true });
+  ui.alert('Ringkasan mingguan / Weekly summary', `Terkirim ke / Sent to ${r.to}`, ui.ButtonSet.OK);
 }
 
 /** Same as the menu items, callable from the Apps Script editor's Run button. */

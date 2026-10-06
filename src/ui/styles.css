@@ -321,3 +321,23 @@ button.rowi:hover { background: var(--zebra); }
 .kpi .v { word-break: normal; }
 .notice { flex-wrap: wrap; }
 @media (max-width: 520px) { .notice .go { margin-left: 28px; } }
+
+/* ---------- round 3: split, horizontal bars, rules */
+.split-box { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line-soft); }
+.split-box h3 { margin: 0 0 4px; font-size: 19px; font-weight: 600; }
+.split-box p { margin: 0 0 8px; }
+.split-row { display: grid; gap: 0 12px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.split-row .field { margin-top: 8px; }
+@media (min-width: 640px) { .split-row { grid-template-columns: 140px 1fr 1fr; } .split-row .field { margin-top: 0; } }
+.split-left { font-size: 16px; font-weight: 600; margin: 12px 0 0; }
+.split-left.ok { color: var(--success); } .split-left.bad { color: var(--critical); }
+.hbar-row { display: grid !important; grid-template-columns: 130px 1fr auto; align-items: center; gap: 12px; }
+.hbar-row.on { background: var(--accent-soft); }
+.hbar-label { font-size: 15px; color: var(--ink-2); }
+.hbar { display: block; height: 10px; background: var(--line-soft); border-radius: 99px; overflow: hidden; }
+.hbar i { display: block; height: 100%; border-radius: 99px; background: var(--ink-2); }
+.hbar i.in { background: var(--success); }
+@media (max-width: 520px) { .hbar-row { grid-template-columns: 82px 1fr auto; } }
+.trend-card { margin-top: 20px; }
+.rule .check { margin-top: 4px; }
+.rule .actions { margin-top: 4px; }

@@ -60,11 +60,14 @@ const answers = { init: api.init(), list: api.list({ limit: 1e6 }), settings: ap
 
 // ---- shots
 const built = readFileSync('dist/index.html', 'utf8');
-const sizes = { phone: [390, 1500], pc: [1440, 1000] };
+const sizes = { phone: [390, 1500], pc: [1440, Number((process.argv.find((a) => a.startsWith('--pc-height=')) || '=1000').split('=')[1])] };
 const shots = [
   ['review'], ['dashboard'], ['transactions'], ['add'], ['settings'],
   ['editor', "document.querySelector('.nav [data-tab=transactions]').click(); setTimeout(function(){ document.querySelector('.trow').click(); }, 300);"],
   ['invalid', "document.querySelector('.txcard [data-action=approve]').click();"],
+  ['split', "document.querySelector('.nav [data-tab=transactions]').click(); setTimeout(function(){ var r = [].slice.call(document.querySelectorAll('.trow')).filter(function(x){ return /TOKOPEDIA/.test(x.textContent); })[0]; r.click(); setTimeout(function(){ document.querySelector('[data-action=splitopen]').click(); var rows = document.querySelectorAll('.split-row'); rows[0].querySelector('[data-s=amount]').value = '150000'; rows[1].querySelector('[data-s=amount]').value = '50000'; rows[1].querySelector('[data-s=amount]').dispatchEvent(new Event('input', { bubbles: true })); }, 200); }, 300);"],
+  ['trend', "document.querySelector('.nav [data-tab=dashboard]').click(); setTimeout(function(){ document.querySelector('[data-action=drill][data-category]').click(); }, 300);"],
+  ['rules', "document.querySelector('.nav [data-tab=settings]').click();"],
 ];
 const only = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7).split(',').filter(Boolean);
 const lang = (process.argv.find((a) => a.startsWith('--lang=')) || '--lang=id').slice(7);

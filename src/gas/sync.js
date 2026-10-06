@@ -9,6 +9,7 @@ import { listMessageIds, getEmail, myAddress } from './gmail.js';
 import { configValue, runSetup } from './setup.js';
 import { flushStartupTimings } from './perf.js';
 import { refreshInit } from './initcache.js';
+import { installWeeklyTrigger, scheduleSelfTest } from './weekly.js';
 
 const OVERLAP_MS = 2 * 24 * 3600 * 1000;
 const TIME_BUDGET_MS = 4.5 * 60 * 1000; // Apps Script stops a run at 6 minutes
@@ -93,7 +94,11 @@ function syncOnce(opts) {
   const started = Date.now();
   {
     const ss = appSpreadsheet();
-    if ((Number(configValue(ss, 'setup_version')) || 0) < SETUP_VERSION) runSetup(ss, opts.seed);
+    if ((Number(configValue(ss, 'setup_version')) || 0) < SETUP_VERSION) {
+      runSetup(ss, opts.seed);
+      // After an upgrade: make sure the Monday email is scheduled, and check the reports again.
+      try { installWeeklyTrigger(); scheduleSelfTest(); } catch (e) { /* tried again at the next upgrade */ }
+    }
     const mode = modeOf(ss, opts.defaultMode || 'preview');
     const gmail = myAddress();
     const conn = readTable(ss, TABS.connections).find((r) => String(r.gmail).toLowerCase() === gmail.toLowerCase()) || {};

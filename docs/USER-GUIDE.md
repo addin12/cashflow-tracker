@@ -23,6 +23,17 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 
 > Nothing to do: every 10 minutes bank emails become rows, and known merchants go straight to the reports. **Review** (red number = how many wait): pick a category → **Save**. The card goes at once and the save runs in the background ("Saving…" top right); tap **Undo** if you slipped. Keep "Always use this category for …" ticked. **Add** is for cash and remembers your last account and date. Wrong category? **Transactions** → tap the row → edit. In **Summary**, tap income, expenses, a category or an account to see its transactions.
 
+## Fitur lain / More features
+
+- **Detail belanja:** pembayaran ke APPLE.COM/BILL, Tokopedia, Shopee, Xendit dan toko luar negeri otomatis diberi nama toko dan barangnya (dari email struk mereka). Kalau kategorinya belum pasti, transaksinya muncul lagi di **Cek**.
+- **Bagi transaksi:** satu pembayaran berisi beberapa hal (mis. buku + barang hobi)? **Transaksi** → ketuk barisnya → **Bagi transaksi ini** → isi jumlah dan kategori tiap bagian. Totalnya harus pas; app memberi tahu sisanya. **Gabungkan lagi** untuk membatalkan.
+- **Langganan & tagihan rutin** (di **Ringkasan**): tagihan berikutnya dan perkiraan totalnya per bulan.
+- **Tren kategori:** di **Transaksi**, pilih satu kategori → tren 6 bulannya muncul di atas daftar.
+- **Aturan otomatis** (di **Pengaturan**): ubah kata dan kategori, tambah aturan baru; app menunjukkan transaksi mana yang cocok.
+- **Ringkasan mingguan:** email setiap Senin 07.00. Matikan atau kirim sekarang di **Pengaturan → Ringkasan mingguan**.
+
+> Shop receipts name the APPLE.COM/BILL, Tokopedia, Shopee, Xendit and foreign shop charges with the shop and items. **Split** a payment into parts with their own category (Transactions → tap the row → Split this transaction). **Subscriptions & regular bills** in Summary. Pick a category in Transactions to see its 6-month trend. Edit **automatic rules** in Settings with a live preview. A **weekly summary** email arrives every Monday at 07:00 (Settings → Weekly summary).
+
 ## Akhir bulan / Month end (±5 menit)
 
 1. **Pengaturan → Cek saldo akhir bulan**: isi saldo asli tiap rekening. Selisihnya otomatis dicatat sebagai *Penyesuaian*.

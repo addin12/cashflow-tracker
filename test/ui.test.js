@@ -170,6 +170,44 @@ describe('web app', () => {
     await until(() => store.t[TABS.transactions].find((r) => r.id === 't3').amount === 320000, 'update saved');
   });
 
+  it('splits a transaction into two categories, then joins it back', async () => {
+    await until(() => calls.filter((c) => c === 'update').length && !doc.querySelector('#stale.show:not(.done)'), 'queue empty');
+    click(doc.querySelector('.trow[data-id="t3"]'));
+    click(doc.querySelector('[data-action=splitopen]'));
+    const rows = doc.querySelectorAll('.split-row');
+    expect(rows).toHaveLength(2);
+    rows[0].querySelector('[data-s=amount]').value = '200000';
+    rows[1].querySelector('[data-s=amount]').value = '100000';
+    rows[1].querySelector('[data-s=category]').value = 'fnb';
+    rows[1].querySelector('[data-s=amount]').dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    expect(doc.querySelector('#splitLeft').textContent).toBe('Masih Rp20.000 belum dibagi'); // 320.000 - 300.000, said in words
+    const form = doc.querySelector('form[data-form=split]');
+    form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+    expect(store.t[TABS.transactions].some((r) => r.id === 't3_s1')).toBe(false); // nothing sent while it doesn't add up
+    rows[1].querySelector('[data-s=amount]').value = '120000';
+    form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+    expect(doc.querySelector('#modal').classList.contains('open')).toBe(false);
+    await until(() => store.t[TABS.transactions].some((r) => r.id === 't3_s1'), 'split saved');
+    expect(store.t[TABS.transactions].find((r) => r.id === 't3')).toMatchObject({ amount: 200000, category: 'Belanja Online' });
+    expect(store.t[TABS.transactions].find((r) => r.id === 't3_s1')).toMatchObject({ amount: 120000, category: 'fnb', ref_no: 'split:t3' });
+    await until(() => view().includes('Rp120.000'), 'part on screen');
+
+    click(doc.querySelector('.trow[data-id="t3"]'));
+    expect(doc.querySelector('#splitBox').textContent).toContain('Dibagi menjadi 2 bagian');
+    click(doc.querySelector('[data-action=unsplit]'));
+    await until(() => !store.t[TABS.transactions].some((r) => r.id === 't3_s1'), 'joined back');
+    expect(store.t[TABS.transactions].find((r) => r.id === 't3').amount).toBe(320000);
+  });
+
+  it('a category filter shows that category\'s monthly trend', async () => {
+    const sel = doc.querySelector('[data-filter=category]');
+    sel.value = 'Belanja Online';
+    sel.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    await until(() => view().includes('Tren 6 bulan: Belanja Online'), 'trend');
+    expect(doc.querySelectorAll('.hbar-row')).toHaveLength(2); // Sep and Oct (starts 1 Sep)
+    expect(doc.querySelector('.trend-card').textContent).toContain('Rp320.000');
+  });
+
   it('adds a cash expense', async () => {
     await tab('add', 'Simpan transaksi');
     const form = doc.querySelector('form[data-form=add]');
@@ -190,6 +228,31 @@ describe('web app', () => {
     form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
     await until(() => store.t[TABS.transactions].some((r) => r.category === 'Penyesuaian'), 'adjustment');
     expect(store.t[TABS.transactions].find((r) => r.category === 'Penyesuaian')).toMatchObject({ stream: 'Cash', direction: 'out', amount: 15000 });
+  });
+
+  it('rules can be edited and show which transactions they match', async () => {
+    await until(() => doc.querySelector('.rule .rule-preview') && /Cocok dengan/.test(doc.querySelector('.rule .rule-preview').textContent), 'rule preview');
+    expect(doc.querySelector('.rule .rule-preview').textContent).toContain('Tokopedia');
+    click(doc.querySelector('[data-action=addrule]'));
+    const rules = doc.querySelectorAll('.rule');
+    const added = rules[rules.length - 1];
+    const pattern = added.querySelector('[data-r=pattern]');
+    pattern.value = 'kopi';
+    pattern.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    expect(added.querySelector('.rule-preview').textContent).toBe('Cocok dengan 1 transaksi, misalnya: kopi');
+    added.querySelector('[data-r=category]').value = 'fnb';
+    added.closest('form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+    await until(() => store.t[TABS.rules].some((r) => r.pattern === 'kopi'), 'rule saved');
+    expect(store.t[TABS.rules].find((r) => r.pattern === 'kopi')).toMatchObject({ category: 'fnb', auto_approve: true });
+    expect(store.t[TABS.rules].find((r) => r.id === 'r1')).toMatchObject({ pattern: 'TOKOPEDIA', hits: 3 }); // the others keep their counts
+  });
+
+  it('the weekly summary can be switched off', async () => {
+    const form = doc.querySelector('form[data-form=weekly]');
+    expect(form.querySelector('[name=weekly_email]').checked).toBe(true);
+    form.querySelector('[name=weekly_email]').checked = false;
+    form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+    await until(() => store.cfg.weekly_email === 'off', 'weekly off');
   });
 
   it('switching the language to English relabels the app', async () => {

@@ -8,6 +8,7 @@
 import { STRINGS, pickLanguage } from './i18n.js';
 import { filterTransactions, ruleFromApproval, pendingMatching, renamedCategories } from '../core/app.js';
 import { buildCategorySlots } from '../core/categories.js';
+import { compileRule } from '../core/rules.js';
 
 const state = {
   boot: null, tab: 'review', month: '', review: null, dashByMonth: {}, all: null, allStale: true,
@@ -393,9 +394,21 @@ async function viewDashboard() {
       <section class="card"><h2>${esc(T.expenseByCategory)}</h2><p class="lead">${esc(d.budgets.length ? T.expenseByCategoryHint : T.noBudgets)}</p><div class="rows">${expenseRows || `<p class="hint">${esc(T.nothingYet)}</p>`}</div></section>
       <div class="stack">
         <section class="card"><h2>${esc(T.incomeByCategory)}</h2><div class="rows">${incomeRows || `<p class="hint">${esc(T.nothingYet)}</p>`}</div></section>
+        ${recurringCard(d.recurring)}
         <section class="card"><h2>${esc(T.accounts)}</h2><p class="lead">${esc(T.accountsHint)}</p><div class="rows">${group('Spending', T.spendingGroup)}${group('Saving', T.savingGroup)}</div></section>
       </div>
     </div>`);
+}
+
+function recurringCard(r) {
+  if (!r || !r.items || !r.items.length) return '';
+  const when = (i) => (i.daysLeft < 0 ? T.recurringLate(dateLabel(i.nextDate, { weekday: false }), -i.daysLeft)
+    : i.daysLeft === 0 ? T.recurringToday : T.recurringNext(dateLabel(i.nextDate, { weekday: false }), i.daysLeft));
+  const rows = r.items.map((i) => `
+    <button class="rowi" data-action="drill" data-q="${esc(i.name)}"><span class="what"><b>${esc(i.name)}</b>
+      <span class="meta">${esc(when(i))}${i.stream ? ` · ${esc(i.stream)}` : ''}${i.basis === 'category' ? ` · <span class="badge neutral">${esc(T.recurringGuess)}</span>` : ''}${i.daysLeft < 0 ? ` <span class="badge warn">${esc(T.recurringLateBadge)}</span>` : ''}</span></span>
+      <span class="amt">${rp(i.amount)}</span></button>`).join('');
+  return `<section class="card"><h2>${esc(T.recurringTitle)}</h2><p class="lead">${esc(T.recurringHint(rp(r.monthlyTotal)))}</p><div class="rows">${rows}</div></section>`;
 }
 
 // ---------------------------------------------------------------- Transactions
@@ -461,7 +474,7 @@ function showResults() {
       <span class="c-acct">${esc(x.stream || '—')}</span>
       <span class="c-amt amt ${esc(x.direction)}">${signed(x)}</span>
     </button>`).join('');
-  box.innerHTML = `
+  box.innerHTML = `${f.category ? categoryTrend(f.category) : ''}
     <div class="summary-bar"><span><b>${esc(T.countTransactions(all.total))}</b></span>
       <span>${esc(T.kindIn)} <b class="amt in">+${rp(sum('in'))}</b> · ${esc(T.kindOut)} <b class="amt">${rp(sum('out'))}</b></span></div>
     ${rows.length ? `<div class="table" role="table"><div class="thead" role="row"><span>${esc(T.date)}</span><span>${esc(T.description)}</span><span>${esc(T.category)}</span><span>${esc(T.account)}</span><span class="r">${esc(T.amount)}</span></div>${items}</div>`
@@ -469,8 +482,25 @@ function showResults() {
     ${all.total > rows.length ? `<div class="more"><span>${esc(T.showing(rows.length, all.total))}</span><button class="btn secondary" data-action="more">${esc(T.showMore)}</button></div>` : ''}`;
 }
 
+/** Six months of one category, as labelled bars (tap a month to filter on it). */
+function categoryTrend(category) {
+  const c = state.boot.categories;
+  const dir = c.income.includes(category) ? 'in' : 'out';
+  const now = state.boot.today.slice(0, 7);
+  const start = String(state.boot.start || '').slice(0, 7);
+  const months = [-5, -4, -3, -2, -1, 0].map((k) => monthAdd(now, k)).filter((m) => !start || m >= start);
+  const total = (m) => state.all.filter((r) => r.status === 'approved' && r.category === category && r.direction === dir && String(r.date).startsWith(m))
+    .reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const data = months.map((m) => ({ m, v: total(m) }));
+  const top = Math.max(1, ...data.map((d) => d.v));
+  const avg = data.reduce((s, d) => s + d.v, 0) / Math.max(1, data.length);
+  return `<section class="card trend-card"><h2>${esc(T.categoryTrend(category))}</h2><p class="lead">${esc(T.categoryTrendHint(rp(avg)))}</p>
+    <div class="rows">${data.map((d) => `<button class="rowi hbar-row ${state.filters.month === d.m ? 'on' : ''}" data-action="trendmonth" data-month="${d.m}">
+      <span class="hbar-label">${esc(monthLabel(d.m))}</span><span class="hbar"><i class="${dir}" style="width:${Math.round((d.v / top) * 100)}%"></i></span><span class="amt ${dir}">${rp(d.v)}</span></button>`).join('')}</div></section>`;
+}
+
 function drill(el) {
-  state.filters = { q: '', month: el.dataset.stream ? '' : state.month, stream: el.dataset.stream || '', category: el.dataset.category || '', status: '', direction: el.dataset.direction || '' };
+  state.filters = { q: el.dataset.q || '', month: el.dataset.stream || el.dataset.q ? '' : state.month, stream: el.dataset.stream || '', category: el.dataset.category || '', status: '', direction: el.dataset.direction || '' };
   state.limit = 50;
   return show('transactions');
 }
@@ -480,8 +510,9 @@ function openEditor(id) {
   const x = state.rowsById.get(String(id));
   if (!x) return;
   const statuses = ['approved', 'pending', 'ignored'].map((s) => `<option value="${s}" ${x.status === s ? 'selected' : ''}>${esc(T[`status${s[0].toUpperCase()}${s.slice(1)}`])}</option>`).join('');
-  $('#modal').innerHTML = `
-    <form class="sheet" data-form="edit" data-id="${esc(x.id)}" novalidate>
+  const parentId = String(x.ref_no || '').startsWith('split:') ? String(x.ref_no).slice(6) : '';
+  $('#modal').innerHTML = `<div class="sheet">
+    <form data-form="edit" data-id="${esc(x.id)}" novalidate>
       <h2>${esc(T.editTitle)}</h2>
       <p class="lead">${esc(x.gmail_id ? T.fromEmail : T.enteredByHand)}${x.gmail_id ? ` · <a class="link" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/#all/${esc(x.gmail_id)}">${esc(T.openGmail)} ↗</a>` : ''}</p>
       ${field(T.description, `<input name="description" value="${esc(x.description)}">`)}
@@ -495,14 +526,100 @@ function openEditor(id) {
       </div>
       ${field(T.notes, `<input name="details" value="${esc(x.details)}">`, { help: T.optional })}
       <div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.cancel)}</button><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div>
-      <div class="danger-zone"><button class="btn danger" type="button" data-action="delete" data-id="${esc(x.id)}">${esc(T.deleteTransaction)}</button>
-        ${x.gmail_id ? `<p class="hint">${esc(T.deleteEmailHint)}</p>` : ''}</div>
-    </form>`;
+    </form>
+    ${parentId ? `<div class="split-box"><p>${esc(T.isSplitPart)}</p><button class="btn secondary" type="button" data-action="edit" data-id="${esc(parentId)}">${esc(T.openSplitParent)}</button></div>`
+    : `<div class="split-box" id="splitBox">${splitSummary(x)}</div>`}
+    <div class="danger-zone"><button class="btn danger" type="button" data-action="delete" data-id="${esc(x.id)}">${esc(T.deleteTransaction)}</button>
+      ${x.gmail_id ? `<p class="hint">${esc(T.deleteEmailHint)}</p>` : ''}</div>
+  </div>`;
   $('#modal').classList.add('open');
   const first = $('#modal input[name=description]');
   if (first && window.matchMedia && window.matchMedia('(min-width: 900px)').matches) first.focus();
 }
 const closeModal = () => { $('#modal').classList.remove('open'); $('#modal').innerHTML = ''; };
+
+// ---------------------------------------------------------------- Split
+const splitParts = (id) => (state.all || []).filter((r) => r.ref_no === `split:${id}`);
+const cents = (n) => Math.round((Number(n) || 0) * 100);
+function splitSummary(x) {
+  const parts = splitParts(x.id);
+  if (!parts.length) return `<h3>${esc(T.splitTitle)}</h3><p class="hint">${esc(T.splitHint)}</p><div class="actions" style="justify-content:flex-start"><button class="btn secondary" type="button" data-action="splitopen" data-id="${esc(x.id)}">${esc(T.splitOpen)}</button></div>`;
+  const all = [x, ...parts];
+  return `<h3>${esc(T.splitDone(all.length))}</h3><div class="rows">${all.map((p) => `<div class="rowi"><span class="what">${tag(p.category)} <span class="meta">${esc(p.description)}</span></span><span class="amt">${rp(p.amount)}</span></div>`).join('')}</div>
+    <div class="actions" style="justify-content:flex-start"><button class="btn secondary" type="button" data-action="splitopen" data-id="${esc(x.id)}">${esc(T.splitChange)}</button><button class="btn plain" type="button" data-action="unsplit" data-id="${esc(x.id)}">${esc(T.splitUndo)}</button></div>`;
+}
+function splitRow(p, i) {
+  return `<div class="split-row" data-i="${i}">
+    ${field(T.amountRp, `<input data-s="amount" type="number" inputmode="decimal" step="any" min="0" value="${esc(p.amount || '')}">`)}
+    ${field(T.category, `<select data-s="category">${categoryOptions(p.category, p.direction)}</select>`)}
+    ${field(T.splitName, `<input data-s="description" value="${esc(p.description || '')}">`, { help: T.optional })}
+  </div>`;
+}
+function openSplit(id) {
+  const x = state.rowsById.get(String(id));
+  if (!x) return;
+  const existing = splitParts(id);
+  const parts = existing.length ? [x, ...existing] : [{ ...x }, { amount: '', category: '', description: '', direction: x.direction }];
+  state.splitTotal = cents(x.amount) + existing.reduce((s, r) => s + cents(r.amount), 0);
+  $('#splitBox').innerHTML = `<form data-form="split" data-id="${esc(id)}" novalidate>
+    <h3>${esc(T.splitTitle)}</h3><p class="hint">${esc(T.splitTotal(rp(state.splitTotal / 100)))}</p>
+    <div id="splitRows">${parts.map((p, i) => splitRow({ ...p, direction: x.direction }, i)).join('')}</div>
+    <div class="actions" style="justify-content:flex-start"><button class="btn plain" type="button" data-action="splitadd">＋ ${esc(T.splitAdd)}</button></div>
+    <p class="split-left" id="splitLeft" role="status"></p>
+    <div class="actions"><span class="state" role="status"></span><button class="btn secondary" type="button" data-action="splitcancel" data-id="${esc(id)}">${esc(T.cancel)}</button><button class="btn primary" type="submit">${esc(T.splitSave)}</button></div>
+  </form>`;
+  updateSplitLeft();
+}
+function readSplit(form) {
+  return $$('.split-row', form).map((r) => ({ amount: Number($('[data-s=amount]', r).value) || 0, category: $('[data-s=category]', r).value, description: $('[data-s=description]', r).value.trim() }));
+}
+function updateSplitLeft() {
+  const form = $('form[data-form=split]');
+  if (!form) return 0;
+  const left = state.splitTotal - readSplit(form).reduce((s, p) => s + cents(p.amount), 0);
+  const el = $('#splitLeft');
+  el.className = `split-left ${left === 0 ? 'ok' : 'bad'}`;
+  el.textContent = left === 0 ? `✓ ${T.splitBalanced}` : left > 0 ? T.splitLeft(rp(left / 100)) : T.splitOver(rp(-left / 100));
+  return left;
+}
+function submitSplit(form) {
+  const id = form.dataset.id;
+  const parts = readSplit(form);
+  let ok = true;
+  $$('.split-row', form).forEach((r, i) => {
+    ok = fieldMessage($('[data-s=amount]', r), parts[i].amount > 0 ? '' : T.errAmount) && ok;
+    ok = fieldMessage($('[data-s=category]', r), parts[i].category ? '' : T.errNoCategory) && ok;
+  });
+  if (!ok) return null;
+  if (updateSplitLeft() !== 0) return null;
+  const x = state.rowsById.get(String(id));
+  const old = splitParts(id).map((r) => String(r.id));
+  // On screen at once: the first part stays on this row, the others are new rows.
+  const desc = (p) => p.description || x.description;
+  patchRow(id, { amount: parts[0].amount, category: parts[0].category, description: desc(parts[0]), status: 'approved' });
+  if (state.all) state.all = state.all.filter((r) => !old.includes(String(r.id)));
+  parts.slice(1).forEach((p, i) => {
+    const row = { ...x, id: `${id}_s${i + 1}`, amount: p.amount, category: p.category, description: desc(p), source: 'split', ref_no: `split:${id}`, gmail_id: '', status: 'approved' };
+    state.rowsById.set(row.id, row);
+    if (state.all) state.all.push(row);
+  });
+  closeModal();
+  repaint();
+  toast(T.splitSaved(parts.length));
+  return save('split', { id, parts }).then(() => { state.allStale = true; scheduleRefresh(0); })
+    .catch((e) => { toast(`${T.notSaved}: ${e.message}`, { kind: 'bad' }); state.allStale = true; scheduleRefresh(0); });
+}
+function unsplit(id) {
+  const x = state.rowsById.get(String(id));
+  const parts = splitParts(id);
+  const total = cents(x.amount) + parts.reduce((s, r) => s + cents(r.amount), 0);
+  patchRow(id, { amount: total / 100 });
+  if (state.all) state.all = state.all.filter((r) => r.ref_no !== `split:${id}`);
+  closeModal();
+  repaint();
+  toast(T.splitUndone);
+  return save('unsplit', { id }).then(() => scheduleRefresh(0)).catch((e) => { toast(`${T.notSaved}: ${e.message}`, { kind: 'bad' }); scheduleRefresh(0); });
+}
 
 // ---------------------------------------------------------------- Add
 function viewAdd() {
@@ -568,12 +685,18 @@ async function viewSettings(local) {
         ${field(T.openingBalance, `<input data-a="opening_balance" type="number" inputmode="decimal" step="any" value="${esc(a.opening_balance)}">`)}
         ${field(T.hints, `<input data-a="match_hint" value="${esc(a.match_hint)}">`, { help: T.hintsHelp, wide: true })}
       </div></fieldset>`).join('');
+  // Rule previews need every transaction: fetched if missing or out of date, then the previews redrawn.
+  if (!state.all || state.allStale) call('list', { limit: 1000000 }).then((r) => { setAll(r.rows); $$('.rule').forEach(previewRule); }).catch(() => {});
   const rules = s.rules.map((r, i) => `
-    <div class="rule-row rule" data-i="${i}">
-      <div><code>${esc(r.pattern)}</code> → ${tag(r.category)}<div class="meta">${esc(T.hits(Number(r.hits) || 0))}</div></div>
-      <button class="btn danger small" type="button" data-action="delrule" data-i="${i}">${esc(T.delete)}</button>
+    <fieldset class="acct-row rule" data-i="${i}"><legend>${tag(r.category)}</legend>
+      <div class="fields2">
+        ${field(T.rulePattern, `<input data-r="pattern" value="${esc(r.pattern)}" autocomplete="off" spellcheck="false">`, { help: T.rulePatternHelp })}
+        ${field(T.category, `<select data-r="category">${categoryOptions(r.category, 'out')}</select>`)}
+      </div>
       <label class="check"><input type="checkbox" data-r="auto_approve" ${r.auto_approve === true || r.auto_approve === 'TRUE' ? 'checked' : ''}> ${esc(T.autoApprove)}</label>
-    </div>`).join('');
+      <p class="hint rule-preview" role="status">${esc(T.hits(Number(r.hits) || 0))}</p>
+      <div class="actions"><button class="btn danger small" type="button" data-action="delrule" data-i="${i}">${esc(T.deleteRule)}</button></div>
+    </fieldset>`).join('');
   const budgets = s.categories.expense.map((c) => {
     const b = s.budgets.find((x) => x.category === c);
     return field(c, `<input data-b="${esc(c)}" type="number" inputmode="decimal" step="any" min="0" value="${esc(b ? b.monthly_budget : '')}" placeholder="0">`);
@@ -610,11 +733,16 @@ async function viewSettings(local) {
           ${field(T.expenseCats, `<textarea name="expense" rows="14">${esc(s.categories.expense.join('\n'))}</textarea>`, { help: T.onePerLine })}
         </div>${saveRow(T.saveCategories)}</form>
       <form class="card" data-form="budgets" novalidate><h2>${esc(T.budgetsTitle)}</h2><p class="lead">${esc(T.budgetsHint)}</p><div class="budget-grid">${budgets}</div>${saveRow(T.saveBudgets)}</form>
-      <form class="card" data-form="rules" novalidate><h2>${esc(T.rulesTitle)}</h2><p class="lead">${esc(T.rulesHint)}</p><div class="rows">${rules || `<p class="hint">${esc(T.noRules)}</p>`}</div>${saveRow(T.saveRules)}</form>
+      <form class="card" data-form="rules" novalidate><h2>${esc(T.rulesTitle)}</h2><p class="lead">${esc(T.rulesHint)}</p>${rules || `<p class="hint">${esc(T.noRules)}</p>`}
+        <div class="actions"><button class="btn secondary left" type="button" data-action="addrule">＋ ${esc(T.addRule)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveRules)}</button></div></form>
+      <form class="card" data-form="weekly" novalidate><h2>${esc(T.weeklyTitle)}</h2><p class="lead">${esc(T.weeklyHint)}</p>
+        <label class="check"><input type="checkbox" name="weekly_email" ${cfg.weekly_email !== 'off' ? 'checked' : ''}> ${esc(T.weeklyOn)}</label>
+        <div class="actions"><button class="btn secondary left" type="button" data-action="sendsummary">${esc(T.weeklySendNow)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div></form>
       <section class="card"><h2>${esc(T.more)}</h2>
         <div class="rows"><div class="rowi"><span class="what"><b>${esc(T.selftest)}</b><span class="meta">${esc(s.selftest || '—')}</span></span></div></div>
         <div class="actions"><a class="btn secondary" target="_blank" rel="noopener" href="${esc(state.boot.sheetUrl || '#')}">${esc(T.openSheet)} ↗</a></div></section>
     </div></div>`);
+  $$('.rule').forEach(previewRule);
 }
 
 /** Settings forms: the button shows the save, and the result appears next to it. */
@@ -699,6 +827,7 @@ function onClick(e) {
   if (a === 'drill') return drill(el);
   if (a === 'kind') { state.addKind = el.dataset.kind; return viewAdd(); }
   if (a === 'more') { state.limit += 50; return showResults(); }
+  if (a === 'trendmonth') { state.filters.month = state.filters.month === el.dataset.month ? '' : el.dataset.month; state.limit = 50; return viewTransactions(); }
   if (a === 'togglefilters') {
     state.filtersOpen = !state.filtersOpen;
     el.closest('.filters').classList.toggle('open', state.filtersOpen);
@@ -708,6 +837,25 @@ function onClick(e) {
   if (a === 'unfilter') { state.filters[el.dataset.key] = ''; state.limit = 50; return viewTransactions(); }
   if (a === 'resetfilters') { state.filters = { q: '', month: '', stream: '', category: '', status: '', direction: '' }; state.limit = 50; return viewTransactions(); }
   if (a === 'edit') return openEditor(el.dataset.id);
+  if (a === 'splitopen') return openSplit(el.dataset.id);
+  if (a === 'splitcancel') { $('#splitBox').innerHTML = splitSummary(state.rowsById.get(String(el.dataset.id))); return null; }
+  if (a === 'splitadd') {
+    const box = $('#splitRows');
+    const x = state.rowsById.get(String(el.closest('form').dataset.id));
+    box.insertAdjacentHTML('beforeend', splitRow({ direction: x.direction }, box.children.length));
+    updateSplitLeft();
+    return null;
+  }
+  if (a === 'unsplit') { if (!window.confirm(T.splitUndoConfirm)) return null; return unsplit(el.dataset.id); }
+  if (a === 'addrule') {
+    state.settings.rules = readRules($('form[data-form=rules]'));
+    state.settings.rules.push({ id: '', field: 'description', pattern: '', category: '', auto_approve: true, hits: 0 });
+    viewSettings(state.settings);
+    const inputs = $$('.rule [data-r=pattern]');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+    return null;
+  }
+  if (a === 'sendsummary') return sendSummaryNow(el);
   if (a === 'close') return closeModal();
   if (a === 'sync') return syncNow(el);
   if (a === 'approve') return approve(card);
@@ -727,7 +875,7 @@ function onClick(e) {
     toast(row && row.gmail_id ? T.ignoredInstead : T.deleted);
     return save('remove', { id }).catch((err) => { toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }); scheduleRefresh(0); });
   }
-  if (a === 'delrule') { state.settings.rules.splice(Number(el.dataset.i), 1); return viewSettings(state.settings); }
+  if (a === 'delrule') { state.settings.rules = readRules(el.closest('form')); state.settings.rules.splice(Number(el.dataset.i), 1); return viewSettings(state.settings); }
   if (a === 'addacct') {
     const form = el.closest('form');
     state.settings.accounts = readAccounts(form);
@@ -740,6 +888,40 @@ function onClick(e) {
   return null;
 }
 
+/** Rules as edited on screen, keeping each one's id, hits and author. */
+function readRules(form) {
+  return $$('.rule', form).map((el, i) => ({
+    ...(state.settings.rules[i] || {}),
+    pattern: $('[data-r=pattern]', el).value.trim(), category: $('[data-r=category]', el).value, auto_approve: $('[data-r=auto_approve]', el).checked,
+  }));
+}
+
+/** Under each rule: how many transactions it matches, with a few examples. */
+function previewRule(el) {
+  const out = $('.rule-preview', el);
+  if (!out) return;
+  const pattern = $('[data-r=pattern]', el).value.trim();
+  const c = compileRule({ pattern, category: 'x' });
+  if (!pattern) { out.textContent = ''; return; }
+  if (!c.re) { out.textContent = T.errRuleInvalid; return; }
+  if (!state.all) { out.textContent = T.loading; return; }
+  const hits = state.all.filter((r) => c.re.test(String(r.description || '')));
+  const names = [...new Set(hits.map((r) => r.description))].slice(0, 3);
+  out.textContent = hits.length ? T.ruleMatches(hits.length, names.join(', ')) : T.ruleMatchesNone;
+}
+
+async function sendSummaryNow(btn) {
+  const st = btn.closest('form').querySelector('.state');
+  btn.disabled = true;
+  st.className = 'state'; st.textContent = T.weeklySending;
+  try {
+    const r = await call('sendSummary');
+    st.className = 'state ok'; st.textContent = `✓ ${T.weeklySent(r.to || '')}`;
+  } catch (e) {
+    st.className = 'state bad'; st.textContent = `${T.notSaved}: ${e.message}`;
+  } finally { btn.disabled = false; }
+}
+
 const readAccounts = (form) => $$('.acct', form).map((row) => Object.fromEntries($$('[data-a]', row).map((i) => [i.dataset.a, i.value])));
 
 function onSubmit(e) {
@@ -749,6 +931,7 @@ function onSubmit(e) {
   const kind = form.dataset.form;
   const d = Object.fromEntries(new FormData(form).entries());
   if (kind === 'add') return submitAdd(form);
+  if (kind === 'split') return submitSplit(form);
   if (kind === 'edit') {
     const amount = Number(d.amount);
     if (!fieldMessage(form.querySelector('[name=amount]'), amount > 0 ? '' : T.errAmount)) return null;
@@ -809,11 +992,18 @@ function onSubmit(e) {
     return saveForm(form, 'saveBudgets', { budgets }, () => { state.dashByMonth = {}; });
   }
   if (kind === 'rules') {
-    const rules = state.settings.rules.map((r, i) => {
-      const box = form.querySelector(`.rule[data-i="${i}"] [data-r=auto_approve]`);
-      return { ...r, auto_approve: box ? box.checked : r.auto_approve };
+    const rules = readRules(form);
+    let ok = true;
+    $$('.rule', form).forEach((el, i) => {
+      const c = compileRule(rules[i]);
+      ok = fieldMessage($('[data-r=pattern]', el), !rules[i].pattern ? T.errRulePattern : c.re ? '' : T.errRuleInvalid) && ok;
+      ok = fieldMessage($('[data-r=category]', el), rules[i].category ? '' : T.errNoCategory) && ok;
     });
-    return saveForm(form, 'saveRules', { rules });
+    if (!ok) return null;
+    return saveForm(form, 'saveRules', { rules }, () => { state.settings.rules = rules; });
+  }
+  if (kind === 'weekly') {
+    return saveForm(form, 'saveConfig', { weekly_email: form.querySelector('[name=weekly_email]').checked ? 'on' : 'off' });
   }
   return null;
 }
@@ -850,6 +1040,9 @@ export async function start() {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#modal').classList.contains('open')) closeModal(); });
   let searchTimer;
   document.addEventListener('input', (e) => {
+    if (e.target.closest('form[data-form=split]')) updateSplitLeft();
+    const rule = e.target.closest('.rule');
+    if (rule && e.target.dataset.r === 'pattern') previewRule(rule);
     if (e.target.matches('[data-filter=q]')) { clearTimeout(searchTimer); searchTimer = setTimeout(() => onChange(e), 150); }
   });
   // Startup timing (ms since this page began loading), sent with the next startup.

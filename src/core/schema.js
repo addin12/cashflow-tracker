@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 7;
+export const SETUP_VERSION = 8;
 
 export const TABS = {
   transactions: 'Transactions',
@@ -46,6 +46,8 @@ export const CONFIG_KEYS = [
   { key: 'cat_fee', name: 'CFG_CAT_FEE', note: 'Category for bank fees' },
   { key: 'cat_dividend', name: 'CFG_CAT_DIVIDEND', note: 'Category for dividends' },
   { key: 'language', name: 'CFG_LANGUAGE', note: 'Web app language: id or en (empty = follow the phone)' },
+  // Added in setup version 8.
+  { key: 'weekly_email', name: 'CFG_WEEKLY_EMAIL', note: 'Weekly summary email on Mondays: on / off' },
 ];
 
 export const STATUS = ['pending', 'approved', 'ignored'];

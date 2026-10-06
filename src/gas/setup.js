@@ -66,6 +66,7 @@ function fillNewConfig(ss, seed) {
   fill('owner_bank_names', seed.owner_bank_names.join(', '));
   fill('cat_transfer', seed.defaults.transfer);
   fill('cat_fee', seed.defaults.fee);
+  fill('weekly_email', 'on');
   fill('cat_dividend', seed.defaults.dividend);
 }
 
