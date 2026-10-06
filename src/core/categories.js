@@ -60,3 +60,28 @@ export function validateAccounts(accounts) {
   if (errors.length) throw new Error(`Invalid accounts:\n- ${errors.join('\n- ')}`);
   return counts;
 }
+
+/**
+ * Category slots after the seed's category_changes: a rename keeps its slot (so it is seen as a
+ * rename, not a new category), an addition takes the first free slot of its kind. A name that
+ * already exists is left alone, so running the same changes twice changes nothing.
+ */
+export function slotsAfterChanges(slots, changes) {
+  const next = { income: [...slots.income], expense: [...slots.expense] };
+  const has = (name) => next.income.includes(name) || next.expense.includes(name);
+  for (const c of changes || []) {
+    for (const [from, to] of Object.entries(c.rename || {})) {
+      for (const kind of ['income', 'expense']) {
+        const i = next[kind].indexOf(from);
+        if (i >= 0 && !has(to)) next[kind][i] = to;
+      }
+    }
+    for (const kind of ['income', 'expense']) {
+      for (const name of (c.add && c.add[kind]) || []) {
+        const free = next[kind].indexOf(EMPTY_SLOT);
+        if (!has(name) && free >= 0) next[kind][free] = name;
+      }
+    }
+  }
+  return next;
+}

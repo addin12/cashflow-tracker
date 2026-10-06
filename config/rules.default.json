@@ -26,7 +26,7 @@
   {
     "field": "description",
     "pattern": "KOPI|COFFEE|CAFE|KAFE|WARKOP|BAKMI|MIXUE|STARBUCKS|JANJI JIWA|FORE |KFC|MCDONALD|\\bMCD\\b|SOLARIA|BAKSO|\\bMIE\\b|\\bSATE\\b|\\bNASI\\b|AYAM|BURGER|PIZZA|RESTO|RUMAH MAKAN|WARUNG|EATERY|DIMSUM|SUSHI|HOKBEN|RICHEESE",
-    "category": "fnb",
+    "category": "Food & Beverages",
     "auto_approve": true
   },
   {
@@ -86,5 +86,12 @@
     "category": "Hobi & Board Game",
     "auto_approve": true,
     "since": 4
+  },
+  {
+    "field": "description",
+    "pattern": "BARBER|PANGKAS RAMBUT|POTONG RAMBUT|CUKUR RAMBUT",
+    "category": "Barber",
+    "auto_approve": true,
+    "since": 5
   }
 ]

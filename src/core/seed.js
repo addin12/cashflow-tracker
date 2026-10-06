@@ -26,6 +26,25 @@ export function validateSeed(seed) {
     try { new RegExp(r.pattern, 'i'); } catch (e) { errors.push(`rules[${i}]: invalid pattern (${e.message})`); }
   });
   if (seed.owner_bank_names && !Array.isArray(seed.owner_bank_names)) errors.push('owner_bank_names must be a list');
+  // category_changes: [{ since: <setup version>, rename: { old: new }, add: { income: [], expense: [] } }]
+  // brings an existing sheet in line with the seed's category list when it upgrades past `since`.
+  (seed.category_changes || []).forEach((c, i) => {
+    if (!Number.isInteger(c.since)) errors.push(`category_changes[${i}]: since must be a setup version`);
+    for (const to of Object.values(c.rename || {})) if (!known.has(to)) errors.push(`category_changes[${i}]: "${to}" is not a category`);
+    for (const name of [...(c.add?.income || []), ...(c.add?.expense || [])]) if (!known.has(name)) errors.push(`category_changes[${i}]: "${name}" is not a category`);
+  });
+  // data_fixes: one-off repairs, see applyDataFixes in gas/setup.js.
+  (seed.data_fixes || []).forEach((f, i) => {
+    if (!Number.isInteger(f.since)) errors.push(`data_fixes[${i}]: since must be a setup version`);
+    (f.transactions || []).forEach((t, j) => {
+      if (!Array.isArray(t) || t.length !== 3) errors.push(`data_fixes[${i}].transactions[${j}]: must be [id, from, to]`);
+      else if (!known.has(t[2])) errors.push(`data_fixes[${i}].transactions[${j}]: "${t[2]}" is not a category`);
+    });
+    (f.rules || []).forEach((r, j) => {
+      if (!r.pattern) errors.push(`data_fixes[${i}].rules[${j}]: pattern is required`);
+      if (r.to && !known.has(r.to)) errors.push(`data_fixes[${i}].rules[${j}]: "${r.to}" is not a category`);
+    });
+  });
   if (errors.length) throw new Error(`Invalid seed:\n${errors.join('\n')}`);
   return { ...seed, slots, defaults, rules, owner_bank_names: seed.owner_bank_names || [] };
 }

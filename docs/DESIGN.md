@@ -214,13 +214,15 @@ The sync code reads its mailbox list from `Connections` instead of assuming one 
 
 ## 7. Web app screens
 
-See [mockup.html](mockup.html). The app is phone-first and opens from a home-screen bookmark.
+One app, one link, two layouts: on a phone a bottom tab bar, on a PC (900px and wider) a sidebar with the sync status, and wider screens (1100px+) use two columns and a real table. The first sketch was [mockup.html](mockup.html); the look since 2026-10-06 follows three rules documents the owner chose: "Universal UI Rules for Real Users" (readability, labels above fields, 44px targets, one accent colour, meaning never by colour alone, summary → trend → detail), with Apple's calm surfaces and type and Notion's tags and tables as the taste. `node scripts/screens.mjs` takes screenshots of every screen at both sizes with invented data (into `private/screens/`).
 
-1. **Review** (home): pending transactions as cards showing merchant, amount, stream and time, with suggested category chips. Tap ✓ to approve or tap a chip to recategorize, with an "Always for this merchant" checkbox. Unparsed emails appear here too, with an "open in Gmail" link.
-2. **Dashboard**: this month's Income / Expense / Balance (the CASHFLOW rows 3, 4, 41), category bars against budget (BUDGET TRACKER), stream balances (CASHFLOW Streams), and **budget per day until payday** (the template's Y56, fixed).
-3. **Transactions**: search and filter by month, stream and category. Edit, split, ignore or delete.
-4. **Add**: expense / income / transfer / adjustment.
-5. **Settings**: Gmail sync status (reconnect if needed), accounts & opening balances, categories, rules, payday date, language (Bahasa Indonesia / English), "Open spreadsheet", "Download .xlsx".
+1. **Review** (home): pending transactions as cards (name, amount, date, account), a labelled category field and "Always use this category for …". **Save** and **Ignore** act at once (the card slides away, a toast offers **Undo**) while the change is sent in the background. Unread emails and the last 7 days of automatic rows sit beside the cards on a PC, below them on a phone.
+2. **Summary**: the month's net, income, expenses (each opens the matching transactions) and **budget per day until payday**; a 6-month income/expense trend (tap a month); expenses by category with budget bars and the over/under amount in words; income by category; account balances by Spending/Saving (tap one to see its transactions).
+3. **Transactions**: big search box, filters (month, account, category, in/out, status) shown as removable chips with "Clear all filters", totals for what is shown. Filtering happens in the browser, so it is instant. Tap a row to edit or delete.
+4. **Add**: expense / income / transfer / adjustment, with inline messages next to the field that needs fixing.
+5. **Settings**: Gmail sync status in words, preferences, month-end balance check, accounts & opening balances (labelled fields per account), categories (renames carry over), budgets, rules, self-test, "Open spreadsheet". Each form shows "Saved ✓" or the problem next to its button.
+
+**Why saving feels instant:** each change goes into a queue that sends it to Google in order and waits by itself while a sync holds the lock (the server answers `retry: true`). The screen is updated from local data first. When the queue is empty, one quiet `init` call brings fresh totals. If Google refuses a change, the row returns to the screen with the reason.
 
 The full template reports (Growth Analysis, Quarter Report, Final Statement) stay in the spreadsheet and open from Settings.
 
@@ -280,6 +282,7 @@ The parsers, transfer pairing, rules and the report reference are plain function
 | **3. Web app** ✅ *built 2026-10-05* | Review (approve / "always for this merchant" / ignore / unread emails / recent automatic rows), Add (expense, income, transfer, adjustment), Transactions (search, filters, edit, delete) | API tests + UI smoke test in a simulated browser (jsdom) clicking through every screen | M |
 | **4. Dashboard & Settings** ✅ *built 2026-10-05* | Month KPIs, budget per day to payday, budgets vs spending, per-category and per-account balances; settings for language (ID/EN), payday, bank name, accounts & opening balances, categories (renames carry over), budgets, rules, sync status | Same tests; dashboard totals follow the template's rules (see `src/core/app.js`) | M |
 | **5. Reconciliation** ✅ *built 2026-10-05* | GoPay summary → pending row for the spending not seen elsewhere; month-end balance check (any account, incl. investments) → Penyesuaian row. *Tokopedia item names: dropped (the bank email already records the money)* | Tests for balance corrections and the GoPay gap | S |
+| **Round 2** ✅ *2026-10-06* | Owner feedback: "fnb" → "Food & Beverages" and a new "Barber" category (setup v5 applies the seed's `category_changes` on the next sync); instant saving (optimistic queue + undo); PC layout and phone layout; redesign for readability (see §7) | 152 tests incl. optimistic approve/undo, drill-down, client-side filters; screenshots of every screen at phone and PC size; real-Edge check of the HTML Google serves | M |
 | *6. Partner collaboration (future)* | *§12* | *Partner connects; Kita/Aku/Dia views add up* | *M* |
 
 After Phase 2 the tracker already fills itself, so Phases 3–5 are about comfort and accuracy.

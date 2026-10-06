@@ -43,6 +43,7 @@ export function createApi(store, env) {
       const c = cats();
       return {
         owner: owner(), language: String(store.config('language') || ''), today: isoDate(now()), year: year(), sheetUrl: env.sheetUrl || '',
+        start: String(store.config('start_date') || ''),
         payday: Number(store.config('payday_day')) || 28, categories: c,
         accounts: accounts().map((a) => ({ stream: a.stream, type: a.type, owner: a.owner, institution: a.institution })),
         connections: store.read(TABS.connections).map((x) => ({ gmail: x.gmail, last_sync: x.last_sync, last_status: x.last_status })),
@@ -66,15 +67,15 @@ export function createApi(store, env) {
       const s = stream || row.stream;
       if (!accounts().some((a) => a.stream === s)) throw new Error('choose an account');
       store.update(TABS.transactions, [{ id, changes: touch({ category, stream: s, status: 'approved' }) }]);
-      let alsoApproved = 0;
+      let alsoIds = [];
       if (always && row.description) {
         const rule = ruleFromApproval(row, category, newId('r'), owner(), nowIso());
         store.append(TABS.rules, [rule]);
         const others = pendingMatching(rows(), compileRule(rule)).filter((r) => r.id !== id);
         store.update(TABS.transactions, others.map((r) => ({ id: r.id, changes: touch({ category, status: 'approved', rule_id: rule.id }) })));
-        alsoApproved = others.length;
+        alsoIds = others.map((r) => r.id);
       }
-      return { ok: true, alsoApproved };
+      return { ok: true, alsoApproved: alsoIds.length, alsoIds };
     },
 
     ignore({ id }) {
@@ -130,10 +131,15 @@ export function createApi(store, env) {
       const today = now();
       const m = month || isoDate(today).slice(0, 7);
       const all = rows();
-      const summary = summarizeMonth(all, cats(), m, who || '');
+      const c = cats();
+      const summary = summarizeMonth(all, c, m, who || '');
       const balances = streamBalances(all, accounts(), { year: year(), asOf: isoDate(today) });
+      // The six months up to this one (none before the start date), for the trend chart.
+      const first = String(store.config('start_date') || '').slice(0, 7);
+      const trend = [-5, -4, -3, -2, -1, 0].map((k) => monthAdd(m, k)).filter((x) => !first || x >= first)
+        .map((x) => { const t = x === m ? summary : summarizeMonth(all, c, x, who || ''); return { month: x, income: t.income, expense: t.expense }; });
       return {
-        month: m, summary, balances,
+        month: m, summary, balances, trend,
         perDay: budgetPerDay(balances, today, Number(store.config('payday_day')) || 28),
         budgets: budgetUsage(summary, store.read(TABS.budgets)),
         pendingCount: all.filter((r) => r.status === 'pending').length,
@@ -173,12 +179,7 @@ export function createApi(store, env) {
       const inUse = new Set(rows().map((r) => r.category));
       const dropped = [...before.income, ...before.expense].filter((c) => c !== '-' && !nextSet.has(c) && !renamed[c] && inUse.has(c));
       if (dropped.length) throw new Error(`these categories are used by transactions; rename them instead of removing: ${dropped.join(', ')}`);
-      store.setSlots(next);
-      if (Object.keys(renamed).length) {
-        store.update(TABS.transactions, rows().filter((r) => renamed[r.category]).map((r) => ({ id: r.id, changes: { category: renamed[r.category] } })));
-        store.update(TABS.rules, store.read(TABS.rules).filter((r) => renamed[r.category]).map((r) => ({ id: r.id, changes: { category: renamed[r.category] } })));
-        store.replace(TABS.budgets, store.read(TABS.budgets).map((b) => ({ ...b, category: renamed[b.category] || b.category })));
-      }
+      changeCategorySlots(store, next);
       return { ok: true, renamed };
     },
 
@@ -236,6 +237,31 @@ export function createApi(store, env) {
       return env.sync();
     },
   };
+}
+
+const monthAdd = (ym, k) => {
+  const [y, mo] = ym.split('-').map(Number);
+  const d = new Date(y, mo - 1 + k, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+
+/**
+ * Writes new category slots. A different name in the same slot is a rename: it is carried into
+ * transactions, rules, budgets and the default-category settings.
+ */
+export function changeCategorySlots(store, next) {
+  const renamed = renamedCategories(store.slots(), next);
+  store.setSlots(next);
+  if (!Object.keys(renamed).length) return renamed;
+  const to = (r) => ({ id: r.id, changes: { category: renamed[r.category] } });
+  store.update(TABS.transactions, store.read(TABS.transactions).filter((r) => renamed[r.category]).map(to));
+  store.update(TABS.rules, store.read(TABS.rules).filter((r) => renamed[r.category]).map(to));
+  store.replace(TABS.budgets, store.read(TABS.budgets).map((b) => ({ ...b, category: renamed[b.category] || b.category })));
+  for (const key of ['cat_transfer', 'cat_fee', 'cat_dividend']) {
+    const v = String(store.config(key) || '');
+    if (renamed[v]) store.setConfig(key, renamed[v]);
+  }
+  return renamed;
 }
 
 export const API_METHODS = [

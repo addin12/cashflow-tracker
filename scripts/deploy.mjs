@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const clasp = (...args) => execFileSync(process.execPath, [join('node_modules', '@google', 'clasp', 'build', 'src', 'index.js'), ...args], { encoding: 'utf8' });
+const clasp = (...args) => execFileSync(process.execPath, [join('node_modules', '@google', 'clasp', 'build', 'src', 'index.js'), ...args], { encoding: 'utf8', timeout: 180000 }); // a hung clasp fails instead of waiting forever
 const file = 'private/webapp.json';
 
 console.log(clasp('push', '--force').trim().split('\n')[0]);

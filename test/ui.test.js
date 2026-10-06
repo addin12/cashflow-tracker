@@ -50,7 +50,8 @@ async function until(fn, what) {
 }
 const view = () => doc.querySelector('#view').textContent;
 const click = (el) => el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
-const tab = async (name, text) => { click(doc.querySelector(`.tabs [data-tab=${name}]`)); await until(() => view().includes(text), `${name} tab`); };
+const tab = async (name, text) => { click(doc.querySelector(`.nav [data-tab=${name}]`)); await until(() => view().includes(text), `${name} tab`); };
+const status = (id) => store.t[TABS.transactions].find((r) => r.id === id).status;
 
 beforeAll(async () => {
   store = memoryStore();
@@ -90,20 +91,45 @@ describe('web app', () => {
 
   it('opens on Review when something waits, with the unread email and recent automatic rows', () => {
     expect(view()).toContain('Perlu dicek');
-    expect(doc.querySelectorAll('.card[data-id]')).toHaveLength(2);
-    expect(view()).toContain('Email belum terbaca');
+    expect(doc.querySelectorAll('.txcard[data-id]')).toHaveLength(2);
+    expect(doc.querySelector('#reviewCount').textContent).toBe('2');
+    expect(view()).toContain('Email yang belum terbaca');
     expect(view()).toContain('no amount found');
     expect(view()).toContain('Tokopedia');
   });
 
-  it('approving with "always" saves the row, adds a rule, and also files the other row of that merchant', async () => {
-    const card = doc.querySelector('.card[data-id="t1"]');
+  it('saving without a category shows the problem under the field and sends nothing', () => {
+    const card = doc.querySelector('.txcard[data-id="t1"]');
+    const before = calls.length;
+    click(card.querySelector('[data-action=approve]'));
+    expect(card.querySelector('.field .msg').textContent).toBe('Pilih kategori dulu.');
+    expect(calls.length).toBe(before);
+  });
+
+  it('approving with "always" leaves the screen at once, then saves the row, the rule and the other row of that merchant', async () => {
+    const card = doc.querySelector('.txcard[data-id="t1"]');
     card.querySelector('[data-field=category]').value = 'fnb';
     click(card.querySelector('[data-action=approve]'));
-    await until(() => store.t[TABS.transactions].find((r) => r.id === 't2').status === 'approved', 'approval');
+    // On screen right away, before Google answers: both cards of that merchant go.
+    expect(card.classList.contains('leaving')).toBe(true);
+    expect(doc.querySelector('.txcard[data-id="t2"]').classList.contains('leaving')).toBe(true);
+    expect(doc.querySelector('#reviewCount').hidden).toBe(true);
+    expect(doc.querySelector('#toast').textContent).toContain('plus 1 transaksi lain');
+    await until(() => status('t2') === 'approved', 'approval');
     expect(store.t[TABS.transactions].find((r) => r.id === 't1')).toMatchObject({ status: 'approved', category: 'fnb' });
     expect(store.t[TABS.rules].at(-1)).toMatchObject({ pattern: 'WARUNG BU SITI', category: 'fnb' });
     await until(() => view().includes('Semua sudah dicek'), 'empty review');
+  });
+
+  it('undo puts both rows back, and approving again files them again', async () => {
+    click(doc.querySelector('#toast [data-toast=undo]'));
+    await until(() => doc.querySelectorAll('.txcard[data-id]').length === 2, 'cards back');
+    await until(() => status('t1') === 'pending' && status('t2') === 'pending', 'restored on the server');
+    const card = doc.querySelector('.txcard[data-id="t1"]');
+    card.querySelector('[data-field=category]').value = 'fnb';
+    click(card.querySelector('[data-action=approve]'));
+    await until(() => status('t1') === 'approved' && status('t2') === 'approved', 'approved again');
+    await until(() => view().includes('Semua sudah dicek'), 'empty review again');
   });
 
   it('dashboard shows the month, budget per day and budgets', async () => {
@@ -112,19 +138,40 @@ describe('web app', () => {
     expect(view()).toContain('23 hari lagi');
     expect(view()).toContain('Belanja Online');
     expect(doc.querySelector('.bar i.over')).not.toBeNull(); // 300k of a 200k budget
+    expect(view()).toContain('Lebih Rp100.000 dari budget Rp200.000'); // said in words, not only red
+    expect(doc.querySelectorAll('.chart .m')).toHaveLength(2); // Sep and Oct (starts 1 Sep)
+  });
+
+  it('tapping a category opens its transactions, filtered', async () => {
+    click(doc.querySelector('[data-action=drill][data-category="Belanja Online"]'));
+    await until(() => view().includes('Tokopedia') && !view().includes('WARUNG'), 'drill-down');
+    expect([...doc.querySelectorAll('.chip')].map((c) => c.textContent.trim())).toEqual(['Oktober 2026 ✕', 'Belanja Online ✕']);
   });
 
   it('transactions list filters by search', async () => {
-    await tab('transactions', 'Tokopedia');
+    click(doc.querySelector('[data-action=resetfilters]'));
+    await until(() => view().includes('WARUNG'), 'all transactions');
+    const lists = calls.filter((c) => c === 'list').length;
     const q = doc.querySelector('[data-filter=q]');
     q.value = 'tokopedia';
     q.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
     await until(() => view().includes('Tokopedia') && !view().includes('WARUNG'), 'filtered list');
-    expect(view()).toContain('1 dari 1');
+    expect(view()).toContain('1 transaksi');
+    expect(calls.filter((c) => c === 'list').length).toBe(lists); // filtered here, no server call
+  });
+
+  it('editing a row changes it on screen at once and on the server', async () => {
+    click(doc.querySelector('.trow[data-id="t3"]'));
+    const form = doc.querySelector('form[data-form=edit]');
+    form.querySelector('[name=amount]').value = '320000';
+    form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+    expect(doc.querySelector('#modal').classList.contains('open')).toBe(false);
+    expect(view()).toContain('Rp320.000');
+    await until(() => store.t[TABS.transactions].find((r) => r.id === 't3').amount === 320000, 'update saved');
   });
 
   it('adds a cash expense', async () => {
-    await tab('add', 'Simpan');
+    await tab('add', 'Simpan transaksi');
     const form = doc.querySelector('form[data-form=add]');
     form.querySelector('[name=amount]').value = '15000';
     form.querySelector('[name=category]').value = 'fnb';
@@ -149,7 +196,7 @@ describe('web app', () => {
     const form = doc.querySelector('form[data-form=config]');
     form.querySelector('[name=language]').value = 'en';
     form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
-    await until(() => doc.querySelector('.tabs [data-tab=review] b').textContent === 'Review', 'english tabs');
+    await until(() => doc.querySelector('.nav [data-tab=review] b').textContent === 'Review', 'english tabs');
     expect(store.cfg.language).toBe('en');
     await until(() => view().includes('Month-end balance check'), 'english settings');
   });

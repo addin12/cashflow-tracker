@@ -130,13 +130,21 @@ export function balanceCorrection(balances, stream, actual, ctx) {
   return manualRows({ kind: 'adjust', amount: diff, date: ctx.date, stream, description: ctx.description || `Cek saldo ${stream}`, details: `Saldo di app ${b.balance}, saldo asli ${num(actual)}` }, ctx)[0];
 }
 
-/** Renamed categories (same slot, new name) -> map old -> new, for updating rows and rules. */
+/**
+ * Renamed categories -> map old -> new, for updating rows and rules. A rename is a slot whose old
+ * name is gone from the new list and whose new name wasn't in the old list. A name that is still
+ * there was only moved: inserting "Barber" in the middle once renamed every category below it
+ * into the next one (2026-10-06), so moved names are never renames.
+ */
 export function renamedCategories(oldSlots, newSlots) {
   const map = {};
+  const all = (s) => new Set([...s.income, ...s.expense]);
+  const before = all(oldSlots);
+  const after = all(newSlots);
   for (const kind of ['income', 'expense']) {
     oldSlots[kind].forEach((o, i) => {
       const n = newSlots[kind][i];
-      if (o && n && o !== EMPTY_SLOT && n !== EMPTY_SLOT && o !== n) map[o] = n;
+      if (o && n && o !== EMPTY_SLOT && n !== EMPTY_SLOT && o !== n && !after.has(o) && !before.has(n)) map[o] = n;
     });
   }
   return map;
@@ -152,10 +160,11 @@ export function budgetUsage(summary, budgets) {
 }
 
 /** Simple filtered, newest-first list for the Transactions screen. */
-export function filterTransactions(rows, { month, stream, category, status, q, limit = 100, offset = 0 } = {}) {
+export function filterTransactions(rows, { month, stream, category, status, direction, q, limit = 100, offset = 0 } = {}) {
   const needle = String(q || '').trim().toLowerCase();
   const list = rows.filter((r) => (!month || String(r.date).startsWith(month))
     && (!stream || r.stream === stream) && (!category || r.category === category) && (!status || r.status === status)
+    && (!direction || r.direction === direction)
     && (!needle || `${r.description} ${r.details} ${r.category} ${r.stream}`.toLowerCase().includes(needle)))
     .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
   return { total: list.length, rows: list.slice(offset, offset + limit) };

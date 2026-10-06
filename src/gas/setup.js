@@ -8,6 +8,9 @@ import {
 } from '../core/schema.js';
 import { templatePatches, isOpenEnded } from '../core/formulas.js';
 import { validateSeed } from '../core/seed.js';
+import { changeCategorySlots } from '../core/api.js';
+import { slotsAfterChanges } from '../core/categories.js';
+import { sheetStore } from './sheetstore.js';
 
 export const TEMPLATE_TABS = ['GUIDELINE', 'Setup', 'CASHFLOW', 'GROWTH ANALYSIS', 'QUARTER REPORT', 'BUDGET TRACKER', 'FINAL STATEMENT', 'rawdata'];
 const MIN_LEDGER_ROWS = 3000;
@@ -88,6 +91,55 @@ function migrateAccountHints(ss, seed, log) {
 }
 
 /**
+ * The seed's category_changes newer than this sheet: renames keep their slot (and are carried
+ * into transactions, rules and budgets); additions take the first free slot of their kind.
+ */
+function applyCategoryChanges(ss, seed, log, fromVersion) {
+  const changes = (seed.category_changes || []).filter((c) => c.since > fromVersion);
+  if (!changes.length) return;
+  const store = sheetStore(ss);
+  const renamed = changeCategorySlots(store, slotsAfterChanges(store.slots(), changes));
+  log.push(`Categories updated${Object.keys(renamed).length ? ` (renamed ${Object.entries(renamed).map(([a, b]) => `${a} → ${b}`).join(', ')})` : ''}`);
+}
+
+/**
+ * One-off repairs from the seed's data_fixes newer than this sheet (the seed is private, so row
+ * ids stay out of the public code). Each fix applies only while the row still holds the value it
+ * corrects, so a category the owner changed since is left alone.
+ *   { since, transactions: [[id, fromCategory, toCategory]], rules: [{ pattern, from, to } | { pattern, id }] }
+ */
+function applyDataFixes(ss, seed, log, fromVersion) {
+  const fixes = (seed.data_fixes || []).filter((f) => f.since > fromVersion);
+  if (!fixes.length) return;
+  const store = sheetStore(ss);
+  const rows = new Map(store.read(TABS.transactions).map((r) => [String(r.id), r]));
+  const updates = [];
+  let skipped = 0;
+  for (const f of fixes) {
+    for (const [id, from, to] of f.transactions || []) {
+      const r = rows.get(String(id));
+      if (r && r.category === from) updates.push({ id: r.id, changes: { category: to } }); else skipped += 1;
+    }
+  }
+  if (updates.length) store.update(TABS.transactions, updates);
+  // Rules are fixed cell by cell, found by pattern (ids may be duplicated, which is one of the fixes).
+  const sh = ss.getSheetByName(TABS.rules);
+  const col = (h) => RULE_HEADERS.indexOf(h);
+  const values = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, RULE_HEADERS.length).getValues() : [];
+  let ruleFixes = 0;
+  values.forEach((v, i) => {
+    for (const f of fixes) {
+      for (const x of f.rules || []) {
+        if (String(v[col('pattern')]) !== x.pattern) continue;
+        if (x.to && String(v[col('category')]) === x.from) { sh.getRange(i + 2, col('category') + 1).setValue(x.to); v[col('category')] = x.to; ruleFixes += 1; }
+        if (x.id && String(v[col('id')]) !== x.id) { sh.getRange(i + 2, col('id') + 1).setValue(x.id); v[col('id')] = x.id; ruleFixes += 1; }
+      }
+    }
+  });
+  log.push(`Data fixes: ${updates.length} transaction(s), ${ruleFixes} rule change(s)${skipped ? `, ${skipped} skipped (already changed)` : ''}`);
+}
+
+/**
  * Starter rules: all of them into an empty Rules tab; on an upgrade only the rules marked
  * `since` a newer setup version (so a starter rule the owner deleted doesn't come back).
  */
@@ -101,8 +153,11 @@ function seedRules(ss, seed, log, fromVersion) {
     .filter((r) => (empty || Number(r.since || 0) > fromVersion) && !patterns.has(r.pattern));
   if (!wanted.length) return;
   const now = new Date();
+  // Ids follow the seed's order, which can change between versions: never reuse one in the sheet.
+  const ids = new Set(existing.map((r) => String(r[RULE_HEADERS.indexOf('id')])));
+  const freeId = (n) => { let id = `r_seed_${n}`; while (ids.has(id)) id += 'b'; ids.add(id); return id; };
   const rows = wanted.map((r) => RULE_HEADERS.map((h) => ({
-    id: `r_seed_${r.n}`, field: r.field || 'description', pattern: r.pattern, category: r.category, stream_override: r.stream_override || '',
+    id: freeId(r.n), field: r.field || 'description', pattern: r.pattern, category: r.category, stream_override: r.stream_override || '',
     auto_approve: r.auto_approve !== false, hits: 0, created_by: 'setup', created_at: now,
   })[h]));
   sh.getRange(sh.getLastRow() + 1, 1, rows.length, RULE_HEADERS.length).setValues(rows);
@@ -199,6 +254,8 @@ export function runSetup(ss, seedRaw) {
   fillNewConfig(ss, seed);
   seedRules(ss, seed, log, fromVersion);
   if (!firstRun && fromVersion < 2) migrateAccountHints(ss, seed, log);
+  if (!firstRun) applyCategoryChanges(ss, seed, log, fromVersion);
+  if (!firstRun) applyDataFixes(ss, seed, log, fromVersion);
 
   if (firstRun) {
     writeCategories(ss, seed.slots);

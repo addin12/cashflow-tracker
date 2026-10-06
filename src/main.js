@@ -89,20 +89,25 @@ export function api(name, payloadJson) {
       sheetUrl: ss.getUrl(),
     });
     const lock = READ_ONLY.has(name) || name === 'syncNow' ? null : LockService.getScriptLock();
-    if (lock && !lock.tryLock(20000)) throw new Error('Sedang sinkron, coba lagi sebentar. / A sync is running, try again shortly.');
+    if (lock && !lock.tryLock(20000)) {
+      // The app waits and sends it again by itself.
+      const busy = new Error('Sedang sinkron, coba lagi sebentar. / A sync is running, try again shortly.');
+      busy.retry = true;
+      throw busy;
+    }
     try {
       const data = impl[name](payload);
       const json = JSON.stringify({ data });
       if (name === 'init') {
         storeInit(JSON.stringify(data));
-        recordStartup({ open_ms: t1 - t0, work_ms: Date.now() - t1, ...(payload.lastLoad || {}) });
+        if (!payload.refresh) recordStartup({ open_ms: t1 - t0, work_ms: Date.now() - t1, ...(payload.lastLoad || {}) });
       }
       return json;
     } finally {
       if (lock) lock.releaseLock();
     }
   } catch (e) {
-    return JSON.stringify({ error: e.message });
+    return JSON.stringify({ error: e.message, retry: !!e.retry });
   }
 }
 
