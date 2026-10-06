@@ -2,7 +2,7 @@
 /* global SpreadsheetApp, LockService, ScriptApp, PropertiesService, Utilities */
 
 import { TABS, TRANSACTION_HEADERS, CONNECTION_HEADERS, INBOX_LOG_HEADERS, RULE_HEADERS, SETUP_VERSION } from '../core/schema.js';
-import { parseEmail, SENDERS } from '../core/parsers/index.js';
+import { parseEmail, SENDERS, BACKFILL_SENDERS } from '../core/parsers/index.js';
 import { planSync } from '../core/plan.js';
 import { readTable, appendRows, updateRows } from './store.js';
 import { listMessageIds, getEmail, myAddress } from './gmail.js';
@@ -112,10 +112,17 @@ function syncOnce(opts) {
     const logged = readTable(ss, mode === 'live' ? TABS.inboxLog : PREVIEW_LOG);
     // Emails that failed to parse are retried every run (a parser fix then fills them in),
     // also when they are older than the search window.
+    // An email's latest log line decides: "error" and "waiting" (an Apple receipt whose charge
+    // isn't in yet) are tried again.
     const inTransactions = new Set(existing.map((r) => String(r.gmail_id)).filter(Boolean));
-    const failed = new Set(logged.filter((r) => r.status === 'error' && !inTransactions.has(String(r.gmail_id))).map((r) => String(r.gmail_id)));
-    const done = new Set([...inTransactions, ...logged.filter((r) => r.status !== 'error').map((r) => String(r.gmail_id))]);
-    const listed = listMessageIds(query, 2000).filter((id) => !done.has(id) && !failed.has(id)).reverse(); // oldest first
+    const latest = new Map();
+    logged.forEach((r) => latest.set(String(r.gmail_id), r.status));
+    const again = (s) => s === 'error' || s === 'waiting';
+    const failed = new Set([...latest].filter(([id, s]) => again(s) && !inTransactions.has(id)).map(([id]) => id));
+    const done = new Set([...inTransactions, ...[...latest].filter(([, s]) => !again(s)).map(([id]) => id)]);
+    const backfill = `from:(${BACKFILL_SENDERS.join(' OR ')}) after:${Math.floor(startMs / 1000)}`;
+    const listed = [...new Set([...listMessageIds(query, 2000), ...listMessageIds(backfill, 500)])]
+      .filter((id) => !done.has(id) && !failed.has(id)).reverse(); // oldest first (roughly: two lists)
     const ids = [...failed, ...listed];
 
     const emails = [];
@@ -139,8 +146,9 @@ function syncOnce(opts) {
     const rules = readTable(ss, TABS.rules);
     const plan = planSync({ emails, existing, accounts, rules, config: syncConfig(ss), nowIso: new Date().toISOString() });
     const byId = Object.fromEntries(emails.map((e) => [e.id, e]));
+    const byStatus = (id) => latest.get(String(id)); // a retry with the same outcome isn't logged twice
     // A retried email that fails again is already in the log: don't add it twice.
-    const logRows = plan.log.filter((l) => !(l.status === 'error' && failed.has(String(l.gmailId)))).map((l) => ({
+    const logRows = plan.log.filter((l) => !(l.status === byStatus(l.gmailId) && failed.has(String(l.gmailId)))).map((l) => ({
       gmail_id: l.gmailId, received: new Date(byId[l.gmailId].epochMs), from: byId[l.gmailId].from, subject: byId[l.gmailId].subject,
       status: l.status, parser: l.parser || '', reason: l.reason || '', rows: l.rows, gmail,
     }));

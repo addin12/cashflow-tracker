@@ -4,15 +4,22 @@ import { bca } from './bca.js';
 import { livin } from './livin.js';
 import { blu } from './blu.js';
 import { jago, sekuritas, gopay } from './others.js';
+import { apple } from './apple.js';
 import { fail, skip } from './common.js';
 
-export const PARSERS = [bca, livin, blu, jago, sekuritas, gopay];
+export const PARSERS = [bca, livin, blu, jago, sekuritas, gopay, apple];
 
 /** Gmail search for every sender a parser exists for. */
 export const SENDERS = [
   'bca@bca.co.id', 'noreply.livin@bankmandiri.co.id', 'receipts@blubybcadigital.id', 'noreply@jago.com',
   'corporate_action@mandirisekuritas.co.id', 'no-reply@customers.go-pay.co.id',
 ];
+
+/**
+ * Senders searched from the start date on every run (not only the last two days), so their
+ * emails from before they were added are read too. Few emails, and read ones are skipped.
+ */
+export const BACKFILL_SENDERS = ['no_reply@email.apple.com'];
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 

@@ -16,6 +16,7 @@ The allow-list below is shared by all connected accounts. Adding a parser for a 
 | `noreply@jago.com` | Kamu telah melakukan transfer · Kamu memindahkan uang dari salah satu Kantong · *contact updates* | transfer (out), Kantong move (pocket ↔ main), **contact emails skipped** | `jago` |
 | `corporate_action@mandirisekuritas.co.id` | Pembayaran Dividen Tunai … · *Jadwal Pembagian Dividen …* | dividend (in) · **schedule skipped** | `sekuritas` |
 | `no-reply@customers.go-pay.co.id` | Ini total pengeluaranmu di <bulan> | monthly totals → **suggested Penyesuaian**, no per-transaction rows | `gopay` |
+| `no_reply@email.apple.com` *(added 2026-10-06, searched from the start date)* | Your receipt from Apple. · *Your Subscription is Expiring* | **no row**: names the app and item on the bank's `APPLE.COM/BILL` row · **other Apple emails skipped** | `apple` |
 
 Inventory on 2026-10-05: about 200 emails from these senders between 2 Aug and 5 Oct 2026, in 19 distinct formats, all covered. Tokopedia order emails were left out: the bank email already records the money, and the item list is a nice-to-have.
 
@@ -54,6 +55,12 @@ Indonesian text.
 
 ### GoPay · monthly summary
 - `Pengeluaran -Rp100.000 · Pemasukan +Rp1.000` for the month. Used at month end to suggest a Penyesuaian row, so the GoPay stream matches the app balance. It is not split per transaction.
+
+### Apple · `no_reply@email.apple.com`
+- Two receipt layouts: older (`class="title"` app, `"artist"` item, `"type"` e.g. *In-App Purchase*, `price-cell`, `TOTAL`; the receipt appears twice, desktop then mobile, only the first is read) and newer (`<tr class="subscription-lockup">` with app, plan, `Renews 5 November 2026`, price; date at the top).
+- The receipt finds the bank row `APPLE.COM/BILL` with the same amount, dated 1 day before to 3 days after the receipt (the card charge can land a day later). It sets Description to the app (`D&D Beyond`) and puts the item, `Apple order <id>` and the bank's details in Details.
+- Category: a rule for the app name wins (made by "Always use this category for …"). Otherwise a purchase goes back to Review (the generic APPLE.COM rule said *Langganan Digital*, which only fits subscriptions) and a subscription keeps its category. Rows someone edited keep their category.
+- Charge not in the sheet yet → logged `waiting` and retried every run for 4 days.
 
 ## 3. Cross-email logic
 

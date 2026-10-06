@@ -12,6 +12,10 @@
 //                                                                   category "trf ke bank lain"
 //  4. Anything else is income/expense, categorized by the first matching rule.
 //  5. A fee becomes its own row (category for fees, e.g. "Biaya Admin").
+//  6. An Apple receipt adds no row: it names the app and item on the bank's "APPLE.COM/BILL" row
+//     (same amount, dated 1 day before to 3 days after the receipt). Purchases then go back to
+//     Review for a category; subscriptions keep theirs. A row someone edited keeps its category.
+//     No such row yet -> "waiting" (retried next run) for up to 4 days.
 // Rows go straight to the reports ("approved") when the stream is known and a rule (or the
 // transfer/fee/dividend logic) is sure; otherwise they wait in Review ("pending").
 
@@ -19,6 +23,9 @@ import { resolveAccount, ownCounterparty } from './accounts.js';
 import { matchRule } from './rules.js';
 
 export const MATCH_WINDOW_MINUTES = 15;
+export const RECEIPT_WAIT_DAYS = 4;
+const APPLE_MARK = 'Apple order';
+const dayNumber = (date) => { const [y, m, d] = String(date).slice(0, 10).split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
 
 function minutesOf(row) {
   const [y, m, d] = String(row.date).split('-').map(Number);
@@ -86,8 +93,42 @@ export function planSync({ emails, existing, accounts, rules, config, nowIso }) 
     const before = add.length;
     const notes = [];
 
+    let waitForCharge = false;
     r.events.forEach((ev, i) => {
       const id = `t_${email.id}${r.events.length > 1 ? `_${i}` : ''}`;
+
+      if (ev.type === 'receipt') {
+        const target = pool
+          .filter((x) => /APPLE\.COM/i.test(String(x.description)) && !String(x.details).includes(APPLE_MARK) && x.direction === 'out'
+            && Math.abs(Number(x.amount) - ev.amount) < 0.005 && dayNumber(x.date) - dayNumber(ev.date) >= -1 && dayNumber(x.date) - dayNumber(ev.date) <= 3)
+          .sort((a, b) => Math.abs(dayNumber(a.date) - dayNumber(ev.date)) - Math.abs(dayNumber(b.date) - dayNumber(ev.date)))[0];
+        if (!target) {
+          const age = (Date.parse(nowIso) - email.epochMs) / 86400000;
+          if (age < RECEIPT_WAIT_DAYS) waitForCharge = true;
+          notes.push(`no APPLE.COM charge of ${ev.amount} near ${ev.date}${age < RECEIPT_WAIT_DAYS ? ' yet' : ''}`);
+          return;
+        }
+        const items = ev.items || [];
+        const subscription = items.some((it) => it.renews || /subscription|langganan/i.test(it.kind));
+        const what = items.map((it) => [it.item, it.renews ? it.renews.replace(/^Renews/, 'renews') : it.kind].filter(Boolean).join(', ')).join('; ');
+        const changes = {
+          description: ev.description,
+          details: [what, `${APPLE_MARK} ${ev.refNo}`.trim(), target.details].filter(Boolean).join(' · '),
+        };
+        // Its category came from the generic Apple rule: look again with the app's name.
+        if (target.updated_by === 'sync') {
+          const rule = matchRule({ ...target, ...changes }, rules);
+          if (rule) {
+            Object.assign(changes, { category: rule.category, rule_id: rule.id || '', status: rule.autoApprove ? 'approved' : 'pending' });
+            if (rule.id) ruleHits[rule.id] = (ruleHits[rule.id] || 0) + 1;
+          } else if (!subscription) {
+            Object.assign(changes, { category: '', rule_id: '', status: 'pending' });
+          }
+        }
+        change(target, changes);
+        notes.push(`named Apple charge ${target.id}`);
+        return;
+      }
       const src = resolveAccount(ev.account, accounts);
       if (!src) notes.push(`account not recognised (${ev.account.institution}${ev.account.hint ? ` …${ev.account.hint}` : ''})`);
 
@@ -165,7 +206,8 @@ export function planSync({ emails, existing, accounts, rules, config, nowIso }) 
         }));
       }
     });
-    log.push({ gmailId: email.id, status: 'ok', parser: r.parser, rows: add.length - before, reason: notes.join('; ') });
+    log.push({ gmailId: email.id, status: waitForCharge ? 'waiting' : 'ok', parser: r.parser, rows: add.length - before, reason: notes.join('; ') });
+    if (waitForCharge) seen.delete(email.id);
   }
 
   return { add, update: [...update].map(([id, changes]) => ({ id, changes })), log, ruleHits };
