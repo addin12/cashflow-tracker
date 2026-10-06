@@ -170,7 +170,8 @@ describe('web app', () => {
     for (let i = 0; i < 200 && !d2.querySelector('#view .card, #view .kpis'); i += 1) await new Promise((res) => setTimeout(res, 5));
     expect(d2.querySelector('#view .card, #view .kpis')).not.toBeNull(); // painted from cache
     expect(d2.querySelector('#stale').className).toContain('show'); // and says it is updating
-    expect(typeof answer).toBe('function');
+    for (let i = 0; i < 200 && typeof answer !== 'function'; i += 1) await new Promise((res) => setTimeout(res, 5));
+    expect(typeof answer).toBe('function'); // and still asks the server for fresh data
     second.window.close();
   });
 

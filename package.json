@@ -11,7 +11,8 @@
     "push": "npm run build && clasp push --force",
     "upload-template": "node scripts/upload-template.mjs",
     "prepare": "git config core.hooksPath .githooks",
-    "deploy": "npm run build && node scripts/deploy.mjs"
+    "deploy": "npm run build && node scripts/deploy.mjs",
+    "check:browser": "npm run build && node scripts/browser-check.mjs --docwrite"
   },
   "engines": {
     "node": ">=20"

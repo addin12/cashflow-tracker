@@ -437,8 +437,8 @@ export async function start() {
   const instant = [embedded, saved].filter(Boolean).sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))[0] || null;
   let waitTimer = null;
   if (instant) {
-    await paint(instant, { first: true });
     setStale(true);
+    await paint(instant, { first: true });
     timing.client_from_cache = true;
     timing.client_cached_ms = Date.now() - t0;
   } else {
@@ -470,8 +470,7 @@ export async function start() {
   }
 }
 
-// Start whether or not the page has finished loading by the time this script runs.
-if (typeof window !== 'undefined' && !window.__CT_NO_AUTOSTART__) {
-  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', start);
-  else start();
-}
+// Start right away. This script is the last thing in <body>, so the page it needs is already
+// there. Don't wait for DOMContentLoaded: Apps Script writes the page into its frame with
+// document.write and may never close the document, so that event never fires (2026-10-06).
+if (typeof window !== 'undefined' && !window.__CT_NO_AUTOSTART__) start();
