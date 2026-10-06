@@ -108,3 +108,22 @@ epoch: 1789000000000
 | Transaction Type | : | QRIS Payment |
 | Payment to | : | SOME SHOP |
 | Total Payment | : | IDR 10,000.00 |
+=== bca-virtual-account
+from: bca@bca.co.id
+subject: Internet Transaction Journal
+epoch: 1791206186000
+---
+| | Hello BUDI SANTOSO PUTRA,
+You just made a transaction through myBCA.
+
+| Status | : | Successful |
+| Transaction Date | : | 05 Oct 2026 18:50:56 |
+| Transfer Type | : | Transfer to BCA Virtual Account |
+| Source of Fund | : | 1234xxxx56 |
+| BCA Virtual Account No. | : | 1400000000000001 |
+| Name | : | Budi Santoso Putra |
+| Company/Product Name | : | CONTOH SOLUSI PT / AYOMAKAN |
+| Bill Total | : | IDR 150,000.00 |
+| Total Payment | : | IDR 151,000.00 |
+| Description | : | |
+| Reference No. | : | 9527120261005185000000TVA0000000005 |

@@ -7,6 +7,7 @@ import { planSync } from '../core/plan.js';
 import { readTable, appendRows, updateRows } from './store.js';
 import { listMessageIds, getEmail, myAddress } from './gmail.js';
 import { configValue, runSetup } from './setup.js';
+import { flushStartupTimings } from './perf.js';
 
 const OVERLAP_MS = 2 * 24 * 3600 * 1000;
 const TIME_BUDGET_MS = 4.5 * 60 * 1000; // Apps Script stops a run at 6 minutes
@@ -108,8 +109,13 @@ function syncOnce(opts) {
     const previewRows = mode === 'preview' ? readTable(ss, TABS.preview) : [];
     const existing = [...readTable(ss, TABS.transactions), ...previewRows];
     const logged = readTable(ss, mode === 'live' ? TABS.inboxLog : PREVIEW_LOG);
-    const done = new Set([...existing.map((r) => r.gmail_id), ...logged.map((r) => r.gmail_id)].filter(Boolean).map(String));
-    const ids = listMessageIds(query, 2000).filter((id) => !done.has(id)).reverse(); // oldest first
+    // Emails that failed to parse are retried every run (a parser fix then fills them in),
+    // also when they are older than the search window.
+    const inTransactions = new Set(existing.map((r) => String(r.gmail_id)).filter(Boolean));
+    const failed = new Set(logged.filter((r) => r.status === 'error' && !inTransactions.has(String(r.gmail_id))).map((r) => String(r.gmail_id)));
+    const done = new Set([...inTransactions, ...logged.filter((r) => r.status !== 'error').map((r) => String(r.gmail_id))]);
+    const listed = listMessageIds(query, 2000).filter((id) => !done.has(id) && !failed.has(id)).reverse(); // oldest first
+    const ids = [...failed, ...listed];
 
     const emails = [];
     let complete = true;
@@ -132,7 +138,8 @@ function syncOnce(opts) {
     const rules = readTable(ss, TABS.rules);
     const plan = planSync({ emails, existing, accounts, rules, config: syncConfig(ss), nowIso: new Date().toISOString() });
     const byId = Object.fromEntries(emails.map((e) => [e.id, e]));
-    const logRows = plan.log.map((l) => ({
+    // A retried email that fails again is already in the log: don't add it twice.
+    const logRows = plan.log.filter((l) => !(l.status === 'error' && failed.has(String(l.gmailId)))).map((l) => ({
       gmail_id: l.gmailId, received: new Date(byId[l.gmailId].epochMs), from: byId[l.gmailId].from, subject: byId[l.gmailId].subject,
       status: l.status, parser: l.parser || '', reason: l.reason || '', rows: l.rows, gmail,
     }));
@@ -150,6 +157,7 @@ function syncOnce(opts) {
       appendRows(ss, PREVIEW_LOG, INBOX_LOG_HEADERS, logRows);
     }
 
+    try { flushStartupTimings(ss); } catch (e) { /* timings are optional */ }
     const newest = emails.reduce((m, e) => Math.max(m, e.epochMs), Number(conn.checkpoint) || 0);
     const summary = {
       status: complete ? 'ok' : 'partial', mode, gmail, ...counts, added: plan.add.length, updated: plan.update.length,

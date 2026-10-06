@@ -92,6 +92,12 @@ describe('BCA', () => {
       counterparty: { name: 'BUDI SANTOSO PUTRA', institution: 'BCA', account: '1234567856' },
     });
   });
+  it('payment to a BCA Virtual Account: payee is the company, "Name" (the holder) is ignored', () => {
+    expect(one('bca-virtual-account')).toMatchObject({
+      type: 'payment', amount: 150000, fee: 1000, date: '2026-10-05', time: '18:50:56', account: { institution: 'BCA', hint: '56' },
+      counterparty: { name: 'AYOMAKAN' }, description: 'AYOMAKAN', details: 'Virtual Account · CONTOH SOLUSI PT',
+    });
+  });
   it('skips pocket creation and failed transactions', () => {
     expect(status('bca-pocket-creation')).toBe('skip');
     expect(status('bca-failed')).toBe('skip');

@@ -10,6 +10,7 @@ const LABELS = [
   'Save to Beneficiary List', 'Transfer Amount', 'Remarks', 'Beneficiary Bank', 'Beneficiary Account No.',
   'Amount', 'Fee', 'Transfer Method', 'Transaction Purpose', 'Pocket Name', 'Purpose', 'Category',
   'Pocket Account No.', 'Initial Deposit', 'Target', 'Source Pocket', 'Source Pocket Account No.',
+  'BCA Virtual Account No.', 'Name', 'Company/Product Name', 'Bill Total', 'Description',
 ];
 
 export const bca = {
@@ -47,6 +48,19 @@ export const bca = {
     }
 
     const transferType = get('Transfer Type');
+    if (/virtual account/i.test(transferType)) {
+      // Paying a bill/order through a BCA Virtual Account. "Name" is the account holder (often
+      // the owner), so the payee is the company/product, never "Name".
+      const company = get('Company/Product Name');
+      const product = company.split('/').pop().trim() || company || 'Virtual Account';
+      const bill = amountOf(firstValue(t, ['Bill Total', 'Total Payment'], LABELS));
+      const total = feeOf(get('Total Payment'));
+      return ok({
+        type: 'payment', direction: 'out', ...when, amount: bill, fee: total > bill ? Math.round((total - bill) * 100) / 100 : 0, account,
+        counterparty: { name: product }, description: product,
+        details: joinDetails('Virtual Account', company.includes('/') ? company.split('/')[0].trim() : '', remark(get('Description'))), refNo,
+      });
+    }
     if (transferType) {
       const name = get('Beneficiary Name');
       const bank = get('Beneficiary Bank') || transferType.replace(/^Transfer to\s*/i, '').replace(/\s*Account$/i, '');

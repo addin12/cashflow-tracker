@@ -5,6 +5,7 @@
 import { runSetup } from './gas/setup.js';
 import { runSelfTest } from './gas/selftest.js';
 import { runSync, connect, appSpreadsheet } from './gas/sync.js';
+import { recordStartup } from './gas/perf.js';
 import { sheetStore } from './gas/sheetstore.js';
 import { createApi, API_METHODS } from './core/api.js';
 
@@ -71,9 +72,12 @@ const READ_ONLY = new Set(['init', 'bootstrap', 'review', 'list', 'dashboard', '
  * Answers with a JSON string because google.script.run can't carry Date objects.
  */
 export function api(name, payloadJson) {
+  const t0 = Date.now();
   try {
     if (!API_METHODS.includes(name)) throw new Error(`unknown method ${name}`);
+    const payload = JSON.parse(payloadJson || '{}');
     const ss = appSpreadsheet();
+    const t1 = Date.now();
     const impl = createApi(sheetStore(ss), {
       now: () => new Date(),
       sync: () => runSync({ seed: SEED, defaultMode: SYNC_DEFAULT }),
@@ -82,7 +86,9 @@ export function api(name, payloadJson) {
     const lock = READ_ONLY.has(name) || name === 'syncNow' ? null : LockService.getScriptLock();
     if (lock && !lock.tryLock(20000)) throw new Error('Sedang sinkron, coba lagi sebentar. / A sync is running, try again shortly.');
     try {
-      return JSON.stringify({ data: impl[name](JSON.parse(payloadJson || '{}')) });
+      const data = impl[name](payload);
+      if (name === 'init') recordStartup({ open_ms: t1 - t0, work_ms: Date.now() - t1, ...(payload.lastLoad || {}) });
+      return JSON.stringify({ data });
     } finally {
       if (lock) lock.releaseLock();
     }

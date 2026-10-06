@@ -264,6 +264,7 @@ async function show(tab, preloaded) {
 // The last startup data is kept on the phone so the app can paint instantly next time,
 // then it is replaced by fresh data from the server.
 const CACHE_KEY = 'cashflow.init.v1';
+const TIMING_KEY = 'cashflow.lastLoad.v1';
 function readCache() {
   try { return JSON.parse(window.localStorage.getItem(CACHE_KEY) || 'null'); } catch (e) { return null; }
 }
@@ -425,15 +426,24 @@ export async function start() {
   document.addEventListener('input', (e) => {
     if (e.target.matches('[data-filter=q]')) { clearTimeout(searchTimer); searchTimer = setTimeout(() => onChange(e), 400); }
   });
+  // Startup timing (ms since this page began loading), sent with the next startup.
+  const t0 = (window.performance && performance.timing && performance.timing.navigationStart) || Date.now();
+  const timing = { client_from_cache: false };
   const cached = readCache();
   if (cached) {
     await paint(cached, { first: true });
     setStale(true);
+    timing.client_from_cache = true;
+    timing.client_cached_ms = Date.now() - t0;
   }
   try {
-    const fresh = await call('init');
+    let lastLoad = null;
+    try { lastLoad = JSON.parse(window.localStorage.getItem(TIMING_KEY) || 'null'); } catch (e) { /* none */ }
+    const fresh = await call('init', { lastLoad });
     writeCache(fresh);
     await paint(fresh, { first: !cached });
+    timing.client_total_ms = Date.now() - t0;
+    try { window.localStorage.setItem(TIMING_KEY, JSON.stringify(timing)); } catch (e) { /* storage unavailable */ }
   } catch (e) {
     if (!cached) failed(e); else toast(`${T.error}: ${e.message}`, 'bad');
   } finally {
