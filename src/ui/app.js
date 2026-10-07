@@ -464,7 +464,7 @@ async function viewDashboard() {
       <button class="card kpi main" data-action="drill"><div class="k">${esc(T.netThisMonth)}</div><div class="v ${s.balance < 0 ? 'bad' : ''}">${s.balance < 0 ? '' : '+'}${rp(s.balance)}</div><div class="meta">${esc(T.netHint)}</div></button>
       <button class="card kpi" data-action="drill" data-direction="in"><div class="k">${esc(T.income)}</div><div class="v in">+${rp(s.income)}</div><div class="meta">${esc(T.seeList)} ›</div></button>
       <button class="card kpi" data-action="drill" data-direction="out"><div class="k">${esc(T.expense)}</div><div class="v">${rp(s.expense)}</div><div class="meta">${esc(T.seeList)} ›</div></button>
-      <div class="card kpi"><div class="k">${esc(T.perDay)}</div><div class="v">${rp(d.perDay.perDay)}</div><div class="meta">${esc(T.daysToPayday(d.perDay.daysLeft, dateLabel(d.perDay.nextPayday, { weekday: false })))}</div>${d.perDay.spending < 0 ? `<div class="meta"><button class="link" data-action="go" data-tab="settings">⚠ ${esc(T.negativeSpending)}</button></div>` : ''}</div>
+      <div class="card kpi"><div class="k">${esc(T.perDay)}</div><div class="v">${rp(d.perDay.perDay)}</div><div class="meta">${esc(T.daysToPayday(d.perDay.daysLeft, dateLabel(d.perDay.nextPayday, { weekday: false })))}</div>${d.perDay.spending < 0 ? `<div class="meta"><button class="link" data-action="go" data-tab="settings" data-section="accounts">⚠ ${esc(T.negativeSpending)}</button></div>` : ''}</div>
     </div>
     ${trend.length ? `<h2 class="section-title">${esc(T.trendTitle)}<small>${esc(T.trendHint)}</small></h2>
     <div class="card"><div class="chart">${chart}</div>
@@ -829,11 +829,44 @@ async function viewSettings(local) {
     const at = c.last_sync ? new Date(c.last_sync).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
     return `<div class="rowi"><span class="what"><b>${esc(c.gmail)}</b><span class="meta">${at ? `${esc(T.lastSync)} ${esc(at)} · ` : ''}${failed ? `<span class="badge bad">⚠ ${esc(note)}</span>` : `<span class="badge ok">✓ ${esc(note)}</span>`}</span></span></div>`;
   }).join('');
-  setView(`<div class="narrow">
-    <header class="page-head"><div><h1>${esc(T.tabSettings)}</h1><p class="sub">${esc(T.settingsSub)}</p></div></header>
-    <div class="stack">
+  // One section at a time (Apple Settings style): the list of sections, then the open one. On a
+  // phone the list and the section are two screens; on a PC the list stays on the left.
+  const sections = {
+    monthend: `
+      <form class="card" data-form="monthend" novalidate><h2>${esc(T.monthEnd)}</h2><p class="lead">${esc(T.monthEndHint)}</p>
+        <div class="fields2">
+          ${field(T.account, `<select name="stream">${accountOptions('')}</select>`)}
+          ${field(T.actualBalance, '<input name="actual" type="number" inputmode="decimal" step="any">', { help: T.actualBalanceHelp })}
+          ${field(T.date, `<input name="date" type="date" value="${esc(state.boot.today)}">`)}
+        </div>
+        <label class="check"><input type="checkbox" name="as_opening"> ${esc(T.asOpening)}</label>
+        <p class="hint">${esc(T.asOpeningHelp)}</p>${saveRow(T.checkBalance)}</form>`,
+    sync: `
       <section class="card"><h2>${esc(T.settingsSync)}</h2><p class="lead">${esc(T.settingsSyncHint)}</p><div class="rows">${conns}</div>
-        <div class="actions"><button class="btn primary" type="button" data-action="sync">↻ ${esc(T.syncNow)}</button></div></section>
+        <div class="actions"><button class="btn primary" type="button" data-action="sync">↻ ${esc(T.syncNow)}</button></div></section>`,
+    accounts: `
+      <form class="card" data-form="accounts" novalidate><h2>${esc(T.accountsTitle)}</h2><p class="lead">${esc(T.accountsTitleHint)}</p>${acc}
+        <div class="actions"><button class="btn secondary left" type="button" data-action="addacct">＋ ${esc(T.addAccount)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveAccounts)}</button></div></form>`,
+    budgets: `
+      <form class="card" data-form="budgets" novalidate><h2>${esc(T.budgetsTitle)}</h2><p class="lead">${esc(T.budgetsHint)}</p><div class="budget-grid">${budgets}</div>
+        <div class="actions">${(s.budgetSuggestions || []).length ? `<button class="btn secondary left" type="button" data-action="fillbudgets">${esc(T.fillBudgets)}</button>` : ''}<span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveBudgets)}</button></div></form>`,
+    categories: `
+      <form class="card" data-form="categories" novalidate><h2>${esc(T.categoriesTitle)}</h2><p class="lead">${esc(T.categoriesHint)}</p>
+        <div class="fields2">
+          ${field(T.incomeCats, `<textarea name="income" rows="7">${esc(s.categories.income.join('\n'))}</textarea>`, { help: T.onePerLine })}
+          ${field(T.expenseCats, `<textarea name="expense" rows="14">${esc(s.categories.expense.join('\n'))}</textarea>`, { help: T.onePerLine })}
+        </div>${saveRow(T.saveCategories)}</form>`,
+    rules: `
+      <form class="card" data-form="rules" novalidate><h2>${esc(T.rulesTitle)}</h2><p class="lead">${esc(T.rulesHint)}</p>${rules || `<p class="hint">${esc(T.noRules)}</p>`}
+        <div class="actions"><button class="btn secondary left" type="button" data-action="addrule">＋ ${esc(T.addRule)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveRules)}</button></div></form>`,
+    emails: `
+      <form class="card" data-form="weekly" novalidate><h2>${esc(T.emailsTitle)}</h2><p class="lead">${esc(T.emailsHint)}</p>
+        <label class="check"><input type="checkbox" name="weekly_email" ${cfg.weekly_email !== 'off' ? 'checked' : ''}> ${esc(T.weeklyOn)}</label>
+        <label class="check"><input type="checkbox" name="monthly_email" ${cfg.monthly_email !== 'off' ? 'checked' : ''}> ${esc(T.monthlyOn)}</label>
+        <label class="check"><input type="checkbox" name="payday_email" ${cfg.payday_email !== 'off' ? 'checked' : ''}> ${esc(T.paydayOn)}</label>
+        <p class="hint">${esc(T.alertsAlways)}</p>
+        <div class="actions"><button class="btn secondary left" type="button" data-action="sendsummary">${esc(T.weeklySendNow)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div></form>`,
+    prefs: `
       <form class="card" data-form="config" novalidate><h2>${esc(T.preferences)}</h2>
         <div class="fields2" style="margin-top:12px">
           ${field(T.language, `<select name="language"><option value="" ${!cfg.language ? 'selected' : ''}>${esc(T.languageAuto)}</option><option value="id" ${cfg.language === 'id' ? 'selected' : ''}>Bahasa Indonesia</option><option value="en" ${cfg.language === 'en' ? 'selected' : ''}>English</option></select>`)}
@@ -843,37 +876,34 @@ async function viewSettings(local) {
           ${field(T.salaryAmountSetting, `<input name="salary_amount" type="number" inputmode="decimal" step="any" min="0" value="${esc(cfg.salary_amount)}">`, { help: T.salaryAmountSettingHelp })}
           ${field(T.ownerNames, `<input name="owner_bank_names" value="${esc(cfg.owner_bank_names)}">`, { help: T.ownerNamesHelp, wide: true })}
           ${field(T.themeLabel, `<select name="theme">${[['auto', T.themeAuto], ['light', T.themeLight], ['dark', T.themeDark]].map(([v, l]) => `<option value="${v}" ${readTheme() === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`, { help: T.themeHelp })}
-        </div>${saveRow(T.saveChanges)}</form>
-      <form class="card" data-form="monthend" novalidate><h2>${esc(T.monthEnd)}</h2><p class="lead">${esc(T.monthEndHint)}</p>
-        <div class="fields2">
-          ${field(T.account, `<select name="stream">${accountOptions('')}</select>`)}
-          ${field(T.actualBalance, '<input name="actual" type="number" inputmode="decimal" step="any">', { help: T.actualBalanceHelp })}
-          ${field(T.date, `<input name="date" type="date" value="${esc(state.boot.today)}">`)}
-        </div>
-        <label class="check"><input type="checkbox" name="as_opening"> ${esc(T.asOpening)}</label>
-        <p class="hint">${esc(T.asOpeningHelp)}</p>${saveRow(T.checkBalance)}</form>
-      ${goalsForm(s)}
-      <form class="card" data-form="accounts" novalidate><h2>${esc(T.accountsTitle)}</h2><p class="lead">${esc(T.accountsTitleHint)}</p>${acc}
-        <div class="actions"><button class="btn secondary left" type="button" data-action="addacct">＋ ${esc(T.addAccount)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveAccounts)}</button></div></form>
-      <form class="card" data-form="categories" novalidate><h2>${esc(T.categoriesTitle)}</h2><p class="lead">${esc(T.categoriesHint)}</p>
-        <div class="fields2">
-          ${field(T.incomeCats, `<textarea name="income" rows="7">${esc(s.categories.income.join('\n'))}</textarea>`, { help: T.onePerLine })}
-          ${field(T.expenseCats, `<textarea name="expense" rows="14">${esc(s.categories.expense.join('\n'))}</textarea>`, { help: T.onePerLine })}
-        </div>${saveRow(T.saveCategories)}</form>
-      <form class="card" data-form="budgets" novalidate><h2>${esc(T.budgetsTitle)}</h2><p class="lead">${esc(T.budgetsHint)}</p><div class="budget-grid">${budgets}</div>
-        <div class="actions">${(s.budgetSuggestions || []).length ? `<button class="btn secondary left" type="button" data-action="fillbudgets">${esc(T.fillBudgets)}</button>` : ''}<span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveBudgets)}</button></div></form>
-      <form class="card" data-form="rules" novalidate><h2>${esc(T.rulesTitle)}</h2><p class="lead">${esc(T.rulesHint)}</p>${rules || `<p class="hint">${esc(T.noRules)}</p>`}
-        <div class="actions"><button class="btn secondary left" type="button" data-action="addrule">＋ ${esc(T.addRule)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveRules)}</button></div></form>
-      <form class="card" data-form="weekly" novalidate><h2>${esc(T.emailsTitle)}</h2><p class="lead">${esc(T.emailsHint)}</p>
-        <label class="check"><input type="checkbox" name="weekly_email" ${cfg.weekly_email !== 'off' ? 'checked' : ''}> ${esc(T.weeklyOn)}</label>
-        <label class="check"><input type="checkbox" name="monthly_email" ${cfg.monthly_email !== 'off' ? 'checked' : ''}> ${esc(T.monthlyOn)}</label>
-        <label class="check"><input type="checkbox" name="payday_email" ${cfg.payday_email !== 'off' ? 'checked' : ''}> ${esc(T.paydayOn)}</label>
-        <p class="hint">${esc(T.alertsAlways)}</p>
-        <div class="actions"><button class="btn secondary left" type="button" data-action="sendsummary">${esc(T.weeklySendNow)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div></form>
+        </div>${saveRow(T.saveChanges)}</form>`,
+    more: `
       <section class="card"><h2>${esc(T.more)}</h2>
         <div class="rows"><div class="rowi"><span class="what"><b>${esc(T.selftest)}</b><span class="meta">${esc(s.selftest || '—')}</span></span></div>
           ${(s.archives || []).map((a) => `<a class="rowi" target="_blank" rel="noopener" href="${esc(a.url)}"><span class="what"><b>${esc(T.archiveOf(a.year))}</b><span class="meta">${esc(T.archiveHint)}</span></span><span class="chev">↗</span></a>`).join('')}</div>
-        <div class="actions"><a class="btn secondary" target="_blank" rel="noopener" href="${esc(state.boot.sheetUrl || '#')}">${esc(T.openSheet)} ↗</a></div></section>
+        <div class="actions"><a class="btn secondary" target="_blank" rel="noopener" href="${esc(state.boot.sheetUrl || '#')}">${esc(T.openSheet)} ↗</a></div></section>`,
+    goals: goalsForm(s),
+  };
+  const conn = (s.connections || [])[0];
+  const syncNote = !conn || !conn.last_sync ? T.neverSynced : /^ERROR/.test(String(conn.last_status || '')) ? `⚠ ${T.syncProblem}` : T.syncHealthy;
+  const emailsOn = ['weekly_email', 'monthly_email', 'payday_email'].filter((k) => cfg[k] !== 'off').length;
+  const lang = cfg.language === 'en' ? 'English' : cfg.language === 'id' ? 'Bahasa Indonesia' : T.languageAuto;
+  const groups = [
+    [T.setGroupRoutine, [['monthend', T.monthEnd, T.monthEndShort], ['sync', T.settingsSync, syncNote]]],
+    [T.setGroupMoney, [['accounts', T.accountsTitle, T.nAccounts(s.accounts.length)], ['budgets', T.budgetsTitle, T.nBudgets(s.budgets.length)], ['goals', T.goalsTitle, T.nGoals((s.goals || []).length)]]],
+    [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['emails', T.emailsTitle, T.nEmailsOn(emailsOn, 3)]]],
+    [T.setGroupApp, [['prefs', T.preferences, T.prefSummary(lang, Number(cfg.payday_day) || 28)], ['more', T.more, T.moreSummary]]],
+  ];
+  if (state.settingsSection && !sections[state.settingsSection]) state.settingsSection = null;
+  const open = state.settingsSection || 'monthend';
+  const index = groups.map(([g, rows]) => `<h2 class="set-group">${esc(g)}</h2><div class="card rows set-list">${rows.map(([k, label, sum]) => `
+    <button class="rowi set-row ${k === open ? 'on' : ''}" data-action="setsection" data-section="${k}" ${k === open ? 'aria-current="true"' : ''}>
+      <span class="what"><b>${esc(label)}</b><span class="meta">${esc(sum)}</span></span><span class="chev" aria-hidden="true">›</span></button>`).join('')}</div>`).join('');
+  setView(`<div class="settings ${state.settingsSection ? 'show-detail' : ''}">
+    <header class="page-head set-head"><div><h1>${esc(T.tabSettings)}</h1><p class="sub">${esc(T.settingsSub)}</p></div></header>
+    <nav class="set-index" aria-label="${esc(T.tabSettings)}">${index}</nav>
+    <div class="set-detail"><button class="btn plain set-back" type="button" data-action="setsection" data-section="">‹ ${esc(T.tabSettings)}</button>
+${sections[open]}
     </div></div>`);
   $$('.rule').forEach(previewRule);
 }
@@ -943,7 +973,7 @@ function notifications() {
   }
   const c = (state.boot.connections || [])[0];
   if (c && /^ERROR/.test(String(c.last_status || ''))) {
-    out.push({ id: `sync:${c.last_sync}`, kind: 'bad', title: T.syncProblem, text: String(c.last_status).replace(/^ERROR:\s*/, '').split(' | ')[0], go: 'settings', goLabel: T.notifOpenSettings });
+    out.push({ id: `sync:${c.last_sync}`, kind: 'bad', title: T.syncProblem, text: String(c.last_status).replace(/^ERROR:\s*/, '').split(' | ')[0], go: 'settings', section: 'sync', goLabel: T.notifOpenSettings });
   }
   const month = currentMonth();
   const d = state.dashByMonth[month];
@@ -973,7 +1003,7 @@ function openNotifications() {
   const list = notifications();
   const seen = readSeen();
   $('#modal').innerHTML = `<div class="sheet"><h2>${esc(T.notifications)}</h2>${list.length ? `<p class="lead">${esc(T.notifHint)}</p><div class="notif-list">${list.map((n) => `
-    <button type="button" class="notif ${esc(n.kind)} ${seen.has(n.id) ? '' : 'new'}" data-action="notifgo" data-tab="${esc(n.go || '')}" data-category="${esc(n.category || '')}" data-q="${esc(n.q || '')}">
+    <button type="button" class="notif ${esc(n.kind)} ${seen.has(n.id) ? '' : 'new'}" data-action="notifgo" data-tab="${esc(n.go || '')}" data-section="${esc(n.section || '')}" data-category="${esc(n.category || '')}" data-q="${esc(n.q || '')}">
       <span class="dot" aria-hidden="true"></span><span><b>${esc(n.title)}</b><span class="meta">${esc(n.text)}</span></span>
       <span class="go">${esc(n.goLabel)} ›</span></button>`).join('')}</div>`
     : `<div class="empty"><div class="big" aria-hidden="true">✓</div><b>${esc(T.notifEmpty)}</b>${esc(T.notifEmptySub)}</div>`}
@@ -985,6 +1015,7 @@ function openNotifications() {
 function goNotification(el) {
   closeModal();
   if (el.dataset.category || el.dataset.q) return drill(el);
+  if (el.dataset.tab === 'settings') state.settingsSection = el.dataset.section || null;
   return show(el.dataset.tab || 'dashboard');
 }
 
@@ -1047,7 +1078,16 @@ function onClick(e) {
   if (!el) return null;
   const a = el.dataset.action;
   const card = el.closest('[data-id]');
-  if (!a || a === 'go') return show(el.dataset.tab);
+  if (!a || a === 'go') {
+    if (el.dataset.tab === 'settings') state.settingsSection = el.dataset.section || null;
+    return show(el.dataset.tab);
+  }
+  if (a === 'setsection') {
+    state.settingsSection = el.dataset.section || null;
+    viewSettings(state.settings);
+    if (typeof window.scrollTo === 'function') try { window.scrollTo(0, 0); } catch (err) { /* not available */ }
+    return null;
+  }
   if (a === 'notifgo') return goNotification(el);
   if (a === 'reload') return show(state.tab);
   if (a === 'reloadpage') { window.location.reload(); return null; }

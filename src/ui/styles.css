@@ -408,3 +408,28 @@ button.rowi:hover { background: var(--zebra); }
 .salary-card { border-left: 4px solid var(--success); }
 .salary-card .fields2 { margin-top: 12px; }
 .notice + .notice { margin-top: 8px; }
+
+/* Settings: a list of sections, one section open at a time (Apple Settings style).
+   Phone: the list and the open section are two screens ("‹ Pengaturan" goes back).
+   PC: the list stays on the left (sticky), the open section on the right. */
+.settings .set-group { margin: 24px 4px 8px; font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.settings .set-list { padding-top: 4px; padding-bottom: 4px; }
+.settings .set-row { width: 100%; min-height: 56px; text-align: left; border-radius: 10px; }
+.settings .set-row .what { flex: 1; }
+.settings .set-back { min-height: 44px; padding: 0; margin: 16px 0 4px; font-size: 17px; }
+.settings .set-detail > .card, .settings .set-detail > form { margin-top: 8px; }
+.settings:not(.show-detail) .set-detail { display: none; }
+.settings.show-detail .set-head, .settings.show-detail .set-index { display: none; }
+@media (min-width: 900px) {
+  .settings { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 0 28px; align-items: start; max-width: 1180px; }
+  .settings .set-head { grid-column: 1 / -1; }
+  .settings .set-index, .settings.show-detail .set-index { display: block; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; padding-bottom: 16px; }
+  .settings .set-index .set-group:first-child { margin-top: 8px; }
+  .settings .set-detail, .settings:not(.show-detail) .set-detail { display: block; padding-top: 8px; }
+  .settings.show-detail .set-head { display: flex; }
+  .settings .set-back { display: none; }
+  .settings .set-row.on { background: var(--accent-soft); }
+  .settings .set-row.on b { color: var(--accent); }
+}
+.settings .set-list { padding: 6px 8px; }
+.settings .set-row { padding: 10px 12px; }

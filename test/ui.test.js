@@ -51,6 +51,7 @@ async function until(fn, what) {
 const view = () => doc.querySelector('#view').textContent;
 const click = (el) => el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
 const tab = async (name, text) => { click(doc.querySelector(`.nav [data-tab=${name}]`)); await until(() => view().includes(text), `${name} tab`); };
+const section = async (key, sel) => { await until(() => doc.querySelector(`[data-action=setsection][data-section=${key}]`), `${key} button`); click(doc.querySelector(`[data-action=setsection][data-section=${key}]`)); await until(() => doc.querySelector(sel), `${key} section`); };
 const status = (id) => store.t[TABS.transactions].find((r) => r.id === id).status;
 
 beforeAll(async () => {
@@ -283,6 +284,7 @@ describe('web app', () => {
   });
 
   it('rules can be edited and show which transactions they match', async () => {
+    await section('rules', 'form[data-form=rules]');
     await until(() => doc.querySelector('.rule .rule-preview') && /Cocok dengan/.test(doc.querySelector('.rule .rule-preview').textContent), 'rule preview');
     expect(doc.querySelector('.rule .rule-preview').textContent).toContain('Tokopedia');
     click(doc.querySelector('[data-action=addrule]'));
@@ -301,11 +303,21 @@ describe('web app', () => {
   });
 
   it('the weekly summary can be switched off', async () => {
+    await section('emails', 'form[data-form=weekly]');
     const form = doc.querySelector('form[data-form=weekly]');
     expect(form.querySelector('[name=weekly_email]').checked).toBe(true);
     form.querySelector('[name=weekly_email]').checked = false;
     form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
     await until(() => store.cfg.weekly_email === 'off', 'weekly off');
+  });
+
+  it('settings show one section at a time, with a way back to the list', async () => {
+    expect(doc.querySelector('.settings').classList.contains('show-detail')).toBe(true);
+    expect(doc.querySelectorAll('.set-detail > form, .set-detail > section').length).toBe(1);
+    click(doc.querySelector('.set-back'));
+    await until(() => !doc.querySelector('.settings').classList.contains('show-detail'), 'back to the list');
+    expect(doc.querySelectorAll('.set-row').length).toBe(10);
+    expect(doc.querySelector('[data-section=accounts]').textContent).toContain('3 rekening');
   });
 
   it('a payday without salary asks for it in Review, and saving records it', async () => {
@@ -326,7 +338,7 @@ describe('web app', () => {
     expect(store.t[TABS.transactions].find((r) => r.ref_no === 'salary:2026-09')).toMatchObject({ category: 'gaji', direction: 'in', amount: 8000000, stream: 'BCA', date: '2026-09-28', status: 'approved' });
     await until(() => !doc.querySelector('.salary-card'), 'card gone');
     await tab('settings', 'Pengaturan');
-    await until(() => doc.querySelector('form[data-form=config]'), 'settings form');
+    await section('prefs', 'form[data-form=config]');
   });
 
   it('switching the language to English relabels the app', async () => {

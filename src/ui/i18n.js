@@ -124,6 +124,11 @@ export const STRINGS = {
     notSubscription: 'Bukan langganan', notSubscriptionFor: (n) => `${n} bukan langganan`, recurringHidden: (n) => `${n} tidak ditampilkan lagi`,
     fillBudgets: 'Isi dari pengeluaran sebelumnya', budgetsFilled: (n) => (n ? `${n} budget diisi. Periksa, lalu Simpan budget.` : 'Semua budget sudah terisi.'),
     budgetSuggest: (v, m) => (m > 1 ? `Rata-rata ${m} bulan terakhir: ${v}` : `Bulan lalu: ${v}`),
+    setGroupRoutine: 'Rutin', setGroupMoney: 'Uang & rekening', setGroupAuto: 'Otomatis', setGroupApp: 'Aplikasi',
+    monthEndShort: 'Samakan saldo app dengan bank', nAccounts: (n) => `${n} rekening`,
+    nBudgets: (n) => (n ? `${n} kategori punya budget` : 'Belum ada budget'), nGoals: (n) => (n ? `${n} target` : 'Belum ada target'),
+    nCategories: (i, e) => `${i} pemasukan · ${e} pengeluaran`, nRules: (n) => `${n} aturan`, nEmailsOn: (n, t) => `${n} dari ${t} aktif`,
+    prefSummary: (l, d) => `${l} · gajian tgl ${d}`, moreSummary: 'Uji otomatis, arsip, spreadsheet',
     more: 'Lainnya', selftest: 'Uji otomatis terakhir', openSheet: 'Buka spreadsheet', status: 'Status',
   },
   en: {
@@ -243,6 +248,11 @@ export const STRINGS = {
     notSubscription: 'Not a subscription', notSubscriptionFor: (n) => `${n} is not a subscription`, recurringHidden: (n) => `${n} no longer shown`,
     fillBudgets: 'Fill from earlier spending', budgetsFilled: (n) => (n ? `${n} budget(s) filled. Check them, then Save budgets.` : 'Every budget is already filled.'),
     budgetSuggest: (v, m) => (m > 1 ? `Average of the last ${m} months: ${v}` : `Last month: ${v}`),
+    setGroupRoutine: 'Routine', setGroupMoney: 'Money & accounts', setGroupAuto: 'Automation', setGroupApp: 'App',
+    monthEndShort: 'Match the app with your bank', nAccounts: (n) => `${n} account(s)`,
+    nBudgets: (n) => (n ? `${n} categor${n === 1 ? 'y has' : 'ies have'} a budget` : 'No budgets yet'), nGoals: (n) => (n ? `${n} goal(s)` : 'No goals yet'),
+    nCategories: (i, e) => `${i} income · ${e} expense`, nRules: (n) => `${n} rule(s)`, nEmailsOn: (n, t) => `${n} of ${t} on`,
+    prefSummary: (l, d) => `${l} · payday on day ${d}`, moreSummary: 'Self-test, archives, spreadsheet',
     more: 'More', selftest: 'Last self-test', openSheet: 'Open spreadsheet', status: 'Status',
   },
 };
