@@ -302,6 +302,12 @@ export function runSetup(ss, seedRaw) {
 
   const cf = ss.getSheetByName(CF.sheet);
   if (cf.getMaxRows() < MIN_LEDGER_ROWS) cf.insertRowsAfter(cf.getMaxRows(), MIN_LEDGER_ROWS - cf.getMaxRows());
+  // The template has merged rows (B141:H141, B164:H164, …) inside the ledger area. The ledger
+  // formula fills those rows too, and a merge shows only the first column: the transaction there
+  // lost its category, account and amount from every total (found 2026-10-07). Unmerge them all.
+  const merged = cf.getRange(`B${CF.firstDataRow}:H${cf.getMaxRows()}`).getMergedRanges();
+  merged.forEach((r) => r.breakApart());
+  if (merged.length) log.push(`Unmerged ${merged.length} row(s) in the CASHFLOW ledger`);
 
   // The patches are written in en-US syntax (commas, {a,b} arrays). In a spreadsheet set to an
   // Indonesian locale some of them don't parse (#ERROR!, seen in the self-test copy 2026-10-06), so

@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 11; // 10: formulas written under en_US whatever the locale · 11: Goals tab, move_to_opening fixes
+export const SETUP_VERSION = 12; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area
 
 export const TABS = {
   transactions: 'Transactions',

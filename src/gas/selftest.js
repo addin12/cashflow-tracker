@@ -150,6 +150,11 @@ export function runSelfTest(ss, seed) {
       failures.push(`CASHFLOW ${CF.payday.payday} next payday: expected ${want.toDateString()}, got ${got}`);
     }
 
+    // 3b. No merged cells in the ledger area: a merge hides the transaction that lands on it.
+    const merges = copy.getSheetByName(CF.sheet).getRange(`B${CF.firstDataRow}:H${copy.getSheetByName(CF.sheet).getMaxRows()}`).getMergedRanges();
+    checks += 1;
+    if (merges.length) failures.push(`CASHFLOW ledger: ${merges.length} merged range(s), e.g. ${merges[0].getA1Notation()}`);
+
     // 4. No error values anywhere in the report areas.
     for (const [sheet, range] of Object.entries(ERROR_SCAN)) {
       const sh = copy.getSheetByName(sheet);
