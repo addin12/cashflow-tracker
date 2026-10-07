@@ -3,7 +3,7 @@
 /* global SpreadsheetApp */
 
 import {
-  TABS, TRANSACTION_HEADERS, ACCOUNT_HEADERS, RULE_HEADERS, CONNECTION_HEADERS, CONFIG_KEYS, INBOX_LOG_HEADERS, BUDGET_HEADERS,
+  TABS, TRANSACTION_HEADERS, ACCOUNT_HEADERS, RULE_HEADERS, CONNECTION_HEADERS, CONFIG_KEYS, INBOX_LOG_HEADERS, BUDGET_HEADERS, GOAL_HEADERS,
   SETUP_VERSION, CF, TX_COL, STATUS, DIRECTION, ACCOUNT_TYPES, FIXED_CATEGORIES,
 } from '../core/schema.js';
 import { templatePatches, isOpenEnded } from '../core/formulas.js';
@@ -120,7 +120,9 @@ function applyCategoryChanges(ss, seed, log, fromVersion) {
  * One-off repairs from the seed's data_fixes newer than this sheet (the seed is private, so row
  * ids stay out of the public code). Each fix applies only while the row still holds the value it
  * corrects, so a category the owner changed since is left alone.
- *   { since, transactions: [[id, fromCategory, toCategory]], rules: [{ pattern, from, to } | { pattern, id }] }
+ *   { since, transactions: [[id, fromCategory, toCategory]], rules: [{ pattern, from, to } | { pattern, id }],
+ *     move_to_opening: [[id, stream, amount]] }   an adjustment row that was really the opening balance:
+ *     removed, and its amount (+ in / - out) added to that account's opening balance, as one step
  */
 function applyDataFixes(ss, seed, log, fromVersion) {
   const fixes = (seed.data_fixes || []).filter((f) => f.since > fromVersion);
@@ -136,6 +138,21 @@ function applyDataFixes(ss, seed, log, fromVersion) {
     }
   }
   if (updates.length) store.update(TABS.transactions, updates);
+  // Adjustments that were really opening balances: only while the row is still exactly as recorded.
+  let moved = 0;
+  const accts = store.read(TABS.accounts);
+  for (const f of fixes) {
+    for (const [id, stream, amount] of f.move_to_opening || []) {
+      const r = rows.get(String(id));
+      const signed = r ? (r.direction === 'in' ? 1 : -1) * Number(r.amount) : NaN;
+      const acct = accts.find((a) => a.stream === stream);
+      if (!r || !acct || r.stream !== stream || Math.abs(signed - Number(amount)) > 0.005) { skipped += 1; continue; }
+      store.remove(TABS.transactions, r.id);
+      acct.opening_balance = Math.round((Number(acct.opening_balance || 0) + signed) * 100) / 100;
+      moved += 1;
+    }
+  }
+  if (moved) store.replace(TABS.accounts, accts);
   // Rules are fixed cell by cell, found by pattern (ids may be duplicated, which is one of the fixes).
   const sh = ss.getSheetByName(TABS.rules);
   const col = (h) => RULE_HEADERS.indexOf(h);
@@ -150,7 +167,7 @@ function applyDataFixes(ss, seed, log, fromVersion) {
       }
     }
   });
-  log.push(`Data fixes: ${updates.length} transaction(s), ${ruleFixes} rule change(s)${skipped ? `, ${skipped} skipped (already changed)` : ''}`);
+  log.push(`Data fixes: ${updates.length} transaction(s), ${ruleFixes} rule change(s), ${moved} moved to opening balances${skipped ? `, ${skipped} skipped (already changed)` : ''}`);
 }
 
 /**
@@ -264,6 +281,7 @@ export function runSetup(ss, seedRaw) {
   ensureTab(ss, TABS.inboxLog, INBOX_LOG_HEADERS);
   ensureTab(ss, TABS.preview, TRANSACTION_HEADERS);
   ensureTab(ss, TABS.budgets, BUDGET_HEADERS);
+  ensureTab(ss, TABS.goals, GOAL_HEADERS);
   ensureConfig(ss, seed, firstRun);
   fillNewConfig(ss, seed);
   seedRules(ss, seed, log, fromVersion);

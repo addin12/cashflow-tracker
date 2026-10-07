@@ -391,3 +391,9 @@ button.rowi:hover { background: var(--zebra); }
 .notif b { display: block; font-weight: 600; }
 .notif .meta { margin-top: 2px; }
 .notif .go { grid-column: 2; color: var(--accent); font-weight: 500; font-size: 15px; margin-top: 4px; }
+
+/* ---------- round 6: savings goals */
+.goals { display: flex; flex-direction: column; gap: 18px; }
+.goal .row-top { display: flex; justify-content: space-between; gap: 12px; font-size: 17px; }
+.goal .bar { height: 10px; margin: 8px 0 4px; }
+.goal .bar i.done { background: var(--success); }

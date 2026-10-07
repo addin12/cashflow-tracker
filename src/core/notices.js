@@ -51,6 +51,7 @@ const L = {
     monthSubject: (m) => `Laporan bulanan Cashflow · ${m}`, monthTitle: (m) => `Laporan ${m}`, vs: (m) => `dibanding ${m}`,
     income: 'Pemasukan', expense: 'Pengeluaran', net: 'Sisa', rate: (p) => `Ditabung ${p}% dari pemasukan`, noRate: 'Belum ada pemasukan bulan ini.',
     cats: 'Pengeluaran per kategori', more: (v) => `naik ${v}`, less: (v) => `turun ${v}`, same: 'sama', budgets: 'Budget', over: (v) => `lebih ${v}`, left: (v) => `sisa ${v}`,
+    goals: 'Target tabungan', goalLine: (p, l) => `${p}% · kurang ${l}`, goalDone: 'Tercapai',
     open: 'Buka aplikasi', monthFooter: 'Dikirim setiap tanggal 1. Matikan di Pengaturan → Email otomatis.',
     paySubject: 'Gajian! Waktunya cek saldo rekening', payTitle: 'Waktunya cek saldo',
     payIntro: 'Hari ini tanggal gajian. Bandingkan saldo di aplikasi bank dengan saldo di Cashflow. Kalau berbeda, isi saldo aslinya di Pengaturan → Cek saldo akhir bulan; selisihnya dicatat sebagai Penyesuaian.',
@@ -63,6 +64,7 @@ const L = {
     monthSubject: (m) => `Cashflow monthly report · ${m}`, monthTitle: (m) => `${m} report`, vs: (m) => `compared with ${m}`,
     income: 'Income', expense: 'Expenses', net: 'Left', rate: (p) => `Saved ${p}% of income`, noRate: 'No income this month yet.',
     cats: 'Expenses by category', more: (v) => `up ${v}`, less: (v) => `down ${v}`, same: 'same', budgets: 'Budgets', over: (v) => `${v} over`, left: (v) => `${v} left`,
+    goals: 'Savings goals', goalLine: (p, l) => `${p}% · ${l} to go`, goalDone: 'Reached',
     open: 'Open the app', monthFooter: 'Sent on the 1st of every month. Turn it off in Settings → Automatic emails.',
     paySubject: 'Payday! Time to check your balances', payTitle: 'Time to check your balances',
     payIntro: 'It’s payday. Compare the balance in your bank apps with Cashflow. If one differs, enter the real balance in Settings → Month-end balance check; the difference is recorded as an Adjustment.',
@@ -88,6 +90,7 @@ export function monthlyEmail(r, { appUrl = '', lang = 'id' } = {}) {
   ];
   if (r.categories.length) parts.push(section(t.cats, r.categories.map((c) => row(c.category, rp(c.amount), change(c))).join('')));
   if (r.budgets.length) parts.push(section(t.budgets, r.budgets.map((b) => row(b.category, `${rp(b.spent)} / ${rp(b.budget)}`, b.over ? t.over(rp(b.spent - b.budget)) : t.left(rp(b.budget - b.spent)))).join('')));
+  if ((r.goals || []).length) parts.push(section(t.goals, r.goals.map((g) => row(g.name, `${rp(g.saved)} / ${rp(g.target)}`, g.done ? t.goalDone : t.goalLine(g.percent, rp(g.left)))).join('')));
   parts.push(button(appUrl, t.open), footer(t.monthFooter));
   return { subject: t.monthSubject(monthName(r.month, lang)), html: wrap(parts) };
 }

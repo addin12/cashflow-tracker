@@ -353,6 +353,25 @@ describe('web app', () => {
     third.window.close();
   });
 
+  it('a snapshot less than 10 minutes old opens without asking the server at all', async () => {
+    const snap = { ...api.init(), at: new Date().toISOString() };
+    const page = html.replace('window.__INIT__=null;', () => `window.__INIT__=${JSON.stringify(snap).replace(/</g, '\\u003c')};`);
+    let asked = 0;
+    const fresh = new JSDOM(page, {
+      runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.invalid/',
+      beforeParse(window) {
+        const r = { withSuccessHandler() { return r; }, withFailureHandler() { return r; }, api() { asked += 1; } };
+        window.google = { script: { get run() { return r; } } };
+      },
+    });
+    const d5 = fresh.window.document;
+    for (let i = 0; i < 200 && !d5.querySelector('#view .card, #view .kpis'); i += 1) await new Promise((res) => setTimeout(res, 5));
+    await new Promise((res) => setTimeout(res, 50));
+    expect(d5.querySelector('#view .card, #view .kpis')).not.toBeNull();
+    expect(asked).toBe(0);
+    fresh.window.close();
+  });
+
   it('without any data it counts the seconds instead of sitting on "Loading"', async () => {
     const fourth = new JSDOM(html, {
       runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.invalid/',

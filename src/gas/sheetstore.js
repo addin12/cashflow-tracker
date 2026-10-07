@@ -1,7 +1,7 @@
 // The api.js store, backed by the spreadsheet. Every call to Google costs time on the phone,
 // so within one request each tab is read once (writes invalidate it) and Config is read whole.
 import {
-  TABS, TRANSACTION_HEADERS, ACCOUNT_HEADERS, RULE_HEADERS, CONNECTION_HEADERS, INBOX_LOG_HEADERS, BUDGET_HEADERS, CF, CONFIG_KEYS,
+  TABS, TRANSACTION_HEADERS, ACCOUNT_HEADERS, RULE_HEADERS, CONNECTION_HEADERS, INBOX_LOG_HEADERS, BUDGET_HEADERS, GOAL_HEADERS, CF, CONFIG_KEYS,
 } from '../core/schema.js';
 import { readTable, appendRows, updateRows, deleteRowById } from './store.js';
 import { setConfigValue, writeCategories } from './setup.js';
@@ -13,6 +13,7 @@ const HEADERS = {
   [TABS.connections]: CONNECTION_HEADERS,
   [TABS.inboxLog]: INBOX_LOG_HEADERS,
   [TABS.budgets]: BUDGET_HEADERS,
+  [TABS.goals]: GOAL_HEADERS,
 };
 
 const strip = (rows) => rows.map(({ _row, ...rest }) => rest);

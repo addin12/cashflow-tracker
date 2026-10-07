@@ -48,6 +48,7 @@ const t = {
   [TABS.connections]: [{ gmail: 'demo@example.com', last_sync: '2026-10-06T02:50:00.000Z', last_status: 'live ok: +3 rows, 0 errors' }],
   [TABS.inboxLog]: [{ gmail_id: 'g99', subject: 'Pembayaran Berhasil', from: 'bank', status: 'error', reason: 'no amount found' }],
   [TABS.budgets]: [{ category: 'Food & Beverages', monthly_budget: 1500000 }, { category: 'Belanja Online', monthly_budget: 200000 }, { category: 'Barber', monthly_budget: 100000 }],
+  [TABS.goals]: [{ stream: 'Tabungan', name: 'Dana Darurat', target: 25000000, target_date: '2027-06-30' }, { stream: 'Bank A', name: 'Liburan', target: 5000000, target_date: '' }],
 };
 const cfg = { owner_name: 'Demo', start_date: '2026-09-01', payday_day: 28, language: '', cat_transfer: 'trf ke bank lain', last_selftest: 'PASS 2026-10-05', owner_bank_names: 'DEMO USER' };
 const slots = buildCategorySlots({ income, expense });

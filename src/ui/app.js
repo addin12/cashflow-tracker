@@ -395,6 +395,7 @@ async function viewDashboard() {
       <section class="card"><h2>${esc(T.expenseByCategory)}</h2><p class="lead">${esc(d.budgets.length ? T.expenseByCategoryHint : T.noBudgets)}</p><div class="rows">${expenseRows || `<p class="hint">${esc(T.nothingYet)}</p>`}</div></section>
       <div class="stack">
         <section class="card"><h2>${esc(T.incomeByCategory)}</h2><div class="rows">${incomeRows || `<p class="hint">${esc(T.nothingYet)}</p>`}</div></section>
+        ${goalsCard(d.goals)}
         ${recurringCard(d.recurring)}
         <section class="card"><h2>${esc(T.accounts)}</h2><p class="lead">${esc(T.accountsHint)}</p><div class="rows">${group('Spending', T.spendingGroup)}${group('Saving', T.savingGroup)}</div></section>
       </div>
@@ -410,6 +411,18 @@ function recurringCard(r) {
       <span class="meta">${esc(when(i))}${i.stream ? ` · ${esc(i.stream)}` : ''}${i.basis === 'category' ? ` · <span class="badge neutral">${esc(T.recurringGuess)}</span>` : ''}${i.daysLeft < 0 ? ` <span class="badge warn">${esc(T.recurringLateBadge)}</span>` : ''}</span></span>
       <span class="amt">${rp(i.amount)}</span></button>`).join('');
   return `<section class="card"><h2>${esc(T.recurringTitle)}</h2><p class="lead">${esc(T.recurringHint(rp(r.monthlyTotal)))}</p><div class="rows">${rows}</div></section>`;
+}
+
+function goalsCard(goals) {
+  if (!goals || !goals.length) return '';
+  const rows = goals.map((g) => `<div class="goal">
+    <div class="row-top"><b>${esc(g.name)}</b><span class="amt">${rp(g.saved)}</span></div>
+    <span class="bar" role="img" aria-label="${esc(T.goalPercent(g.percent))}"><i class="${g.done ? 'done' : ''}" style="width:${g.percent}%"></i></span>
+    <div class="meta">${esc(g.done ? T.goalDone(rp(g.target)) : T.goalLeft(g.percent, rp(g.target), rp(g.left)))}</div>
+    ${!g.done && g.perMonth ? `<div class="meta">${esc(T.goalPerMonth(rp(g.perMonth), dateLabel(g.targetDate, { weekday: false })))}</div>` : ''}
+    ${!g.done && g.targetDate && !g.monthsLeft ? `<div class="meta"><span class="badge warn">${esc(T.goalPast)}</span></div>` : ''}
+  </div>`).join('');
+  return `<section class="card"><h2>${esc(T.goalsTitle)}</h2><p class="lead">${esc(T.goalsHint)}</p><div class="goals">${rows}</div></section>`;
 }
 
 // ---------------------------------------------------------------- Transactions
@@ -749,7 +762,10 @@ async function viewSettings(local) {
           ${field(T.account, `<select name="stream">${accountOptions('')}</select>`)}
           ${field(T.actualBalance, '<input name="actual" type="number" inputmode="decimal" step="any">', { help: T.actualBalanceHelp })}
           ${field(T.date, `<input name="date" type="date" value="${esc(state.boot.today)}">`)}
-        </div>${saveRow(T.checkBalance)}</form>
+        </div>
+        <label class="check"><input type="checkbox" name="as_opening"> ${esc(T.asOpening)}</label>
+        <p class="hint">${esc(T.asOpeningHelp)}</p>${saveRow(T.checkBalance)}</form>
+      ${goalsForm(s)}
       <form class="card" data-form="accounts" novalidate><h2>${esc(T.accountsTitle)}</h2><p class="lead">${esc(T.accountsTitleHint)}</p>${acc}
         <div class="actions"><button class="btn secondary left" type="button" data-action="addacct">＋ ${esc(T.addAccount)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveAccounts)}</button></div></form>
       <form class="card" data-form="categories" novalidate><h2>${esc(T.categoriesTitle)}</h2><p class="lead">${esc(T.categoriesHint)}</p>
@@ -894,6 +910,7 @@ async function show(tab) {
 // The last startup data is kept in this browser so the app can paint instantly next time,
 // then it is replaced by fresh data from the server.
 const CACHE_KEY = 'cashflow.init.v1';
+const FRESH_MS = 10 * 60000;
 const TIMING_KEY = 'cashflow.lastLoad.v1';
 function readCache() {
   try { return JSON.parse(window.localStorage.getItem(CACHE_KEY) || 'null'); } catch (e) { return null; }
@@ -976,6 +993,15 @@ function onClick(e) {
     return null;
   }
   if (a === 'sendsummary') return sendSummaryNow(el);
+  if (a === 'addgoal' || a === 'delgoal') {
+    const form = el.closest('form');
+    state.settings.goals = readGoals(form);
+    if (a === 'addgoal') state.settings.goals.push({ stream: '', name: '', target: '', target_date: '' });
+    else state.settings.goals.splice(Number(el.dataset.i), 1);
+    viewSettings(state.settings);
+    if (a === 'addgoal') { const sel = $$('.goal-row [data-g=stream]'); if (sel.length) sel[sel.length - 1].focus(); }
+    return null;
+  }
   if (a === 'dupcancel') { $('#addDup').innerHTML = ''; return null; }
   if (a === 'dupsave') { state.addForce = true; return submitAdd(el.closest('form')); }
   if (a === 'close') return closeModal();
@@ -1047,6 +1073,21 @@ async function sendSummaryNow(btn) {
   } finally { btn.disabled = false; }
 }
 
+function goalsForm(s) {
+  const goals = s.goals || [];
+  const rows = goals.map((g, i) => `<fieldset class="acct-row goal-row" data-i="${i}"><legend>${esc(g.name || g.stream || T.newGoal)}</legend>
+    <div class="fields2">
+      ${field(T.account, `<select data-g="stream">${accountOptions(g.stream)}</select>`)}
+      ${field(T.goalName, `<input data-g="name" value="${esc(g.name)}">`, { help: T.goalNameHelp })}
+      ${field(T.goalTarget, `<input data-g="target" type="number" inputmode="decimal" step="any" min="0" value="${esc(g.target)}">`)}
+      ${field(T.goalDate, `<input data-g="target_date" type="date" value="${esc(String(g.target_date || '').slice(0, 10))}">`, { help: T.optional })}
+    </div>
+    <div class="actions"><button class="btn danger small" type="button" data-action="delgoal" data-i="${i}">${esc(T.deleteGoal)}</button></div></fieldset>`).join('');
+  return `<form class="card" data-form="goals" novalidate><h2>${esc(T.goalsTitle)}</h2><p class="lead">${esc(T.goalsSettingsHint)}</p>${rows || `<p class="hint">${esc(T.noGoals)}</p>`}
+    <div class="actions"><button class="btn secondary left" type="button" data-action="addgoal">＋ ${esc(T.addGoal)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveGoals)}</button></div></form>`;
+}
+const readGoals = (form) => $$('.goal-row', form).map((row) => Object.fromEntries($$('[data-g]', row).map((i) => [i.dataset.g, i.value])));
+
 const readAccounts = (form) => $$('.acct', form).map((row) => Object.fromEntries($$('[data-a]', row).map((i) => [i.dataset.a, i.value])));
 
 function onSubmit(e) {
@@ -1081,10 +1122,11 @@ function onSubmit(e) {
     let ok = fieldMessage(form.querySelector('[name=stream]'), d.stream ? '' : T.errNoAccount);
     ok = fieldMessage(form.querySelector('[name=actual]'), d.actual === '' ? T.errAmount : '') && ok;
     if (!ok) return null;
-    return saveForm(form, 'balanceCheck', { stream: d.stream, actual: Number(d.actual), date: d.date }, (r) => {
+    return saveForm(form, 'balanceCheck', { stream: d.stream, actual: Number(d.actual), date: d.date, asOpening: !!d.as_opening }, (r) => {
       const st = form.querySelector('.state');
-      st.textContent = `✓ ${r.adjusted ? T.adjusted(rp(r.adjusted)) : T.matched}`;
+      st.textContent = `✓ ${r.opening != null ? T.openingSet(d.stream, rp(r.opening)) : r.adjusted ? T.adjusted(rp(r.adjusted)) : T.matched}`;
       state.allStale = true;
+      return refresh();
     });
   }
   if (kind === 'accounts') {
@@ -1128,6 +1170,16 @@ function onSubmit(e) {
     if (!ok) return null;
     return saveForm(form, 'saveRules', { rules }, () => { state.settings.rules = rules; });
   }
+  if (kind === 'goals') {
+    const goals = readGoals(form).map((g) => ({ ...g, target: Number(g.target) || 0 }));
+    let ok = true;
+    $$('.goal-row', form).forEach((row, i) => {
+      ok = fieldMessage($('[data-g=stream]', row), goals[i].stream ? '' : T.errNoAccount) && ok;
+      ok = fieldMessage($('[data-g=target]', row), goals[i].target > 0 ? '' : T.errAmount) && ok;
+    });
+    if (!ok) return null;
+    return saveForm(form, 'saveGoals', { goals }, () => { state.settings.goals = goals; state.dashByMonth = {}; });
+  }
   if (kind === 'weekly') {
     const v = (n) => (form.querySelector(`[name=${n}]`).checked ? 'on' : 'off');
     return saveForm(form, 'saveConfig', { weekly_email: v('weekly_email'), monthly_email: v('monthly_email'), payday_email: v('payday_email') });
@@ -1136,6 +1188,10 @@ function onSubmit(e) {
 }
 
 function onChange(e) {
+  if (e.target.name === 'stream' && e.target.closest('form[data-form=monthend]')) {
+    const a = (state.settings.accounts || []).find((x) => x.stream === e.target.value);
+    e.target.form.querySelector('[name=as_opening]').checked = !!a && !(Number(a.opening_balance) || 0);
+  }
   if (e.target.name === 'theme' && e.target.closest('form[data-form=config]')) { applyTheme(e.target.value); return null; }
   const f = e.target.closest('[data-filter]');
   if (f) {
@@ -1204,6 +1260,12 @@ export async function start() {
     waitTimer = setInterval(tick, 1000);
   }
   const mine = seq;
+  // While the page is open, fresh numbers every 10 minutes (as often as the sync runs).
+  setInterval(() => { if (!document.hidden) scheduleRefresh(0); }, FRESH_MS);
+  // The sync refreshes the data built into the page every 10 minutes, and every change refreshes
+  // it too: when it is that fresh, opening the app needs no extra request to Google.
+  const age = instant ? Date.now() - Date.parse(instant.at) : Infinity;
+  if (age > -5 * 60000 && age < FRESH_MS) { status(); return; }
   try {
     let lastLoad = null;
     try { lastLoad = JSON.parse(window.localStorage.getItem(TIMING_KEY) || 'null'); } catch (e) { /* none */ }

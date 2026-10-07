@@ -22,6 +22,7 @@ import { compileRule } from './rules.js';
 import { recurringCharges } from './recurring.js';
 import { weeklySummary } from './summary.js';
 import { monthlyReport } from './notices.js';
+import { goalProgress, goalProblems } from './goals.js';
 
 const cents = (n) => Math.round(Number(n) * 100);
 export const SPLIT_REF = 'split:';
@@ -195,6 +196,7 @@ export function createApi(store, env) {
         budgets: budgetUsage(summary, store.read(TABS.budgets)),
         pendingCount: all.filter((r) => r.status === 'pending').length,
         recurring: recurringCharges(all, { today, skipCategories: fixedNames() }),
+        goals: goalProgress(store.read(TABS.goals), streamBalances(all, accounts(), { year: year(), asOf: isoDate(today) }), today),
       };
     },
 
@@ -206,7 +208,9 @@ export function createApi(store, env) {
 
     /** Data for the monthly report email: `month` against the month before. */
     monthly({ month }) {
-      return monthlyReport({ rows: rows(), cats: cats(), budgets: store.read(TABS.budgets), month });
+      const all = rows();
+      const report = monthlyReport({ rows: all, cats: cats(), budgets: store.read(TABS.budgets), month });
+      return { ...report, goals: goalProgress(store.read(TABS.goals), streamBalances(all, accounts(), { year: year(), asOf: isoDate(now()) }), now()) };
     },
 
     sendSummary() {
@@ -216,7 +220,7 @@ export function createApi(store, env) {
 
     settings() {
       return {
-        accounts: accounts(), rules: store.read(TABS.rules), budgets: store.read(TABS.budgets), categories: cats(),
+        accounts: accounts(), rules: store.read(TABS.rules), budgets: store.read(TABS.budgets), goals: store.read(TABS.goals), categories: cats(),
         config: {
           payday_day: store.config('payday_day'), language: store.config('language'), owner_name: store.config('owner_name'),
           owner_bank_names: store.config('owner_bank_names'), start_date: store.config('start_date'),
@@ -270,6 +274,16 @@ export function createApi(store, env) {
       return { ok: true };
     },
 
+    saveGoals({ goals }) {
+      const clean = (goals || []).map((g) => ({
+        stream: String(g.stream || ''), name: String(g.name || '').trim(), target: Number(g.target) || 0, target_date: String(g.target_date || ''),
+      }));
+      const problems = goalProblems(clean, accounts());
+      if (problems.length) throw new Error(problems.join('; '));
+      store.replace(TABS.goals, clean);
+      return { ok: true };
+    },
+
     saveBudgets({ budgets }) {
       const known = new Set(cats().expense);
       const clean = budgets.filter((b) => Number(b.monthly_budget) > 0).map((b) => {
@@ -295,9 +309,23 @@ export function createApi(store, env) {
       return { ok: true };
     },
 
-    balanceCheck({ stream, actual, date }) {
+    /**
+     * Month-end balance check. Normally the difference becomes a Penyesuaian row. `asOpening`
+     * (an account checked for the first time) puts it into the account's opening balance instead:
+     * the money was there before the start date, it didn't arrive today.
+     */
+    balanceCheck({ stream, actual, date, asOpening }) {
       const d = date || isoDate(now());
       const balances = streamBalances(rows(), accounts(), { year: year(), asOf: d });
+      if (asOpening) {
+        const b = balances.find((x) => x.stream === stream);
+        if (!b) throw new Error(`unknown account ${stream}`);
+        const diff = Math.round((Number(actual) - b.balance) * 100) / 100;
+        if (Math.abs(diff) < 0.005) return { ok: true, adjusted: 0, opening: null };
+        const list = accounts().map((a) => (a.stream === stream ? { ...a, opening_balance: Math.round((Number(a.opening_balance || 0) + diff) * 100) / 100 } : a));
+        store.replace(TABS.accounts, list);
+        return { ok: true, adjusted: 0, opening: list.find((a) => a.stream === stream).opening_balance, openingChange: diff };
+      }
       const fix = balanceCorrection(balances, stream, actual, {
         owner: owner(), nowIso: nowIso(), date: d, adjustCategory: 'Penyesuaian',
       });
@@ -343,5 +371,5 @@ export function renameCategoryEverywhere(store, renamed) {
 
 export const API_METHODS = [
   'init', 'bootstrap', 'review', 'approve', 'ignore', 'restore', 'list', 'update', 'remove', 'add', 'dashboard', 'settings',
-  'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary',
+  'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
 ];

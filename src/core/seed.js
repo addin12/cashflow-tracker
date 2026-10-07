@@ -40,6 +40,9 @@ export function validateSeed(seed) {
       if (!Array.isArray(t) || t.length !== 3) errors.push(`data_fixes[${i}].transactions[${j}]: must be [id, from, to]`);
       else if (!known.has(t[2])) errors.push(`data_fixes[${i}].transactions[${j}]: "${t[2]}" is not a category`);
     });
+    (f.move_to_opening || []).forEach((m, j) => {
+      if (!Array.isArray(m) || m.length !== 3 || !Number.isFinite(Number(m[2]))) errors.push(`data_fixes[${i}].move_to_opening[${j}]: must be [id, stream, amount]`);
+    });
     (f.rules || []).forEach((r, j) => {
       if (!r.pattern) errors.push(`data_fixes[${i}].rules[${j}]: pattern is required`);
       if (r.to && !known.has(r.to)) errors.push(`data_fixes[${i}].rules[${j}]: "${r.to}" is not a category`);

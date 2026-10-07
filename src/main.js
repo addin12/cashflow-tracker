@@ -69,8 +69,16 @@ export function doGet() {
     .replace('window.__INIT__=null;', () => (init ? `window.__INIT__=${init.replace(/</g, '\\u003c').replace(/\//g, '\\/')};` : 'window.__INIT__=null;'));
   return HtmlService.createHtmlOutput(html)
     .setTitle('Cashflow')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
+    .setFaviconUrl(ICON_URL)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
+    // Name and full-screen look when added to a phone's home screen.
+    .addMetaTag('apple-mobile-web-app-title', 'Cashflow')
+    .addMetaTag('apple-mobile-web-app-capable', 'yes')
+    .addMetaTag('mobile-web-app-capable', 'yes');
 }
+
+/** The tab icon: a plain "Rp" logo kept in the public repo (docs/icon-192.png). */
+const ICON_URL = 'https://raw.githubusercontent.com/addin12/cashflow-tracker/main/docs/icon-192.png';
 
 const READ_ONLY = new Set(['init', 'bootstrap', 'review', 'list', 'dashboard', 'settings']);
 
