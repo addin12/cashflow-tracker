@@ -32,8 +32,14 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 - **Aturan otomatis** (di **Pengaturan**): ubah kata dan kategori, tambah aturan baru; app menunjukkan transaksi mana yang cocok.
 - **Email otomatis** (atur di **Pengaturan → Email otomatis**): ringkasan mingguan (Senin 07.00), laporan bulanan (tanggal 1), dan pengingat cek saldo (tanggal gajian). Kalau sinkron Gmail bermasalah atau ada email bank baru yang tidak terbaca, Anda juga dikirimi email.
 - **Peringatan dobel:** saat **Tambah**, kalau sudah ada transaksi dengan jumlah sama di hari yang sama (mis. dari email bank), app bertanya dulu: **Jangan simpan** atau **Tetap simpan**.
+- **Gaji:** bank tidak mengirim email untuk uang masuk, jadi di tanggal gajian **Cek** menampilkan kartu "Gaji 28 …": isi jumlahnya → **Simpan gaji** (jumlah terakhir sudah terisi). Tidak ada gaji bulan itu? **Tidak ada gaji**. Rekening gaji dan gaji biasanya bisa diubah di **Pengaturan → Preferensi**.
+- **Ringkasan dari gajian ke gajian** (Pengaturan → Preferensi → Ringkasan dihitung): "Oktober" = 28 Sep – 27 Okt, jadi gaji tanggal 28 dihitung untuk bulan berikutnya. Laporan di spreadsheet tetap per bulan kalender.
+- **Bukan langganan:** di kartu *Langganan & tagihan rutin*, ketuk **Bukan langganan** di bawah nama yang bukan tagihan rutin.
+- **Budget cepat:** di **Pengaturan → Budget bulanan**, tiap kategori menunjukkan pengeluaran bulan lalu; **Isi dari pengeluaran sebelumnya** mengisi yang masih kosong, lalu **Simpan budget**.
 - **Target tabungan** (atur di **Pengaturan → Target tabungan**): pilih rekening, nama, jumlah target dan tanggal (opsional). **Ringkasan** menunjukkan berapa yang sudah terkumpul dan berapa yang perlu disisihkan per bulan; laporan bulanan juga.
 - **Tahun baru:** pada 1 Januari spreadsheet otomatis pindah ke tahun baru dan saldo berlanjut. Tahun yang selesai disimpan sebagai salinan "(arsip)", linknya ada di **Pengaturan → Lainnya**.
+
+> **Salary:** banks send no email for money coming in, so on payday **Review** shows a salary card: enter the amount → **Save salary** (or **No salary**). **Summary from payday to payday** is a setting (Settings → Preferences). **Not a subscription** under a name on the subscriptions card hides it. **Fill from earlier spending** in Settings → Monthly budgets fills the empty budgets.
 
 > **Savings goals** (Settings → Savings goals): account, name, target and an optional date; the Summary and the monthly report show how much is saved and what to put aside each month.
 
@@ -41,6 +47,7 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 
 ## Akhir bulan / Month end (±5 menit)
 
+0. Di tanggal gajian: catat dulu **gaji** di **Cek**, baru cek saldo (kalau tidak, gajinya tercatat sebagai Penyesuaian).
 1. **Pengaturan → Cek saldo akhir bulan**: isi saldo asli tiap rekening. Selisihnya otomatis dicatat sebagai *Penyesuaian*. Pada cek pertama sebuah rekening, centang **Jadikan saldo awal** (sudah tercentang kalau saldo awalnya masih 0): selisihnya masuk ke saldo awal, bukan sebagai pengeluaran/pemasukan.
 2. Ringkasan GoPay bulanan masuk ke **Cek** sebagai "Pengeluaran GoPay (ringkasan bulanan)": pilih kategorinya.
 3. Laporan lengkap (Growth, Quarter, Budget, Final Statement) ada di spreadsheet: **Pengaturan → Buka spreadsheet**.
