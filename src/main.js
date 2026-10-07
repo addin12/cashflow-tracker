@@ -70,11 +70,9 @@ export function doGet() {
   return HtmlService.createHtmlOutput(html)
     .setTitle('Cashflow')
     .setFaviconUrl(ICON_URL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
-    // Name and full-screen look when added to a phone's home screen.
-    .addMetaTag('apple-mobile-web-app-title', 'Cashflow')
-    .addMetaTag('apple-mobile-web-app-capable', 'yes')
-    .addMetaTag('mobile-web-app-capable', 'yes');
+    // HtmlService allows only a few meta tags; any other one makes the whole page an
+    // "Exception: The meta tag you specified is not allowed" error. The home-screen name comes from the title.
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
 }
 
 /** The tab icon: a plain "Rp" logo kept in the public repo (docs/icon-192.png). */

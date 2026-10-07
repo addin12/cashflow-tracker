@@ -17,3 +17,8 @@ if (!m) throw new Error(`unexpected clasp output: ${out}`);
 const info = { deploymentId: m[1], version: Number(m[2]), url: `https://script.google.com/macros/s/${m[1]}/exec` };
 writeFileSync(file, JSON.stringify(info, null, 2));
 console.log(`web app version ${info.version}: ${info.url}`);
+
+// Google can keep serving the previous version for about a minute, then the new page must be the app,
+// not an error page (a disallowed meta tag once broke the whole page while every test passed).
+await new Promise((r) => { setTimeout(r, 75000); });
+execFileSync(process.execPath, [join('scripts', 'check-live.mjs')], { stdio: 'inherit', env: { ...process.env, CHECK_LIVE_ROUNDS: '3' } });
