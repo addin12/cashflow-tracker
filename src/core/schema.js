@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 12; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area
+export const SETUP_VERSION = 13; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config
 
 export const TABS = {
   transactions: 'Transactions',
@@ -56,6 +56,13 @@ export const CONFIG_KEYS = [
   { key: 'payday_email', name: 'CFG_PAYDAY_EMAIL', note: 'Balance-check reminder email on payday: on / off' },
   { key: 'archives', name: 'CFG_ARCHIVES', note: 'Copies of finished years ("2026 <link>", one per line); written at New Year' },
   { key: 'archived', name: 'CFG_ARCHIVED', note: 'Set in an archive copy (the year it holds); an archive never syncs' },
+  // Added in setup version 13.
+  { key: 'salary_stream', name: 'CFG_SALARY_STREAM', note: 'Account the salary is paid into (no email reports it, so the app asks on payday)' },
+  { key: 'salary_amount', name: 'CFG_SALARY_AMOUNT', note: 'Usual salary, suggested on the salary card (the last one recorded)' },
+  { key: 'salary_skipped', name: 'CFG_SALARY_SKIPPED', note: 'Months without salary (YYYY-MM, comma-separated)' },
+  { key: 'opening_checks', name: 'CFG_OPENING_CHECKS', note: 'Date each opening balance was set from a balance check (JSON); written by the app' },
+  { key: 'summary_period', name: 'CFG_SUMMARY_PERIOD', note: 'Summary per calendar month (month) or from payday to payday (payday)' },
+  { key: 'recurring_hidden', name: 'CFG_RECURRING_HIDDEN', note: 'Payees marked "not a subscription" (one per line)' },
 ];
 
 export const STATUS = ['pending', 'approved', 'ignored'];

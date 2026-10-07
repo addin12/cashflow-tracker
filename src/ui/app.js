@@ -35,6 +35,8 @@ function dateLabel(d, { weekday = true } = {}) {
   const opts = { day: 'numeric', month: 'short', ...(weekday ? { weekday: 'short' } : {}), ...(String(d).slice(0, 4) !== thisYear() ? { year: 'numeric' } : {}) };
   return new Date(`${d}T00:00:00`).toLocaleDateString(locale(), opts);
 }
+const rangeLabel = (a, b) => `${dateLabel(a, { weekday: false })} – ${dateLabel(b, { weekday: false })}`;
+const currentMonth = () => state.boot.currentMonth || state.boot.today.slice(0, 7);
 const timeLabel = (t) => (t ? String(t).slice(0, 5).replace(':', state.boot?.lang === 'en' ? ':' : '.') : '');
 const when = (x) => [dateLabel(x.date), timeLabel(x.time)].filter(Boolean).join(' · ');
 
@@ -152,7 +154,7 @@ function setAll(rows) { state.all = rows; state.allStale = false; remember(rows)
 function absorb(data) {
   state.boot = { ...data.boot, lang: state.boot?.lang };
   applyLanguage(state.boot.language);
-  if (!state.month) state.month = data.boot.today.slice(0, 7);
+  if (!state.month) state.month = data.boot.currentMonth || data.boot.today.slice(0, 7);
   state.review = data.review;
   remember([...data.review.pending, ...data.review.recentAuto]);
   state.dashByMonth[data.dashboard.month] = data.dashboard;
@@ -234,7 +236,7 @@ function syncLine() {
 }
 
 function updateNav() {
-  const n = state.review ? state.review.pending.length : 0;
+  const n = state.review ? state.review.pending.length + (state.review.salary || []).length : 0;
   const count = $('#reviewCount');
   if (count) { count.hidden = !n; count.textContent = String(n); count.setAttribute('aria-label', T.pendingNote(n)); }
   const owner = $('#brandOwner');
@@ -248,7 +250,18 @@ function updateNav() {
 function viewReview() {
   const r = state.review;
   if (!r) return skeleton(T.reviewTitle);
-  const n = r.pending.length;
+  const n = r.pending.length + (r.salary || []).length;
+  // Salary: no email reports it, so each payday without one asks for the amount.
+  const salary = (r.salary || []).map((x) => `
+    <article class="card txcard salary-card" data-id="salary:${esc(x.month)}" data-month="${esc(x.month)}" data-date="${esc(x.date)}">
+      <div class="top"><div class="name">${esc(T.salaryTitle(dateLabel(x.date, { weekday: false })))}</div>${x.amount ? `<div class="amt in">+${rp(x.amount)}</div>` : ''}</div>
+      <div class="meta">${esc(T.salaryMeta)}</div>
+      <div class="fields2">
+        ${field(T.amountRp, `<input class="amount-input" data-field="amount" type="number" inputmode="decimal" step="any" min="0" placeholder="0" value="${esc(x.amount || '')}">`, { help: T.salaryAmountHelp })}
+        ${field(T.account, `<select data-field="stream">${accountOptions(x.stream)}</select>`)}
+      </div>
+      <div class="actions fill"><button class="btn secondary" data-action="salaryskip">${esc(T.salarySkip)}</button><button class="btn primary" data-action="salarysave">${esc(T.salarySave)}</button></div>
+    </article>`).join('');
   const cards = r.pending.map((x) => `
     <article class="card txcard" data-id="${esc(x.id)}">
       <div class="top"><div class="name">${esc(x.description || x.details || '—')}</div><div class="amt ${esc(x.direction)}">${signed(x)}</div></div>
@@ -270,7 +283,7 @@ function viewReview() {
     <header class="page-head"><div><h1>${esc(T.reviewTitle)}</h1><p class="sub">${esc(n ? T.reviewSub(n) : T.reviewSubNone)} · ${syncLine()}</p></div>
       <div class="tools"><button class="btn secondary small" data-action="sync">↻ ${esc(T.syncNow)}</button></div></header>
     <div class="split">
-      <section class="stack" aria-label="${esc(T.reviewTitle)}">${cards || empty}</section>
+      <section class="stack" aria-label="${esc(T.reviewTitle)}">${salary}${cards || (salary ? '' : empty)}</section>
       <aside>
         ${errors ? `<h2 class="section-title">${esc(T.unreadTitle)}<small>${esc(T.unreadHint)}</small></h2><div class="card rows">${errors}</div>` : ''}
         ${recent ? `<h2 class="section-title">${esc(T.recentTitle)}<small>${esc(T.recentHint)}</small></h2><div class="card rows">${recent}</div>` : ''}
@@ -334,6 +347,70 @@ function ignore(card) {
   save('ignore', { id }).catch((e) => { backToReview([row]); toast(`${T.notSaved}: ${e.message}`, { kind: 'bad' }); });
 }
 
+function takeSalary(month) {
+  const x = (state.review.salary || []).find((y) => y.month === month);
+  state.review.salary = (state.review.salary || []).filter((y) => y.month !== month);
+  leaveReview(new Set([`salary:${month}`]));
+  state.dashByMonth = {};
+  return x;
+}
+function putSalaryBack(x) {
+  if (!x) return;
+  state.review.salary = [...(state.review.salary || []), x].sort((a, b) => a.month.localeCompare(b.month));
+  updateNav();
+  if (state.tab === 'review') keepInputs(viewReview);
+}
+function saveSalary(card) {
+  const month = card.dataset.month;
+  const amountEl = $('[data-field=amount]', card);
+  const streamEl = $('[data-field=stream]', card);
+  const amount = Number(amountEl.value);
+  const stream = streamEl.value;
+  let ok = fieldMessage(amountEl, amount > 0 ? '' : T.errAmount);
+  ok = fieldMessage(streamEl, stream ? '' : T.errNoAccount) && ok;
+  if (!ok) { (amount > 0 ? streamEl : amountEl).focus(); return null; }
+  const x = takeSalary(month);
+  toast(T.salarySaved(rp(amount)));
+  return save('recordSalary', { month, amount, stream, date: card.dataset.date })
+    .then((r) => {
+      state.dashByMonth = {}; state.allStale = true;
+      if (r.openingChange) toast(T.salaryOpening(stream, rp(-r.openingChange)));
+    })
+    .catch((e) => { putSalaryBack(x); toast(`${T.notSaved}: ${e.message}`, { kind: 'bad' }); });
+}
+function skipSalary(card) {
+  const month = card.dataset.month;
+  const x = takeSalary(month);
+  toast(T.salarySkipped, { undo: () => { putSalaryBack(x); save('unskipSalary', { month }).catch(() => {}); } });
+  return save('skipSalary', { month }).catch((e) => { putSalaryBack(x); toast(`${T.notSaved}: ${e.message}`, { kind: 'bad' }); });
+}
+
+/** "Not a subscription": gone from the card at once, kept out on the server. */
+function hideRecurring(name) {
+  const strip = (d) => {
+    if (!d || !d.recurring) return;
+    d.recurring.items = d.recurring.items.filter((i) => i.name !== name);
+    d.recurring.monthlyTotal = Math.round(d.recurring.items.reduce((a, i) => a + i.amount, 0) * 100) / 100;
+  };
+  Object.values(state.dashByMonth).forEach(strip);
+  if (state.tab === 'dashboard') viewDashboard();
+  updateBell();
+  toast(T.recurringHidden(name), { undo: () => { save('unhideRecurring', { name }).then(() => { state.dashByMonth = {}; if (state.tab === 'dashboard') viewDashboard(); }).catch(() => {}); } });
+  return save('hideRecurring', { name }).catch((e) => { state.dashByMonth = {}; toast(`${T.notSaved}: ${e.message}`, { kind: 'bad' }); });
+}
+
+/** Empty budget fields get the suggestion (average spending); nothing is saved until "Save budgets". */
+function fillBudgets(form) {
+  const tips = new Map((state.settings.budgetSuggestions || []).map((b) => [b.category, b.amount]));
+  let n = 0;
+  $('[data-b]', form).forEach((i) => {
+    if (!(Number(i.value) > 0) && tips.has(i.dataset.b)) { i.value = String(tips.get(i.dataset.b)); n += 1; }
+  });
+  const st = $('.state', form);
+  st.className = 'state'; st.textContent = T.budgetsFilled(n);
+  return null;
+}
+
 // ---------------------------------------------------------------- Dashboard
 async function viewDashboard() {
   let d = state.dashByMonth[state.month];
@@ -344,7 +421,7 @@ async function viewDashboard() {
     if (state.tab !== 'dashboard' || d.month !== state.month) return;
   }
   const s = d.summary;
-  const current = state.boot.today.slice(0, 7);
+  const current = currentMonth();
   const prev = monthAdd(d.month, -1);
   const next = monthAdd(d.month, 1);
   const budgets = new Map(d.budgets.map((b) => [b.category, b]));
@@ -376,12 +453,13 @@ async function viewDashboard() {
       <span class="bars"><i class="in" style="height:${Math.round((t.income / top) * 100)}%"></i><i class="out" style="height:${Math.round((t.expense / top) * 100)}%"></i></span>
       <span>${esc(monthShort(t.month))}</span></button>`).join('');
   setView(`
-    <header class="page-head"><div><h1>${esc(T.tabDashboard)}</h1><p class="sub">${esc(monthLabel(d.month))}</p></div>
+    <header class="page-head"><div><h1>${esc(T.tabDashboard)}</h1><p class="sub">${esc(monthLabel(d.month))}${s.from ? ` · ${esc(rangeLabel(s.from, s.to))}` : ''}</p></div>
       <div class="tools monthnav">
         <button class="btn secondary small" data-action="setmonth" data-month="${prev}" aria-label="${esc(monthLabel(prev))}">‹ ${esc(monthShort(prev))}</button>
         <button class="btn secondary small" data-action="setmonth" data-month="${next}" aria-label="${esc(monthLabel(next))}" ${next > current ? 'disabled' : ''}>${esc(monthShort(next))} ›</button>
       </div></header>
     ${d.pendingCount ? `<button class="notice" data-action="go" data-tab="review"><span aria-hidden="true">⚠</span><span><b>${esc(T.pendingNote(d.pendingCount))}</b><br>${esc(T.pendingNoteSub)}</span><span class="go">${esc(T.reviewNow)} ›</span></button>` : ''}
+    ${(d.salaryMissing || []).length ? `<button class="notice" data-action="go" data-tab="review"><span aria-hidden="true">⚠</span><span><b>${esc(T.salaryNotice(dateLabel(d.salaryMissing[0].date, { weekday: false })))}</b><br>${esc(T.salaryNoticeSub)}</span><span class="go">${esc(T.salaryRecord)} ›</span></button>` : ''}
     <div class="kpis" style="margin-top:16px">
       <button class="card kpi main" data-action="drill"><div class="k">${esc(T.netThisMonth)}</div><div class="v ${s.balance < 0 ? 'bad' : ''}">${s.balance < 0 ? '' : '+'}${rp(s.balance)}</div><div class="meta">${esc(T.netHint)}</div></button>
       <button class="card kpi" data-action="drill" data-direction="in"><div class="k">${esc(T.income)}</div><div class="v in">+${rp(s.income)}</div><div class="meta">${esc(T.seeList)} ›</div></button>
@@ -406,10 +484,11 @@ function recurringCard(r) {
   if (!r || !r.items || !r.items.length) return '';
   const when = (i) => (i.daysLeft < 0 ? T.recurringLate(dateLabel(i.nextDate, { weekday: false }), -i.daysLeft)
     : i.daysLeft === 0 ? T.recurringToday : T.recurringNext(dateLabel(i.nextDate, { weekday: false }), i.daysLeft));
-  const rows = r.items.map((i) => `
+  const rows = r.items.map((i) => `<div class="rec-row">
     <button class="rowi" data-action="drill" data-q="${esc(i.name)}"><span class="what"><b>${esc(i.name)}</b>
       <span class="meta">${esc(when(i))}${i.stream ? ` · ${esc(i.stream)}` : ''}${i.basis === 'category' ? ` · <span class="badge neutral">${esc(T.recurringGuess)}</span>` : ''}${i.daysLeft < 0 ? ` <span class="badge warn">${esc(T.recurringLateBadge)}</span>` : ''}</span></span>
-      <span class="amt">${rp(i.amount)}</span></button>`).join('');
+      <span class="amt">${rp(i.amount)}</span></button>
+    <button class="btn plain small rec-hide" data-action="hiderec" data-name="${esc(i.name)}" aria-label="${esc(T.notSubscriptionFor(i.name))}">${esc(T.notSubscription)}</button></div>`).join('');
   return `<section class="card"><h2>${esc(T.recurringTitle)}</h2><p class="lead">${esc(T.recurringHint(rp(r.monthlyTotal)))}</p><div class="rows">${rows}</div></section>`;
 }
 
@@ -472,7 +551,7 @@ function showResults() {
   const counted = all.rows.filter((r) => r.status !== 'ignored');
   const sum = (dir) => counted.filter((r) => r.direction === dir).reduce((a, r) => a + (Number(r.amount) || 0), 0);
   const chips = [
-    f.q && ['q', `“${f.q}”`], f.month && ['month', monthLabel(f.month)], f.stream && ['stream', f.stream], f.category && ['category', f.category],
+    f.q && ['q', `“${f.q}”`], f.month && ['month', monthLabel(f.month)], (f.from || f.to) && ['period', rangeLabel(f.from, f.to)], f.stream && ['stream', f.stream], f.category && ['category', f.category],
     f.direction && ['direction', f.direction === 'in' ? T.kindIn : T.kindOut], f.status && ['status', T[`status${f.status[0].toUpperCase()}${f.status.slice(1)}`]],
   ].filter(Boolean);
   const fc = $('#filterCount');
@@ -514,7 +593,11 @@ function categoryTrend(category) {
 }
 
 function drill(el) {
-  state.filters = { q: el.dataset.q || '', month: el.dataset.stream || el.dataset.q ? '' : state.month, stream: el.dataset.stream || '', category: el.dataset.category || '', status: '', direction: el.dataset.direction || '' };
+  // By payday the month is a date range (28 Sep - 27 Oct), so the list gets the same range.
+  const d = state.dashByMonth[state.month];
+  const all = el.dataset.stream || el.dataset.q;
+  const range = !all && d && d.summary && d.summary.from ? d.summary : null;
+  state.filters = { q: el.dataset.q || '', month: all || range ? '' : state.month, from: range ? range.from : '', to: range ? range.to : '', stream: el.dataset.stream || '', category: el.dataset.category || '', status: '', direction: el.dataset.direction || '' };
   state.limit = 50;
   return show('transactions');
 }
@@ -736,7 +819,8 @@ async function viewSettings(local) {
     </fieldset>`).join('');
   const budgets = s.categories.expense.map((c) => {
     const b = s.budgets.find((x) => x.category === c);
-    return field(c, `<input data-b="${esc(c)}" type="number" inputmode="decimal" step="any" min="0" value="${esc(b ? b.monthly_budget : '')}" placeholder="0">`);
+    const tip = (s.budgetSuggestions || []).find((x) => x.category === c);
+    return field(c, `<input data-b="${esc(c)}" type="number" inputmode="decimal" step="any" min="0" value="${esc(b ? b.monthly_budget : '')}" placeholder="0">`, { help: tip ? T.budgetSuggest(rp(tip.amount), tip.months) : '' });
   }).join('');
   const conns = (s.connections || []).map((c) => {
     const st = String(c.last_status || '');
@@ -754,6 +838,9 @@ async function viewSettings(local) {
         <div class="fields2" style="margin-top:12px">
           ${field(T.language, `<select name="language"><option value="" ${!cfg.language ? 'selected' : ''}>${esc(T.languageAuto)}</option><option value="id" ${cfg.language === 'id' ? 'selected' : ''}>Bahasa Indonesia</option><option value="en" ${cfg.language === 'en' ? 'selected' : ''}>English</option></select>`)}
           ${field(T.payday, `<input name="payday_day" type="number" min="1" max="31" value="${esc(cfg.payday_day)}">`, { help: T.paydayHelp })}
+          ${field(T.summaryPeriod, `<select name="summary_period"><option value="month" ${cfg.summary_period !== 'payday' ? 'selected' : ''}>${esc(T.periodMonth)}</option><option value="payday" ${cfg.summary_period === 'payday' ? 'selected' : ''}>${esc(T.periodPayday(Number(cfg.payday_day) || 28))}</option></select>`, { help: T.summaryPeriodHelp, wide: true })}
+          ${field(T.salarySettings, `<select name="salary_stream">${accountOptions(cfg.salary_stream, T.chooseAccount)}</select>`, { help: T.salarySettingsHelp })}
+          ${field(T.salaryAmountSetting, `<input name="salary_amount" type="number" inputmode="decimal" step="any" min="0" value="${esc(cfg.salary_amount)}">`, { help: T.salaryAmountSettingHelp })}
           ${field(T.ownerNames, `<input name="owner_bank_names" value="${esc(cfg.owner_bank_names)}">`, { help: T.ownerNamesHelp, wide: true })}
           ${field(T.themeLabel, `<select name="theme">${[['auto', T.themeAuto], ['light', T.themeLight], ['dark', T.themeDark]].map(([v, l]) => `<option value="${v}" ${readTheme() === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`, { help: T.themeHelp })}
         </div>${saveRow(T.saveChanges)}</form>
@@ -773,7 +860,8 @@ async function viewSettings(local) {
           ${field(T.incomeCats, `<textarea name="income" rows="7">${esc(s.categories.income.join('\n'))}</textarea>`, { help: T.onePerLine })}
           ${field(T.expenseCats, `<textarea name="expense" rows="14">${esc(s.categories.expense.join('\n'))}</textarea>`, { help: T.onePerLine })}
         </div>${saveRow(T.saveCategories)}</form>
-      <form class="card" data-form="budgets" novalidate><h2>${esc(T.budgetsTitle)}</h2><p class="lead">${esc(T.budgetsHint)}</p><div class="budget-grid">${budgets}</div>${saveRow(T.saveBudgets)}</form>
+      <form class="card" data-form="budgets" novalidate><h2>${esc(T.budgetsTitle)}</h2><p class="lead">${esc(T.budgetsHint)}</p><div class="budget-grid">${budgets}</div>
+        <div class="actions">${(s.budgetSuggestions || []).length ? `<button class="btn secondary left" type="button" data-action="fillbudgets">${esc(T.fillBudgets)}</button>` : ''}<span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveBudgets)}</button></div></form>
       <form class="card" data-form="rules" novalidate><h2>${esc(T.rulesTitle)}</h2><p class="lead">${esc(T.rulesHint)}</p>${rules || `<p class="hint">${esc(T.noRules)}</p>`}
         <div class="actions"><button class="btn secondary left" type="button" data-action="addrule">＋ ${esc(T.addRule)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveRules)}</button></div></form>
       <form class="card" data-form="weekly" novalidate><h2>${esc(T.emailsTitle)}</h2><p class="lead">${esc(T.emailsHint)}</p>
@@ -847,6 +935,9 @@ function notifications() {
   if (r && r.pending.length) {
     out.push({ id: `pending:${r.pending.length}:${r.pending[0].id}`, kind: 'warn', title: T.notifPending(r.pending.length), text: T.notifPendingSub, go: 'review', goLabel: T.reviewNow });
   }
+  for (const x of (r && r.salary) || []) {
+    out.push({ id: `salary:${x.month}`, kind: 'warn', title: T.notifSalary(dateLabel(x.date, { weekday: false })), text: T.salaryNoticeSub, go: 'review', goLabel: T.salaryRecord });
+  }
   for (const e of (r && r.errors) || []) {
     out.push({ id: `unread:${e.gmail_id}`, kind: 'warn', title: T.notifUnread, text: `${e.subject || e.from} · ${e.reason}`, go: 'review', goLabel: T.reviewNow });
   }
@@ -854,7 +945,7 @@ function notifications() {
   if (c && /^ERROR/.test(String(c.last_status || ''))) {
     out.push({ id: `sync:${c.last_sync}`, kind: 'bad', title: T.syncProblem, text: String(c.last_status).replace(/^ERROR:\s*/, '').split(' | ')[0], go: 'settings', goLabel: T.notifOpenSettings });
   }
-  const month = state.boot.today.slice(0, 7);
+  const month = currentMonth();
   const d = state.dashByMonth[month];
   for (const b of (d && d.budgets) || []) {
     if (b.ratio >= 1) out.push({ id: `budget:${month}:${b.category}:over`, kind: 'bad', title: T.notifBudgetOver(b.category), text: T.notifBudgetSub(rp(b.spent), rp(b.budget)), category: b.category, goLabel: T.seeList });
@@ -964,15 +1055,19 @@ function onClick(e) {
   if (a === 'drill') return drill(el);
   if (a === 'kind') { state.addKind = el.dataset.kind; return viewAdd(); }
   if (a === 'more') { state.limit += 50; return showResults(); }
-  if (a === 'trendmonth') { state.filters.month = state.filters.month === el.dataset.month ? '' : el.dataset.month; state.limit = 50; return viewTransactions(); }
+  if (a === 'trendmonth') { state.filters.month = state.filters.month === el.dataset.month ? '' : el.dataset.month; state.filters.from = ''; state.filters.to = ''; state.limit = 50; return viewTransactions(); }
   if (a === 'togglefilters') {
     state.filtersOpen = !state.filtersOpen;
     el.closest('.filters').classList.toggle('open', state.filtersOpen);
     el.setAttribute('aria-expanded', String(state.filtersOpen));
     return null;
   }
-  if (a === 'unfilter') { state.filters[el.dataset.key] = ''; state.limit = 50; return viewTransactions(); }
-  if (a === 'resetfilters') { state.filters = { q: '', month: '', stream: '', category: '', status: '', direction: '' }; state.limit = 50; return viewTransactions(); }
+  if (a === 'unfilter') {
+    if (el.dataset.key === 'period') { state.filters.from = ''; state.filters.to = ''; } else state.filters[el.dataset.key] = '';
+    state.limit = 50;
+    return viewTransactions();
+  }
+  if (a === 'resetfilters') { state.filters = { q: '', month: '', from: '', to: '', stream: '', category: '', status: '', direction: '' }; state.limit = 50; return viewTransactions(); }
   if (a === 'edit') return openEditor(el.dataset.id);
   if (a === 'splitopen') return openSplit(el.dataset.id);
   if (a === 'splitcancel') { $('#splitBox').innerHTML = splitSummary(state.rowsById.get(String(el.dataset.id))); return null; }
@@ -1010,6 +1105,10 @@ function onClick(e) {
   if (a === 'notifications') return openNotifications();
   if (a === 'notifgo') return goNotification(el);
   if (a === 'approve') return approve(card);
+  if (a === 'salarysave') return saveSalary(card);
+  if (a === 'salaryskip') return skipSalary(card);
+  if (a === 'hiderec') return hideRecurring(el.dataset.name);
+  if (a === 'fillbudgets') return fillBudgets(el.closest('form'));
   if (a === 'ignore') return ignore(card);
   if (a === 'delete') {
     if (!window.confirm(T.confirmDelete)) return null;
@@ -1116,7 +1215,7 @@ function onSubmit(e) {
   }
   if (kind === 'config') {
     applyTheme(d.theme);
-    return saveForm(form, 'saveConfig', d, async () => { applyLanguage(d.language); await refresh(); if (state.tab === 'settings') viewSettings(); });
+    return saveForm(form, 'saveConfig', d, async () => { applyLanguage(d.language); state.month = ''; state.dashByMonth = {}; await refresh(); if (state.tab === 'settings') viewSettings(); });
   }
   if (kind === 'monthend') {
     let ok = fieldMessage(form.querySelector('[name=stream]'), d.stream ? '' : T.errNoAccount);
@@ -1196,6 +1295,7 @@ function onChange(e) {
   const f = e.target.closest('[data-filter]');
   if (f) {
     state.filters[f.dataset.filter] = f.value;
+    if (f.dataset.filter === 'month') { state.filters.from = ''; state.filters.to = ''; }
     state.limit = 50;
     return showResults();
   }
@@ -1240,7 +1340,7 @@ export async function start() {
   const saved = readCache();
   const instant = [embedded, saved].filter(Boolean).sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))[0] || null;
   let waitTimer = null;
-  const firstTab = (data) => (data.review.pending.length ? 'review' : 'dashboard');
+  const firstTab = (data) => (data.review.pending.length || (data.review.salary || []).length ? 'review' : 'dashboard');
   if (instant) {
     absorb(instant);
     status('loading');

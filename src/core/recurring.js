@@ -5,7 +5,8 @@
 //   monthly   the same payee about a month apart, for a similar amount
 //   category  one charge in a category that is repeating by nature (subscriptions, bills,
 //             phone & internet): expected again a month later, marked as a guess
-// A charge whose next date passed more than 45 days ago is treated as stopped.
+// A charge whose next date passed more than 45 days ago is treated as stopped. Payees the owner
+// marked "not a subscription" (Config recurring_hidden) are left out.
 
 const DAY = 86400000;
 const toDay = (iso) => { const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number); return Date.UTC(y, m - 1, d); };
@@ -22,16 +23,19 @@ function renewsOn(details) {
   return month ? iso(Date.UTC(Number(m[3]), month - 1, Number(m[1]))) : '';
 }
 /** "SPOTIFY P1234" and "Spotify p5678" are the same payee. */
-const payee = (s) => String(s || '').toLowerCase().replace(/\d+/g, ' ').replace(/[^a-z& ]+/g, ' ').replace(/\s+/g, ' ').trim();
+export const payee = (s) => String(s || '').toLowerCase().replace(/\d+/g, ' ').replace(/[^a-z& ]+/g, ' ').replace(/\s+/g, ' ').trim();
 
-export const REPEATING_CATEGORIES = /langganan|subscription|tagihan|utilitas|pulsa|internet|iuran/i;
+// Not "iuran" (dues): one transfer to a person for a group payment isn't a monthly bill. Real
+// monthly dues still show once they repeat (the "monthly" rule).
+export const REPEATING_CATEGORIES = /langganan|subscription|tagihan|utilitas|pulsa|internet/i;
 
 /**
  * @param {object[]} rows  Transactions
- * @param {{today: Date, skipCategories?: string[]}} opts
- * @returns {{items: {name, amount, category, stream, lastDate, nextDate, basis, daysLeft}[], monthlyTotal: number}}
+ * @param {{today: Date, skipCategories?: string[], hidden?: string[]}} opts  hidden: payee keys (see payee())
+ * @returns {{items: {key, name, amount, category, stream, lastDate, nextDate, basis, daysLeft}[], monthlyTotal: number}}
  */
-export function recurringCharges(rows, { today, skipCategories = [] }) {
+export function recurringCharges(rows, { today, skipCategories = [], hidden = [] }) {
+  const hide = new Set(hidden.map(payee));
   const now = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
   const skip = new Set(skipCategories);
   const out = rows.filter((r) => r.direction === 'out' && r.status !== 'ignored' && !skip.has(r.category) && !String(r.id).endsWith('_fee'))
@@ -40,7 +44,7 @@ export function recurringCharges(rows, { today, skipCategories = [] }) {
   const groups = new Map();
   for (const r of out) {
     const k = payee(r.description);
-    if (!k) continue;
+    if (!k || hide.has(k)) continue;
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k).push(r);
   }
@@ -58,7 +62,7 @@ export function recurringCharges(rows, { today, skipCategories = [] }) {
     const next = toDay(nextDate);
     if (next < now - 45 * DAY) continue; // expected long ago and never came: stopped
     items.push({
-      name: last.description, amount: last.amount, category: last.category || '', stream: last.stream || '',
+      key: payee(last.description), name: last.description, amount: last.amount, category: last.category || '', stream: last.stream || '',
       lastDate: last.date, nextDate: iso(next), basis, daysLeft: Math.round((next - now) / DAY),
     });
   }

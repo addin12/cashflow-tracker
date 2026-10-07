@@ -308,6 +308,27 @@ describe('web app', () => {
     await until(() => store.cfg.weekly_email === 'off', 'weekly off');
   });
 
+  it('a payday without salary asks for it in Review, and saving records it', async () => {
+    store.t[TABS.transactions] = store.t[TABS.transactions].filter((r) => r.id !== 't4');
+    store.cfg.salary_stream = 'BCA';
+    await tab('review', 'Perlu dicek');
+    click(doc.querySelector('[data-action=sync]'));
+    await until(() => doc.querySelector('.salary-card'), 'salary card');
+    const card = doc.querySelector('.salary-card');
+    expect(card.textContent).toContain('Gaji 28 Sep');
+    expect(card.querySelector('[data-field=stream]').value).toBe('BCA');
+    expect(doc.querySelector('#reviewCount').textContent).not.toBe('0');
+    click(card.querySelector('[data-action=salarysave]'));
+    expect(card.querySelector('.field.invalid')).toBeTruthy(); // no amount yet
+    card.querySelector('[data-field=amount]').value = '8000000';
+    click(card.querySelector('[data-action=salarysave]'));
+    await until(() => store.t[TABS.transactions].some((r) => r.ref_no === 'salary:2026-09'), 'salary saved');
+    expect(store.t[TABS.transactions].find((r) => r.ref_no === 'salary:2026-09')).toMatchObject({ category: 'gaji', direction: 'in', amount: 8000000, stream: 'BCA', date: '2026-09-28', status: 'approved' });
+    await until(() => !doc.querySelector('.salary-card'), 'card gone');
+    await tab('settings', 'Pengaturan');
+    await until(() => doc.querySelector('form[data-form=config]'), 'settings form');
+  });
+
   it('switching the language to English relabels the app', async () => {
     const form = doc.querySelector('form[data-form=config]');
     form.querySelector('[name=language]').value = 'en';

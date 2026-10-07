@@ -2,6 +2,7 @@
 // The real one lives in private/seed.json (git-ignored); config/seed.example.json is the public sample.
 
 import { buildCategorySlots, validateAccounts } from './categories.js';
+import { CONFIG_KEYS } from './schema.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -48,6 +49,9 @@ export function validateSeed(seed) {
       if (r.to && !known.has(r.to)) errors.push(`data_fixes[${i}].rules[${j}]: "${r.to}" is not a category`);
     });
   });
+  // config: { key: value } for Config keys, filled once when empty (see fillNewConfig in gas/setup.js).
+  const configKeys = new Set(CONFIG_KEYS.map((k) => k.key));
+  for (const k of Object.keys(seed.config || {})) if (!configKeys.has(k)) errors.push(`config.${k} is not a Config key`);
   if (errors.length) throw new Error(`Invalid seed:\n${errors.join('\n')}`);
   return { ...seed, slots, defaults, rules, owner_bank_names: seed.owner_bank_names || [] };
 }

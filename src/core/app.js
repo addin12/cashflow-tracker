@@ -22,22 +22,26 @@ export function categoryLists(slots, fixed = ['Penyesuaian', 'trf ke bank lain']
   };
 }
 
-/** Month totals as the CASHFLOW tab shows them. `month` = 'YYYY-MM'. */
-export function summarizeMonth(rows, cats, month, owner = '') {
+/**
+ * Month totals as the CASHFLOW tab shows them. `month` = 'YYYY-MM'. With `range` ({from, to},
+ * inclusive YYYY-MM-DD) the month is that date range instead, e.g. a payday period.
+ */
+export function summarizeMonth(rows, cats, month, owner = '', range = null) {
+  const inMonth = range ? (d) => d.slice(0, 10) >= range.from && d.slice(0, 10) <= range.to : (d) => d.startsWith(month);
   const inc = new Set(cats.income);
   const exp = new Set(cats.expense);
   const by = new Map();
   let income = 0;
   let expense = 0;
   for (const r of rows) {
-    if (!approved(r) || !String(r.date).startsWith(month) || (owner && r.owner !== owner)) continue;
+    if (!approved(r) || !inMonth(String(r.date)) || (owner && r.owner !== owner)) continue;
     const a = num(r.amount);
     if (r.direction === 'in' && inc.has(r.category)) { income += a; by.set(r.category, (by.get(r.category) || 0) + a); }
     if (r.direction === 'out' && exp.has(r.category)) { expense += a; by.set(r.category, (by.get(r.category) || 0) + a); }
   }
   const byCategory = [...by].map(([category, amount]) => ({ category, kind: inc.has(category) ? 'income' : 'expense', amount: round2(amount) }))
     .sort((x, y) => y.amount - x.amount);
-  return { month, income: round2(income), expense: round2(expense), balance: round2(income - expense), byCategory };
+  return { month, ...(range ? { from: range.from, to: range.to } : {}), income: round2(income), expense: round2(expense), balance: round2(income - expense), byCategory };
 }
 
 /** Balance per account: opening balance + approved movements of `year` up to `asOf`. */
@@ -164,10 +168,38 @@ export function budgetUsage(summary, budgets) {
   }).sort((x, y) => y.ratio - x.ratio);
 }
 
+/**
+ * Budget suggestions: the average monthly spending per expense category over the last (up to 3)
+ * complete months since the start date, rounded up to Rp50.000. Categories never used get none.
+ * @returns {{category: string, amount: number, months: number}[]}
+ */
+export function suggestBudgets(rows, cats, { start, today, months = 3, step = 50000 }) {
+  const thisMonth = isoDate(today).slice(0, 7);
+  const first = String(start || '').slice(0, 7);
+  const list = [];
+  for (let k = 1; k <= months; k += 1) {
+    const d = new Date(today.getFullYear(), today.getMonth() - k, 1);
+    const m = isoDate(d).slice(0, 7);
+    if (first && m < first) break;
+    if (m < thisMonth) list.push(m);
+  }
+  if (!list.length) return [];
+  const total = new Map();
+  for (const m of list) {
+    for (const c of summarizeMonth(rows, cats, m).byCategory) {
+      if (c.kind === 'expense') total.set(c.category, (total.get(c.category) || 0) + c.amount);
+    }
+  }
+  return [...total].filter(([, sum]) => sum > 0)
+    .map(([category, sum]) => ({ category, amount: Math.ceil(sum / list.length / step) * step, months: list.length }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
 /** Simple filtered, newest-first list for the Transactions screen. */
-export function filterTransactions(rows, { month, stream, category, status, direction, q, limit = 100, offset = 0 } = {}) {
+export function filterTransactions(rows, { month, from, to, stream, category, status, direction, q, limit = 100, offset = 0 } = {}) {
   const needle = String(q || '').trim().toLowerCase();
   const list = rows.filter((r) => (!month || String(r.date).startsWith(month))
+    && (!from || String(r.date).slice(0, 10) >= from) && (!to || String(r.date).slice(0, 10) <= to)
     && (!stream || r.stream === stream) && (!category || r.category === category) && (!status || r.status === status)
     && (!direction || r.direction === direction)
     && (!needle || `${r.description} ${r.details} ${r.category} ${r.stream}`.toLowerCase().includes(needle)))

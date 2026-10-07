@@ -397,3 +397,14 @@ button.rowi:hover { background: var(--zebra); }
 .goal .row-top { display: flex; justify-content: space-between; gap: 12px; font-size: 17px; }
 .goal .bar { height: 10px; margin: 8px 0 4px; }
 .goal .bar i.done { background: var(--success); }
+
+/* Subscriptions: each row can be marked "not a subscription" (a link-style button under it). */
+.rec-row { border-bottom: 1px solid var(--line-soft); }
+.rec-row:last-child { border-bottom: 0; }
+.rec-row .rowi { border-bottom: 0; padding-bottom: 2px; width: 100%; }
+.rec-row .rec-hide { min-height: 44px; padding: 0; font-size: 14px; }
+
+/* Salary card in Review: income, so the accent is green. */
+.salary-card { border-left: 4px solid var(--success); }
+.salary-card .fields2 { margin-top: 12px; }
+.notice + .notice { margin-top: 8px; }

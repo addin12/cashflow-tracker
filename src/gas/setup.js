@@ -70,6 +70,7 @@ function fillNewConfig(ss, seed) {
   fill('monthly_email', 'on');
   fill('payday_email', 'on');
   fill('cat_dividend', seed.defaults.dividend);
+  for (const [key, value] of Object.entries(seed.config || {})) fill(key, typeof value === 'object' ? JSON.stringify(value) : value);
 }
 
 // Hints written by setup version 1, which version 2 may replace with the better ones from the

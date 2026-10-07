@@ -16,10 +16,11 @@ import { TABS, FIXED_CATEGORIES } from './schema.js';
 import { buildCategorySlots, validateAccounts } from './categories.js';
 import {
   categoryLists, summarizeMonth, streamBalances, budgetPerDay, reviewItems, ruleFromApproval, pendingMatching,
-  manualRows, balanceCorrection, renamedCategories, budgetUsage, filterTransactions, isoDate, newId,
+  manualRows, balanceCorrection, renamedCategories, budgetUsage, filterTransactions, isoDate, newId, suggestBudgets,
 } from './app.js';
 import { compileRule } from './rules.js';
-import { recurringCharges } from './recurring.js';
+import { recurringCharges, payee } from './recurring.js';
+import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth } from './salary.js';
 import { weeklySummary } from './summary.js';
 import { monthlyReport } from './notices.js';
 import { goalProgress, goalProblems } from './goals.js';
@@ -47,13 +48,28 @@ export function createApi(store, env) {
   const allCategories = () => { const c = cats(); return new Set([...c.income, ...c.expense, ...c.fixed]); };
   const touch = (changes) => ({ ...changes, updated_by: owner() || 'app', updated_at: nowIso() });
   const onOff = (key) => (String(store.config(key) || 'on').toLowerCase() === 'off' ? 'off' : 'on');
+  const payday = () => Number(store.config('payday_day')) || 28;
+  const start = () => String(store.config('start_date') || '');
+  const lines = (key, sep = '\n') => String(store.config(key) || '').split(sep).map((s) => s.trim()).filter(Boolean);
+  const byPayday = () => String(store.config('summary_period') || '') === 'payday';
+  /** The month the Summary opens on: the calendar month, or the payday period holding today. */
+  const currentMonth = () => (byPayday() ? currentPaydayMonth(now(), payday()) : isoDate(now()).slice(0, 7));
+  const rangeOf = (m) => (byPayday() ? paydayPeriod(m, payday()) : null);
+  const recurring = (all) => recurringCharges(all, { today: now(), skipCategories: fixedNames(), hidden: lines('recurring_hidden') });
+  const salaryStream = () => String(store.config('salary_stream') || '');
+  const salaries = (all) => missingSalaries(all, {
+    start: start(), today: now(), payday: payday(), category: salaryCategory(cats().income),
+    skipped: lines('salary_skipped', ','), expected: Number(store.config('salary_amount')) || 0,
+  }).map((s) => ({ ...s, stream: salaryStream() }));
+  /** Accounts whose opening balance came from a balance check, and that check's date. */
+  const openingChecks = () => { try { return JSON.parse(String(store.config('opening_checks') || '{}')) || {}; } catch (e) { return {}; } };
 
   return {
     bootstrap() {
       const c = cats();
       return {
         owner: owner(), language: String(store.config('language') || ''), today: isoDate(now()), year: year(), sheetUrl: env.sheetUrl || '',
-        start: String(store.config('start_date') || ''),
+        start: String(store.config('start_date') || ''), currentMonth: currentMonth(), summaryPeriod: byPayday() ? 'payday' : 'month',
         payday: Number(store.config('payday_day')) || 28, categories: c,
         accounts: accounts().map((a) => ({ stream: a.stream, type: a.type, owner: a.owner, institution: a.institution })),
         connections: store.read(TABS.connections).map((x) => ({ gmail: x.gmail, last_sync: x.last_sync, last_status: x.last_status })),
@@ -62,7 +78,63 @@ export function createApi(store, env) {
     },
 
     review() {
-      return reviewItems(rows(), store.read(TABS.inboxLog), { today: now() });
+      const all = rows();
+      return { ...reviewItems(all, store.read(TABS.inboxLog), { today: now() }), salary: salaries(all) };
+    },
+
+    /**
+     * Records the salary of one payday (no email reports it). When that account's opening balance
+     * came from a balance check made after this date, the check already counted this money, so the
+     * opening balance goes down by the same amount and today's balance stays what the bank said.
+     */
+    recordSalary({ month, amount, stream, date }) {
+      const value = Math.round(Math.abs(Number(amount)) * 100) / 100;
+      if (!(value > 0)) throw new Error('amount must be more than 0');
+      if (!/^\d{4}-\d{2}$/.test(String(month || ''))) throw new Error('month must be YYYY-MM');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) throw new Error('date must be YYYY-MM-DD');
+      if (!accounts().some((a) => a.stream === stream)) throw new Error('choose an account');
+      const category = salaryCategory(cats().income);
+      if (!category) throw new Error('add an income category for salary first');
+      if (rows().some((r) => r.ref_no === `salary:${month}` && r.status !== 'ignored')) throw new Error('the salary of this month is already recorded');
+      const [row] = manualRows({ kind: 'in', amount: value, date, stream, category, description: category, details: `Gaji ${month}` }, { owner: owner(), nowIso: nowIso() });
+      row.ref_no = `salary:${month}`;
+      store.append(TABS.transactions, [row]);
+      let openingChange = 0;
+      const checked = openingChecks()[stream];
+      if (checked && String(checked) > date) {
+        store.replace(TABS.accounts, accounts().map((a) => (a.stream === stream ? { ...a, opening_balance: Math.round((Number(a.opening_balance || 0) - value) * 100) / 100 } : a)));
+        openingChange = -value;
+      }
+      store.setConfig('salary_amount', value);
+      if (stream !== salaryStream()) store.setConfig('salary_stream', stream);
+      return { ok: true, id: row.id, openingChange };
+    },
+
+    /** "No salary this month": the card for that payday goes away. */
+    skipSalary({ month }) {
+      if (!/^\d{4}-\d{2}$/.test(String(month || ''))) throw new Error('month must be YYYY-MM');
+      store.setConfig('salary_skipped', [...new Set([...lines('salary_skipped', ','), month])].join(', '));
+      return { ok: true };
+    },
+
+    /** Undo of skipSalary. */
+    unskipSalary({ month }) {
+      store.setConfig('salary_skipped', lines('salary_skipped', ',').filter((m) => m !== month).join(', '));
+      return { ok: true };
+    },
+
+    /** "Not a subscription": that payee leaves the subscriptions card. */
+    hideRecurring({ name }) {
+      const key = payee(name);
+      if (!key) throw new Error('nothing to hide');
+      store.setConfig('recurring_hidden', [...new Set([...lines('recurring_hidden'), key])].join('\n'));
+      return { ok: true };
+    },
+
+    /** Undo of hideRecurring. */
+    unhideRecurring({ name }) {
+      store.setConfig('recurring_hidden', lines('recurring_hidden').filter((k) => k !== payee(name)).join('\n'));
+      return { ok: true };
     },
 
     /** Everything the first screen needs, in one round trip. */
@@ -181,21 +253,23 @@ export function createApi(store, env) {
 
     dashboard({ month, owner: who } = {}) {
       const today = now();
-      const m = month || isoDate(today).slice(0, 7);
+      const m = month || currentMonth();
       const all = rows();
       const c = cats();
-      const summary = summarizeMonth(all, c, m, who || '');
+      // By payday, "October" is 28 Sep .. 27 Oct (the salary of 28 Sep pays for October).
+      const summary = summarizeMonth(all, c, m, who || '', rangeOf(m));
       const balances = streamBalances(all, accounts(), { year: year(), asOf: isoDate(today) });
       // The six months up to this one (none before the start date), for the trend chart.
-      const first = String(store.config('start_date') || '').slice(0, 7);
+      const first = start().slice(0, 7);
       const trend = [-5, -4, -3, -2, -1, 0].map((k) => monthAdd(m, k)).filter((x) => !first || x >= first)
-        .map((x) => { const t = x === m ? summary : summarizeMonth(all, c, x, who || ''); return { month: x, income: t.income, expense: t.expense }; });
+        .map((x) => { const t = x === m ? summary : summarizeMonth(all, c, x, who || '', rangeOf(x)); return { month: x, income: t.income, expense: t.expense }; });
       return {
         month: m, summary, balances, trend,
-        perDay: budgetPerDay(balances, today, Number(store.config('payday_day')) || 28),
+        perDay: budgetPerDay(balances, today, payday()),
         budgets: budgetUsage(summary, store.read(TABS.budgets)),
         pendingCount: all.filter((r) => r.status === 'pending').length,
-        recurring: recurringCharges(all, { today, skipCategories: fixedNames() }),
+        salaryMissing: salaries(all),
+        recurring: recurring(all),
         goals: goalProgress(store.read(TABS.goals), streamBalances(all, accounts(), { year: year(), asOf: isoDate(today) }), today),
       };
     },
@@ -203,7 +277,7 @@ export function createApi(store, env) {
     /** Data for the weekly summary email (gas/weekly.js turns it into the email). */
     weekly() {
       const all = rows();
-      return weeklySummary({ rows: all, cats: cats(), budgets: store.read(TABS.budgets), recurring: recurringCharges(all, { today: now(), skipCategories: fixedNames() }), today: now() });
+      return weeklySummary({ rows: all, cats: cats(), budgets: store.read(TABS.budgets), recurring: recurring(all), today: now() });
     },
 
     /** Data for the monthly report email: `month` against the month before. */
@@ -225,7 +299,9 @@ export function createApi(store, env) {
           payday_day: store.config('payday_day'), language: store.config('language'), owner_name: store.config('owner_name'),
           owner_bank_names: store.config('owner_bank_names'), start_date: store.config('start_date'),
           weekly_email: onOff('weekly_email'), monthly_email: onOff('monthly_email'), payday_email: onOff('payday_email'),
+          summary_period: byPayday() ? 'payday' : 'month', salary_stream: salaryStream(), salary_amount: Number(store.config('salary_amount')) || '',
         },
+        budgetSuggestions: suggestBudgets(rows(), cats(), { start: start(), today: now() }),
         archives: String(store.config('archives') || '').split('\n').filter(Boolean)
           .map((line) => { const [year, url] = line.split(' '); return { year, url }; }),
         connections: store.read(TABS.connections), selftest: store.config('last_selftest'),
@@ -306,6 +382,16 @@ export function createApi(store, env) {
       }
       if ('owner_bank_names' in values) store.setConfig('owner_bank_names', String(values.owner_bank_names || ''));
       for (const key of ['weekly_email', 'monthly_email', 'payday_email']) if (key in values) store.setConfig(key, values[key] === 'off' ? 'off' : 'on');
+      if ('summary_period' in values) store.setConfig('summary_period', values.summary_period === 'payday' ? 'payday' : 'month');
+      if ('salary_stream' in values) {
+        if (values.salary_stream && !accounts().some((a) => a.stream === values.salary_stream)) throw new Error('unknown account');
+        store.setConfig('salary_stream', String(values.salary_stream || ''));
+      }
+      if ('salary_amount' in values) {
+        const n = Number(values.salary_amount || 0);
+        if (!(n >= 0)) throw new Error('salary must be a number');
+        store.setConfig('salary_amount', n || '');
+      }
       return { ok: true };
     },
 
@@ -324,6 +410,9 @@ export function createApi(store, env) {
         if (Math.abs(diff) < 0.005) return { ok: true, adjusted: 0, opening: null };
         const list = accounts().map((a) => (a.stream === stream ? { ...a, opening_balance: Math.round((Number(a.opening_balance || 0) + diff) * 100) / 100 } : a));
         store.replace(TABS.accounts, list);
+        // Remembered so money recorded later for an earlier date (a salary) can keep this balance.
+        const checks = openingChecks();
+        if (!checks[stream] || String(checks[stream]) < d) store.setConfig('opening_checks', JSON.stringify({ ...checks, [stream]: d }));
         return { ok: true, adjusted: 0, opening: list.find((a) => a.stream === stream).opening_balance, openingChange: diff };
       }
       const fix = balanceCorrection(balances, stream, actual, {
@@ -372,4 +461,5 @@ export function renameCategoryEverywhere(store, renamed) {
 export const API_METHODS = [
   'init', 'bootstrap', 'review', 'approve', 'ignore', 'restore', 'list', 'update', 'remove', 'add', 'dashboard', 'settings',
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
+  'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring',
 ];
