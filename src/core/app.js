@@ -195,6 +195,26 @@ export function suggestBudgets(rows, cats, { start, today, months = 3, step = 50
     .sort((a, b) => b.amount - a.amount);
 }
 
+/**
+ * Big spending: money out of `threshold` or more between `from` and `to` (inclusive), not
+ * ignored, excluding transfers between own accounts and adjustments. Biggest first.
+ */
+export function bigSpends(rows, { from, to, threshold, skipCategories = [] }) {
+  if (!(threshold > 0)) return [];
+  const skip = new Set(skipCategories);
+  return rows.filter((r) => r.direction === 'out' && r.status !== 'ignored' && !skip.has(r.category) && num(r.amount) >= threshold
+    && String(r.date).slice(0, 10) >= from && String(r.date).slice(0, 10) <= to)
+    .map((r) => ({ id: r.id, description: r.description || r.details || '', amount: round2(num(r.amount)), date: String(r.date).slice(0, 10), category: r.category || '', status: r.status }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
+/** The newest rows the sync brought in (for the app's "new transactions" notice). */
+export function newestFromEmail(rows, limit = 20) {
+  return rows.filter((r) => r.gmail_id && !String(r.id).endsWith('_fee') && r.status !== 'ignored')
+    .sort((a, b) => `${b.date}${b.time}${b.id}`.localeCompare(`${a.date}${a.time}${a.id}`)).slice(0, limit)
+    .map((r) => ({ id: r.id, description: r.description || r.details || '', amount: round2(num(r.amount)), direction: r.direction }));
+}
+
 /** Simple filtered, newest-first list for the Transactions screen. */
 export function filterTransactions(rows, { month, from, to, stream, category, status, direction, q, limit = 100, offset = 0 } = {}) {
   const needle = String(q || '').trim().toLowerCase();

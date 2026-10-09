@@ -16,7 +16,7 @@ import { TABS, FIXED_CATEGORIES } from './schema.js';
 import { buildCategorySlots, validateAccounts } from './categories.js';
 import {
   categoryLists, summarizeMonth, streamBalances, budgetPerDay, reviewItems, ruleFromApproval, pendingMatching,
-  manualRows, balanceCorrection, renamedCategories, budgetUsage, filterTransactions, isoDate, newId, suggestBudgets,
+  manualRows, balanceCorrection, renamedCategories, budgetUsage, filterTransactions, isoDate, newId, suggestBudgets, bigSpends, newestFromEmail,
 } from './app.js';
 import { compileRule } from './rules.js';
 import { recurringCharges, payee } from './recurring.js';
@@ -61,6 +61,22 @@ export function createApi(store, env) {
     start: start(), today: now(), payday: payday(), category: salaryCategory(cats().income),
     skipped: lines('salary_skipped', ','), expected: Number(store.config('salary_amount')) || 0,
   }).map((s) => ({ ...s, stream: salaryStream() }));
+  /** Spending from this amount up is flagged (Config big_amount; empty = Rp1.000.000, 0 = off). */
+  const bigAmount = () => { const v = String(store.config('big_amount') ?? '').trim(); return v === '' ? 1000000 : Math.max(0, Number(v) || 0); };
+  const json = (key) => { try { return JSON.parse(String(store.config(key) || '{}')) || {}; } catch (e) { return {}; } };
+  /** Last balance check per account: stored checks, opening-balance checks and "Cek saldo" rows. */
+  const lastChecks = (all) => {
+    const out = {};
+    const bump = (st, d) => { if (st && d && (!out[st] || String(out[st]) < String(d))) out[st] = String(d).slice(0, 10); };
+    Object.entries(openingChecks()).forEach(([st, d]) => bump(st, d));
+    Object.entries(json('balance_checks')).forEach(([st, d]) => bump(st, d));
+    all.filter((r) => r.source === 'manual' && /^Cek saldo /.test(String(r.description || ''))).forEach((r) => bump(r.stream, String(r.date).slice(0, 10)));
+    return out;
+  };
+  const recordCheck = (stream, d) => {
+    const checks = json('balance_checks');
+    if (!checks[stream] || String(checks[stream]) < d) store.setConfig('balance_checks', JSON.stringify({ ...checks, [stream]: d }));
+  };
   /** Accounts whose opening balance came from a balance check, and that check's date. */
   const openingChecks = () => { try { return JSON.parse(String(store.config('opening_checks') || '{}')) || {}; } catch (e) { return {}; } };
 
@@ -140,7 +156,7 @@ export function createApi(store, env) {
     /** Everything the first screen needs, in one round trip. */
     init() {
       const boot = this.bootstrap();
-      return { at: nowIso(), boot, review: this.review(), dashboard: this.dashboard({}) };
+      return { at: nowIso(), boot, review: this.review(), dashboard: this.dashboard({}), incoming: newestFromEmail(rows()) };
     },
 
     approve({ id, category, stream, always }) {
@@ -269,6 +285,8 @@ export function createApi(store, env) {
         budgets: budgetUsage(summary, store.read(TABS.budgets)),
         pendingCount: all.filter((r) => r.status === 'pending').length,
         salaryMissing: salaries(all),
+        bigAmount: bigAmount(),
+        big: bigSpends(all, { from: summary.from || `${m}-01`, to: summary.to || `${m}-31`, threshold: bigAmount(), skipCategories: fixedNames() }),
         recurring: recurring(all),
         goals: goalProgress(store.read(TABS.goals), streamBalances(all, accounts(), { year: year(), asOf: isoDate(today) }), today),
       };
@@ -277,7 +295,7 @@ export function createApi(store, env) {
     /** Data for the weekly summary email (gas/weekly.js turns it into the email). */
     weekly() {
       const all = rows();
-      return weeklySummary({ rows: all, cats: cats(), budgets: store.read(TABS.budgets), recurring: recurring(all), today: now() });
+      return weeklySummary({ rows: all, cats: cats(), budgets: store.read(TABS.budgets), recurring: recurring(all), today: now(), bigAmount: bigAmount() });
     },
 
     /** Data for the monthly report email: `month` against the month before. */
@@ -300,7 +318,9 @@ export function createApi(store, env) {
           owner_bank_names: store.config('owner_bank_names'), start_date: store.config('start_date'),
           weekly_email: onOff('weekly_email'), monthly_email: onOff('monthly_email'), payday_email: onOff('payday_email'),
           summary_period: byPayday() ? 'payday' : 'month', salary_stream: salaryStream(), salary_amount: Number(store.config('salary_amount')) || '',
+          big_amount: bigAmount(),
         },
+        balances: streamBalances(rows(), accounts(), { year: year(), asOf: isoDate(now()) }), lastChecks: lastChecks(rows()),
         budgetSuggestions: suggestBudgets(rows(), cats(), { start: start(), today: now() }),
         archives: String(store.config('archives') || '').split('\n').filter(Boolean)
           .map((line) => { const [year, url] = line.split(' '); return { year, url }; }),
@@ -387,6 +407,11 @@ export function createApi(store, env) {
         if (values.salary_stream && !accounts().some((a) => a.stream === values.salary_stream)) throw new Error('unknown account');
         store.setConfig('salary_stream', String(values.salary_stream || ''));
       }
+      if ('big_amount' in values) {
+        const n = Number(values.big_amount);
+        if (!(n >= 0)) throw new Error('big spending amount must be a number');
+        store.setConfig('big_amount', n);
+      }
       if ('salary_amount' in values) {
         const n = Number(values.salary_amount || 0);
         if (!(n >= 0)) throw new Error('salary must be a number');
@@ -398,28 +423,58 @@ export function createApi(store, env) {
     /**
      * Month-end balance check. Normally the difference becomes a Penyesuaian row. `asOpening`
      * (an account checked for the first time) puts it into the account's opening balance instead:
-     * the money was there before the start date, it didn't arrive today.
+     * the money was there before the start date, it didn't arrive today. `category` files the
+     * difference as real income (bank shows more) or spending (bank shows less) instead, e.g. money
+     * that came into BCA, which never emails about money coming in.
      */
-    balanceCheck({ stream, actual, date, asOpening }) {
+    balanceCheck({ stream, actual, date, asOpening, category }) {
       const d = date || isoDate(now());
+      if (!Number.isFinite(Number(actual)) || actual === '' || actual == null) throw new Error(`${stream}: enter the balance`);
+      const problem = this.balanceCheckProblem({ stream, actual, date: d, asOpening, category });
+      if (problem) throw new Error(problem);
+      recordCheck(stream, d);
       const balances = streamBalances(rows(), accounts(), { year: year(), asOf: d });
       if (asOpening) {
         const b = balances.find((x) => x.stream === stream);
-        if (!b) throw new Error(`unknown account ${stream}`);
         const diff = Math.round((Number(actual) - b.balance) * 100) / 100;
-        if (Math.abs(diff) < 0.005) return { ok: true, adjusted: 0, opening: null };
+        if (Math.abs(diff) < 0.005) return { ok: true, stream, adjusted: 0, opening: null };
         const list = accounts().map((a) => (a.stream === stream ? { ...a, opening_balance: Math.round((Number(a.opening_balance || 0) + diff) * 100) / 100 } : a));
         store.replace(TABS.accounts, list);
         // Remembered so money recorded later for an earlier date (a salary) can keep this balance.
         const checks = openingChecks();
         if (!checks[stream] || String(checks[stream]) < d) store.setConfig('opening_checks', JSON.stringify({ ...checks, [stream]: d }));
-        return { ok: true, adjusted: 0, opening: list.find((a) => a.stream === stream).opening_balance, openingChange: diff };
+        return { ok: true, stream, adjusted: 0, opening: list.find((a) => a.stream === stream).opening_balance, openingChange: diff };
       }
+      const cat = category && category !== FIXED_CATEGORIES.adjustment ? category : FIXED_CATEGORIES.adjustment;
       const fix = balanceCorrection(balances, stream, actual, {
-        owner: owner(), nowIso: nowIso(), date: d, adjustCategory: 'Penyesuaian',
+        owner: owner(), nowIso: nowIso(), date: d, adjustCategory: cat,
       });
       if (fix) store.append(TABS.transactions, [fix]);
-      return { ok: true, adjusted: fix ? (fix.direction === 'in' ? fix.amount : -fix.amount) : 0 };
+      return { ok: true, stream, category: fix ? cat : '', adjusted: fix ? (fix.direction === 'in' ? fix.amount : -fix.amount) : 0 };
+    },
+
+    /** What is wrong with one balance check, before anything is written ('' = nothing). */
+    balanceCheckProblem({ stream, actual, date, asOpening, category }) {
+      if (!accounts().some((a) => a.stream === stream)) return `unknown account ${stream}`;
+      if (!Number.isFinite(Number(actual))) return `${stream}: the balance must be a number`;
+      if (asOpening || !category || category === FIXED_CATEGORIES.adjustment) return '';
+      const b = streamBalances(rows(), accounts(), { year: year(), asOf: date || isoDate(now()) }).find((x) => x.stream === stream);
+      const diff = Number(actual) - b.balance;
+      if (Math.abs(diff) < 0.005) return '';
+      const c = cats();
+      if (diff > 0 && !c.income.includes(category)) return `${stream}: "${category}" is not an income category`;
+      if (diff < 0 && !c.expense.includes(category)) return `${stream}: "${category}" is not an expense category`;
+      return '';
+    },
+
+    /** Balance check of several accounts at once (the ones the owner filled in): all checked first, then saved. */
+    balanceCheckAll({ date, items }) {
+      const list = (items || []).filter((i) => i && i.stream && i.actual !== '' && i.actual != null)
+        .map((i) => ({ stream: i.stream, actual: Number(i.actual), date, asOpening: !!i.asOpening, category: i.category || '' }));
+      if (!list.length) throw new Error('enter at least one balance');
+      const problems = list.map((i) => this.balanceCheckProblem(i)).filter(Boolean);
+      if (problems.length) throw new Error(problems.join('; '));
+      return { ok: true, results: list.map((i) => this.balanceCheck(i)) };
     },
 
     syncNow() {
@@ -461,5 +516,5 @@ export function renameCategoryEverywhere(store, renamed) {
 export const API_METHODS = [
   'init', 'bootstrap', 'review', 'approve', 'ignore', 'restore', 'list', 'update', 'remove', 'add', 'dashboard', 'settings',
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
-  'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring',
+  'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
 ];

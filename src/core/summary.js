@@ -6,9 +6,9 @@ const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, 
 const num = (v) => Number(v) || 0;
 
 /**
- * @param {{rows, cats: {income, expense}, budgets: {category, monthly_budget}[], recurring: {items}, today: Date}} input
+ * @param {{rows, cats: {income, expense}, budgets: {category, monthly_budget}[], recurring: {items}, today: Date, bigAmount?: number}} input
  */
-export function weeklySummary({ rows, cats, budgets, recurring, today }) {
+export function weeklySummary({ rows, cats, budgets, recurring, today, bigAmount = 0 }) {
   const from = isoOf(new Date(today.getTime() - 7 * DAY));
   const to = isoOf(new Date(today.getTime() - DAY));
   const exp = new Set(cats.expense);
@@ -32,7 +32,11 @@ export function weeklySummary({ rows, cats, budgets, recurring, today }) {
     income: week.filter((r) => r.direction === 'in' && inc.has(r.category)).reduce((s, r) => s + num(r.amount), 0),
     count: spentRows.length,
     topCategories: [...byCat].map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount).slice(0, 5),
-    biggest: [...spentRows].sort((a, b) => num(b.amount) - num(a.amount)).slice(0, 3)
+    // Spending of bigAmount or more gets its own list; "biggest" shows the rest.
+    bigAmount,
+    big: bigAmount > 0 ? [...spentRows].filter((r) => num(r.amount) >= bigAmount).sort((a, b) => num(b.amount) - num(a.amount))
+      .map((r) => ({ description: r.description, amount: num(r.amount), date: String(r.date).slice(0, 10), category: r.category })) : [],
+    biggest: [...spentRows].filter((r) => !(bigAmount > 0 && num(r.amount) >= bigAmount)).sort((a, b) => num(b.amount) - num(a.amount)).slice(0, 3)
       .map((r) => ({ description: r.description, amount: num(r.amount), date: String(r.date).slice(0, 10), category: r.category })),
     pending: rows.filter((r) => r.status === 'pending').length,
     budgetAlerts,
@@ -44,14 +48,14 @@ const T = {
   id: {
     subject: (s) => `Ringkasan mingguan Cashflow · ${s.from} s.d. ${s.to}`,
     title: 'Ringkasan minggu lalu', spent: 'Pengeluaran', income: 'Pemasukan', tx: (n) => `${n} transaksi`,
-    top: 'Kategori terbesar', biggest: 'Transaksi terbesar', pending: (n) => `${n} transaksi menunggu dicek di aplikasi.`,
+    top: 'Kategori terbesar', biggest: 'Transaksi terbesar', big: (v) => `Pengeluaran besar (${v} ke atas)`, pending: (n) => `${n} transaksi menunggu dicek di aplikasi.`,
     budgets: 'Budget bulan ini', over: (p) => `${p}% terpakai`, upcoming: 'Tagihan rutin 7 hari ke depan', open: 'Buka aplikasi',
     none: 'Tidak ada pengeluaran minggu lalu.', footer: 'Email ini dikirim setiap Senin. Matikan di Pengaturan → Ringkasan mingguan.',
   },
   en: {
     subject: (s) => `Cashflow weekly summary · ${s.from} to ${s.to}`,
     title: 'Last week', spent: 'Spent', income: 'Income', tx: (n) => `${n} transaction(s)`,
-    top: 'Biggest categories', biggest: 'Biggest transactions', pending: (n) => `${n} transaction(s) waiting for review in the app.`,
+    top: 'Biggest categories', biggest: 'Biggest transactions', big: (v) => `Big spending (${v} and up)`, pending: (n) => `${n} transaction(s) waiting for review in the app.`,
     budgets: 'Budgets this month', over: (p) => `${p}% used`, upcoming: 'Repeating charges in the next 7 days', open: 'Open the app',
     none: 'No spending last week.', footer: 'Sent every Monday. Turn it off in Settings → Weekly summary.',
   },
@@ -74,6 +78,7 @@ export function summaryEmail(s, { appUrl = '', lang = 'id' } = {}) {
   ];
   if (s.pending) parts.push(`<p style="background:#fff3d6;color:#8a5300;padding:12px 16px;border-radius:12px;font-size:16px;margin:20px 0 0">⚠ ${esc(t.pending(s.pending))}</p>`);
   parts.push(s.topCategories.length ? section(t.top, s.topCategories.map((c) => row(c.category, rp(c.amount))).join('')) : `<p style="font-size:16px">${esc(t.none)}</p>`);
+  if ((s.big || []).length) parts.push(section(t.big(rp(s.bigAmount)), s.big.map((b) => row(b.description, `<b>${rp(b.amount)}</b>`, `${b.date} · ${b.category}`)).join('')));
   if (s.biggest.length) parts.push(section(t.biggest, s.biggest.map((b) => row(b.description, rp(b.amount), `${b.date} · ${b.category}`)).join('')));
   if (s.budgetAlerts.length) parts.push(section(t.budgets, s.budgetAlerts.map((b) => row(b.category, `${rp(b.spent)} / ${rp(b.budget)}`, t.over(Math.round(b.ratio * 100)))).join('')));
   if (s.upcoming.length) parts.push(section(t.upcoming, s.upcoming.map((u) => row(u.name, rp(u.amount), `${u.nextDate} · ${u.category}`)).join('')));

@@ -1,5 +1,5 @@
 // The emails the app sends by itself, and the time triggers behind them:
-//   Mondays 07:00   weekly summary
+//   Mondays 07:00   weekly summary, then the self-test (an email only when it finds a problem)
 //   every day 07:00 the monthly report on the 1st, the balance-check reminder on payday
 //   after a sync    an alert when the sync failed or a new bank email couldn't be read
 // plus the self-test that runs by itself after an upgrade. All go to the owner's own Gmail.
@@ -58,7 +58,8 @@ export function runDaily(ss, today = new Date()) {
  * problem: { error?: string, unread?: [{subject, from, reason}] }
  */
 export function sendSyncAlert(ss, problem) {
-  const key = `ALERT_${(problem.error ? `e:${problem.error}` : `u:${(problem.unread || []).map((u) => u.subject).join('|')}`).slice(0, 200)}`;
+  const what = problem.selftest ? `s:${(problem.selftest.failures || []).length}` : problem.error ? `e:${problem.error}` : `u:${(problem.unread || []).map((u) => u.subject).join('|')}`;
+  const key = `ALERT_${what.slice(0, 200)}`;
   const props = PropertiesService.getScriptProperties();
   const last = Number(props.getProperty(key) || 0);
   if (Date.now() - last < ALERT_EVERY_MS) return { sent: false, reason: 'sent recently' };
@@ -75,9 +76,9 @@ export function installMailTriggers() {
 }
 
 /** A self-test one minute from now, in its own run (it takes a while), once. */
-export function scheduleSelfTest() {
+export function scheduleSelfTest(delayMs = 60 * 1000) {
   clearSelfTestTrigger();
-  ScriptApp.newTrigger(SELFTEST_HANDLER).timeBased().after(60 * 1000).create();
+  ScriptApp.newTrigger(SELFTEST_HANDLER).timeBased().after(delayMs).create();
 }
 
 /** Removes the one-off self-test trigger once it has fired. */

@@ -9,7 +9,7 @@ import { recordStartup } from './gas/perf.js';
 import { cachedInit, storeInit } from './gas/initcache.js';
 import { sheetStore } from './gas/sheetstore.js';
 import { createApi, API_METHODS } from './core/api.js';
-import { sendWeeklySummary, clearSelfTestTrigger, runDaily } from './gas/weekly.js';
+import { sendWeeklySummary, clearSelfTestTrigger, runDaily, scheduleSelfTest, sendSyncAlert } from './gas/weekly.js';
 
 const MENU = 'Cashflow Tracker';
 
@@ -132,9 +132,13 @@ export function syncTrigger() {
   }
 }
 
-/** Time-driven trigger (Mondays 07:00): the weekly summary email. */
+/** Time-driven trigger (Mondays 07:00): the weekly summary email, then the weekly self-test in its own run. */
 export function weeklySummaryTrigger() {
-  return sendWeeklySummary(appSpreadsheet());
+  try {
+    return sendWeeklySummary(appSpreadsheet());
+  } finally {
+    try { scheduleSelfTest(5 * 60 * 1000); } catch (e) { /* next Monday */ }
+  }
 }
 
 /** Time-driven trigger (every day 07:00): monthly report on the 1st, balance-check reminder on payday. */
@@ -142,10 +146,13 @@ export function dailyTrigger() {
   return runDaily(appSpreadsheet());
 }
 
-/** One-off time trigger after an upgrade: runs the self-test by itself, then removes itself. */
+/** One-off time trigger (after an upgrade, and weekly): runs the self-test, emails the owner if it fails. */
 export function selfTestTrigger() {
   clearSelfTestTrigger();
-  return runSelfTest(appSpreadsheet(), SEED);
+  const ss = appSpreadsheet();
+  const r = runSelfTest(ss, SEED);
+  if (!r.ok) try { sendSyncAlert(ss, { selftest: r }); } catch (e) { /* the result is in Config and the Self-test tab */ }
+  return r;
 }
 
 export function menuWeeklySummary() {

@@ -154,6 +154,12 @@ function setAll(rows) { state.all = rows; state.allStale = false; remember(rows)
 function absorb(data) {
   state.boot = { ...data.boot, lang: state.boot?.lang };
   state.dataAt = data.at; // when Google built this data: newer sync changes mean refresh
+  const incoming = data.incoming || [];
+  if (state.incomingIds) {
+    const fresh = incoming.filter((x) => !state.incomingIds.has(String(x.id)));
+    if (fresh.length) toast(T.newRows(fresh.length, `${fresh[0].description} ${fresh[0].direction === 'in' ? '+' : '−'}${rp(fresh[0].amount)}`));
+  }
+  state.incomingIds = new Set([...(state.incomingIds || []), ...incoming.map((x) => String(x.id))]);
   applyLanguage(state.boot.language);
   if (!state.month) state.month = data.boot.currentMonth || data.boot.today.slice(0, 7);
   state.review = data.review;
@@ -404,7 +410,7 @@ function hideRecurring(name) {
 function fillBudgets(form) {
   const tips = new Map((state.settings.budgetSuggestions || []).map((b) => [b.category, b.amount]));
   let n = 0;
-  $('[data-b]', form).forEach((i) => {
+  $$('[data-b]', form).forEach((i) => {
     if (!(Number(i.value) > 0) && tips.has(i.dataset.b)) { i.value = String(tips.get(i.dataset.b)); n += 1; }
   });
   const st = $('.state', form);
@@ -833,15 +839,7 @@ async function viewSettings(local) {
   // One section at a time (Apple Settings style): the list of sections, then the open one. On a
   // phone the list and the section are two screens; on a PC the list stays on the left.
   const sections = {
-    monthend: `
-      <form class="card" data-form="monthend" novalidate><h2>${esc(T.monthEnd)}</h2><p class="lead">${esc(T.monthEndHint)}</p>
-        <div class="fields2">
-          ${field(T.account, `<select name="stream">${accountOptions('')}</select>`)}
-          ${field(T.actualBalance, '<input name="actual" type="number" inputmode="decimal" step="any">', { help: T.actualBalanceHelp })}
-          ${field(T.date, `<input name="date" type="date" value="${esc(state.boot.today)}">`)}
-        </div>
-        <label class="check"><input type="checkbox" name="as_opening"> ${esc(T.asOpening)}</label>
-        <p class="hint">${esc(T.asOpeningHelp)}</p>${saveRow(T.checkBalance)}</form>`,
+    monthend: balanceForm(s),
     sync: `
       <section class="card"><h2>${esc(T.settingsSync)}</h2><p class="lead">${esc(T.settingsSyncHint)}</p><div class="rows">${conns}</div>
         <div class="actions"><button class="btn primary" type="button" data-action="sync">↻ ${esc(T.syncNow)}</button></div></section>`,
@@ -873,6 +871,7 @@ async function viewSettings(local) {
           ${field(T.language, `<select name="language"><option value="" ${!cfg.language ? 'selected' : ''}>${esc(T.languageAuto)}</option><option value="id" ${cfg.language === 'id' ? 'selected' : ''}>Bahasa Indonesia</option><option value="en" ${cfg.language === 'en' ? 'selected' : ''}>English</option></select>`)}
           ${field(T.payday, `<input name="payday_day" type="number" min="1" max="31" value="${esc(cfg.payday_day)}">`, { help: T.paydayHelp })}
           ${field(T.summaryPeriod, `<select name="summary_period"><option value="month" ${cfg.summary_period !== 'payday' ? 'selected' : ''}>${esc(T.periodMonth)}</option><option value="payday" ${cfg.summary_period === 'payday' ? 'selected' : ''}>${esc(T.periodPayday(Number(cfg.payday_day) || 28))}</option></select>`, { help: T.summaryPeriodHelp, wide: true })}
+          ${field(T.bigAmount, `<input name="big_amount" type="number" inputmode="decimal" step="any" min="0" value="${esc(cfg.big_amount)}">`, { help: T.bigAmountHelp })}
           ${field(T.salarySettings, `<select name="salary_stream">${accountOptions(cfg.salary_stream, T.chooseAccount)}</select>`, { help: T.salarySettingsHelp })}
           ${field(T.salaryAmountSetting, `<input name="salary_amount" type="number" inputmode="decimal" step="any" min="0" value="${esc(cfg.salary_amount)}">`, { help: T.salaryAmountSettingHelp })}
           ${field(T.ownerNames, `<input name="owner_bank_names" value="${esc(cfg.owner_bank_names)}">`, { help: T.ownerNamesHelp, wide: true })}
@@ -981,6 +980,9 @@ function notifications() {
   for (const b of (d && d.budgets) || []) {
     if (b.ratio >= 1) out.push({ id: `budget:${month}:${b.category}:over`, kind: 'bad', title: T.notifBudgetOver(b.category), text: T.notifBudgetSub(rp(b.spent), rp(b.budget)), category: b.category, goLabel: T.seeList });
     else if (b.ratio >= 0.8) out.push({ id: `budget:${month}:${b.category}:near`, kind: 'warn', title: T.notifBudgetNear(b.category, Math.round(b.ratio * 100)), text: T.notifBudgetSub(rp(b.spent), rp(b.budget)), category: b.category, goLabel: T.seeList });
+  }
+  for (const b of (d && d.big) || []) {
+    out.push({ id: `big:${b.id}`, kind: 'info', title: T.notifBig(b.description, rp(b.amount)), text: `${dateLabel(b.date, { weekday: false })}${b.category ? ` · ${b.category}` : ''}`, q: b.description, goLabel: T.seeList });
   }
   for (const i of (d && d.recurring && d.recurring.items) || []) {
     if (i.daysLeft > 3 || i.daysLeft < -7) continue;
@@ -1227,6 +1229,51 @@ async function sendSummaryNow(btn) {
   } finally { btn.disabled = false; }
 }
 
+/**
+ * Balance check of every account on one form: the app's balance and the last check next to each,
+ * the difference as you type, and what to record it as (Penyesuaian, or a real income/expense
+ * category, e.g. money that came into BCA, which never emails about money coming in).
+ */
+function balanceForm(s) {
+  const bal = new Map((s.balances || []).map((b) => [b.stream, b.balance]));
+  const checks = s.lastChecks || {};
+  const rows = s.accounts.map((a) => {
+    const last = checks[a.stream];
+    return `<fieldset class="acct-row bal-row" data-stream="${esc(a.stream)}" data-app="${esc(bal.get(a.stream) || 0)}"><legend>${esc(a.stream)}</legend>
+      <p class="bal-meta">${esc(T.inApp)} <b>${rp(bal.get(a.stream) || 0)}</b> · ${esc(last ? T.lastChecked(dateLabel(last, { weekday: false })) : T.neverChecked)}</p>
+      ${field(T.actualBalance, '<input data-k="actual" type="number" inputmode="decimal" step="any" autocomplete="off">', { help: T.leaveEmpty })}
+      <p class="bal-diff" role="status"></p>
+      <div class="bal-how" hidden>${field(T.diffAs, '<select data-k="category"></select>', { help: T.diffAsHelp })}</div>
+      ${last ? '' : `<label class="check"><input type="checkbox" data-k="as_opening" ${(Number(a.opening_balance) || 0) ? '' : 'checked'}> ${esc(T.asOpening)}</label>`}
+    </fieldset>`;
+  }).join('');
+  return `<form class="card" data-form="monthend" novalidate><h2>${esc(T.monthEnd)}</h2><p class="lead">${esc(T.monthEndHintAll)}</p>
+    ${field(T.date, `<input name="date" type="date" value="${esc(state.boot.today)}">`)}
+    <div class="bal-list">${rows}</div>
+    <div class="actions"><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.checkBalances)}</button></div></form>`;
+}
+
+/** One account's row: the difference in words, and the choice of what to record it as. */
+function updateBalRow(row) {
+  const input = $('[data-k=actual]', row);
+  const out = $('.bal-diff', row);
+  const how = $('.bal-how', row);
+  const opening = $('[data-k=as_opening]', row);
+  if (input.value === '' || !Number.isFinite(Number(input.value))) { out.textContent = ''; out.className = 'bal-diff'; how.hidden = true; return; }
+  const diff = Math.round((Number(input.value) - Number(row.dataset.app)) * 100) / 100;
+  out.className = `bal-diff ${diff === 0 ? 'same' : diff > 0 ? 'more' : 'less'}`;
+  out.textContent = diff === 0 ? T.diffSame : diff > 0 ? T.diffMore(rp(diff)) : T.diffLess(rp(-diff));
+  how.hidden = diff === 0 || !!(opening && opening.checked);
+  if (how.hidden) return;
+  const sel = $('[data-k=category]', how);
+  const want = diff > 0 ? 'in' : 'out';
+  if (sel.dataset.dir !== want) {
+    const list = want === 'in' ? state.boot.categories.income : state.boot.categories.expense;
+    sel.innerHTML = `<option value="Penyesuaian">${esc(T.adjustmentOption)}</option><optgroup label="${esc(want === 'in' ? T.income : T.expense)}">${list.map((c) => `<option>${esc(c)}</option>`).join('')}</optgroup>`;
+    sel.dataset.dir = want;
+  }
+}
+
 function goalsForm(s) {
   const goals = s.goals || [];
   const rows = goals.map((g, i) => `<fieldset class="acct-row goal-row" data-i="${i}"><legend>${esc(g.name || g.stream || T.newGoal)}</legend>
@@ -1273,14 +1320,26 @@ function onSubmit(e) {
     return saveForm(form, 'saveConfig', d, async () => { applyLanguage(d.language); state.month = ''; state.dashByMonth = {}; await refresh(); if (state.tab === 'settings') viewSettings(); });
   }
   if (kind === 'monthend') {
-    let ok = fieldMessage(form.querySelector('[name=stream]'), d.stream ? '' : T.errNoAccount);
-    ok = fieldMessage(form.querySelector('[name=actual]'), d.actual === '' ? T.errAmount : '') && ok;
-    if (!ok) return null;
-    return saveForm(form, 'balanceCheck', { stream: d.stream, actual: Number(d.actual), date: d.date, asOpening: !!d.as_opening }, (r) => {
-      const st = form.querySelector('.state');
-      st.textContent = `✓ ${r.opening != null ? T.openingSet(d.stream, rp(r.opening)) : r.adjusted ? T.adjusted(rp(r.adjusted)) : T.matched}`;
+    const items = $$('.bal-row', form).filter((row) => $('[data-k=actual]', row).value !== '').map((row) => {
+      const how = $('.bal-how', row);
+      const opening = $('[data-k=as_opening]', row);
+      return { stream: row.dataset.stream, actual: Number($('[data-k=actual]', row).value), asOpening: !!(opening && opening.checked), category: how.hidden ? '' : $('[data-k=category]', how).value };
+    });
+    const st = form.querySelector('.state');
+    if (!items.length) { st.className = 'state bad'; st.textContent = T.errNoBalances; const first = $('[data-k=actual]', form); if (first) first.focus(); return null; }
+    return saveForm(form, 'balanceCheckAll', { date: d.date, items }, async (r) => {
+      const lines = r.results.map((x) => (x.opening != null ? T.balOpening(x.stream, rp(x.opening))
+        : x.adjusted ? T.balAdjusted(x.stream, `${x.adjusted > 0 ? '+' : '−'}${rp(Math.abs(x.adjusted))}`, x.category) : T.balMatched(x.stream)));
       state.allStale = true;
-      return refresh();
+      state.dashByMonth = {};
+      // Fresh balances and "last checked" dates on the form, with the result kept underneath.
+      const fresh = await call('settings');
+      if (state.tab === 'settings' && (state.settingsSection || 'monthend') === 'monthend') {
+        viewSettings(fresh);
+        const st2 = $('form[data-form=monthend] .state');
+        if (st2) { st2.className = 'state ok'; st2.textContent = `✓ ${lines.join(' · ')}`; }
+      }
+      scheduleRefresh(0);
     });
   }
   if (kind === 'accounts') {
@@ -1342,10 +1401,7 @@ function onSubmit(e) {
 }
 
 function onChange(e) {
-  if (e.target.name === 'stream' && e.target.closest('form[data-form=monthend]')) {
-    const a = (state.settings.accounts || []).find((x) => x.stream === e.target.value);
-    e.target.form.querySelector('[name=as_opening]').checked = !!a && !(Number(a.opening_balance) || 0);
-  }
+  if (e.target.dataset.k === 'as_opening') { updateBalRow(e.target.closest('.bal-row')); return null; }
   if (e.target.name === 'theme' && e.target.closest('form[data-form=config]')) { applyTheme(e.target.value); return null; }
   const f = e.target.closest('[data-filter]');
   if (f) {
@@ -1382,6 +1438,7 @@ export async function start() {
   let searchTimer;
   document.addEventListener('input', (e) => {
     if (e.target.closest('form[data-form=split]')) updateSplitLeft();
+    if (e.target.dataset.k === 'actual' && e.target.closest('.bal-row')) updateBalRow(e.target.closest('.bal-row'));
     const rule = e.target.closest('.rule');
     if (rule && e.target.dataset.r === 'pattern') previewRule(rule);
     if (e.target.matches('[data-filter=q]')) { clearTimeout(searchTimer); searchTimer = setTimeout(() => onChange(e), 150); }

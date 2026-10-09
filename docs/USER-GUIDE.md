@@ -48,7 +48,7 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 ## Akhir bulan / Month end (±5 menit)
 
 0. Di tanggal gajian: catat dulu **gaji** di **Cek**, baru cek saldo (kalau tidak, gajinya tercatat sebagai Penyesuaian).
-1. **Pengaturan → Cek saldo akhir bulan**: isi saldo asli tiap rekening. Selisihnya otomatis dicatat sebagai *Penyesuaian*. Pada cek pertama sebuah rekening, centang **Jadikan saldo awal** (sudah tercentang kalau saldo awalnya masih 0): selisihnya masuk ke saldo awal, bukan sebagai pengeluaran/pemasukan.
+1. **Pengaturan → Cek saldo akhir bulan**: semua rekening ada di satu layar, dengan saldo di app dan kapan terakhir dicek. Isi saldo asli rekening yang ingin dicek (yang kosong dilewati), lalu **Cek saldo**. Selisihnya tampil langsung; catat sebagai *Penyesuaian*, atau pilih kategori kalau tahu asalnya (mis. uang masuk ke BCA yang tidak ada emailnya → *Pemasukan Lainnya*). Pada cek pertama sebuah rekening, centang **Jadikan saldo awal** (sudah tercentang kalau saldo awalnya masih 0): selisihnya masuk ke saldo awal, bukan sebagai pengeluaran/pemasukan.
 2. Ringkasan GoPay bulanan masuk ke **Cek** sebagai "Pengeluaran GoPay (ringkasan bulanan)": pilih kategorinya.
 3. Laporan lengkap (Growth, Quarter, Budget, Final Statement) ada di spreadsheet: **Pengaturan → Buka spreadsheet**.
 

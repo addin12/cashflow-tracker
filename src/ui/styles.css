@@ -437,3 +437,15 @@ button.rowi:hover { background: var(--zebra); }
 @media (min-width: 900px) {
   .settings .set-index { padding-right: 12px; scrollbar-width: thin; scrollbar-gutter: stable; }
 }
+
+/* Balance check of every account: app balance, then the difference as you type. */
+.bal-list { display: grid; gap: 12px; margin-top: 12px; }
+@media (min-width: 900px) { .bal-list { grid-template-columns: 1fr 1fr; } }
+.bal-row .bal-meta { margin: 0 0 8px; color: var(--muted); font-size: 15px; }
+.bal-row .bal-meta b { color: var(--ink); font-weight: 600; }
+.bal-row .bal-diff { margin: 4px 0 0; font-size: 15px; min-height: 0; }
+.bal-row .bal-diff:empty { display: none; }
+.bal-row .bal-diff.same { color: var(--success); }
+.bal-row .bal-diff.more { color: var(--success); font-weight: 600; }
+.bal-row .bal-diff.less { color: var(--critical); font-weight: 600; }
+.bal-row .bal-how { margin-top: 8px; }

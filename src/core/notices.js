@@ -59,6 +59,8 @@ const L = {
     alertSubject: 'Cashflow: sinkron Gmail bermasalah', alertTitle: 'Sinkron Gmail bermasalah',
     alertError: 'Sinkron terakhir gagal dengan pesan ini:', alertUnread: (n) => `${n} email bank baru belum bisa dibaca. Isi manual di aplikasi (Cek → Email yang belum terbaca), atau tunggu perbaikan.`,
     alertFooter: 'Email ini dikirim paling banyak sekali per 12 jam untuk masalah yang sama.',
+    selftestSubject: 'Cashflow: uji otomatis menemukan masalah', selftestTitle: 'Uji otomatis menemukan masalah',
+    selftestIntro: (n, c) => `Uji otomatis mingguan memeriksa ${c} sel laporan di spreadsheet; ${n} tidak sesuai. Data transaksi Anda aman, tapi angka laporan mungkin salah sampai diperbaiki. Contoh:`,
   },
   en: {
     monthSubject: (m) => `Cashflow monthly report · ${m}`, monthTitle: (m) => `${m} report`, vs: (m) => `compared with ${m}`,
@@ -72,6 +74,8 @@ const L = {
     alertSubject: 'Cashflow: the Gmail sync has a problem', alertTitle: 'The Gmail sync has a problem',
     alertError: 'The last sync stopped with this message:', alertUnread: (n) => `${n} new bank email(s) couldn’t be read. Enter them by hand in the app (Review → Emails not understood), or wait for a fix.`,
     alertFooter: 'Sent at most once every 12 hours for the same problem.',
+    selftestSubject: 'Cashflow: the self-test found a problem', selftestTitle: 'The self-test found a problem',
+    selftestIntro: (n, c) => `The weekly self-test checked ${c} report cells in the spreadsheet; ${n} were wrong. Your transactions are safe, but report numbers may be off until it is fixed. For example:`,
   },
 };
 
@@ -109,6 +113,11 @@ export function paydayEmail(balances, { appUrl = '', lang = 'id' } = {}) {
 /** problem: { error?: string, unread?: [{subject, from, reason}] } */
 export function alertEmail(problem, { appUrl = '', lang = 'id' } = {}) {
   const t = L[lang] || L.id;
+  if (problem.selftest) {
+    const f = problem.selftest;
+    const list = (f.failures || []).slice(0, 5).map((x) => `<li style="font-size:15px;margin:4px 0">${esc(x)}</li>`).join('');
+    return { subject: t.selftestSubject, html: wrap([`<h1 style="font-size:26px;margin:0 0 12px">⚠ ${esc(t.selftestTitle)}</h1>`, `<p style="font-size:16px">${esc(t.selftestIntro((f.failures || []).length, f.checks || 0))}</p><ul>${list}</ul>`, button(appUrl, t.open), footer(t.alertFooter)]) };
+  }
   const parts = [`<h1 style="font-size:26px;margin:0 0 12px">⚠ ${esc(t.alertTitle)}</h1>`];
   if (problem.error) parts.push(`<p style="font-size:16px">${esc(t.alertError)}</p><p style="font-size:15px;background:#fdecec;color:#c9252c;padding:12px 16px;border-radius:12px">${esc(problem.error)}</p>`);
   if (problem.unread && problem.unread.length) {

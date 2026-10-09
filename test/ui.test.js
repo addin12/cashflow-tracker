@@ -273,14 +273,40 @@ describe('web app', () => {
     expect(store.t[TABS.transactions].some((r) => r.description === 'kopi lagi')).toBe(false);
   });
 
-  it('settings: month-end check posts an adjustment', async () => {
+  it('settings: one balance check for every account, with the difference as you type', async () => {
     await tab('settings', 'Cek saldo akhir bulan');
+    await until(() => doc.querySelector('.bal-row[data-stream=Cash]'), 'balance form');
     const form = doc.querySelector('form[data-form=monthend]');
-    form.querySelector('[name=stream]').value = 'Cash';
-    form.querySelector('[name=actual]').value = '20000'; // app: 50000 - 15000 = 35000
+    const row = (st) => form.querySelector(`.bal-row[data-stream="${st}"]`);
+    const type = (st, v) => { const i = row(st).querySelector('[data-k=actual]'); i.value = v; i.dispatchEvent(new dom.window.Event('input', { bubbles: true })); };
+    expect(row('Cash').textContent).toContain('Rp35.000'); // app: 50000 - 15000
+    expect(row('Cash').textContent).toContain('belum pernah dicek');
+    type('Cash', '20000');
+    expect(row('Cash').querySelector('.bal-diff').textContent).toBe('Rp15.000 lebih sedikit dari app');
+    expect(row('Cash').querySelector('.bal-how').hidden).toBe(false);
+    // BCA is lower than the app: recorded as Food & Beverages spending instead of an adjustment.
+    type('BCA', String(Number(row('BCA').dataset.app) - 30000));
+    row('BCA').querySelector('[data-k=category]').value = 'fnb';
     form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
-    await until(() => store.t[TABS.transactions].some((r) => r.category === 'Penyesuaian'), 'adjustment');
-    expect(store.t[TABS.transactions].find((r) => r.category === 'Penyesuaian')).toMatchObject({ stream: 'Cash', direction: 'out', amount: 15000 });
+    await until(() => store.t[TABS.transactions].some((r) => r.description === 'Cek saldo BCA'), 'balances saved');
+    expect(store.t[TABS.transactions].find((r) => r.description === 'Cek saldo Cash')).toMatchObject({ category: 'Penyesuaian', direction: 'out', amount: 15000 });
+    expect(store.t[TABS.transactions].find((r) => r.description === 'Cek saldo BCA')).toMatchObject({ category: 'fnb', direction: 'out', amount: 30000 });
+    await until(() => /BCA: −Rp30.000 → fnb/.test(doc.querySelector('form[data-form=monthend] .state').textContent), 'result line');
+    expect(doc.querySelector('.bal-row[data-stream=Cash]').textContent).toContain('terakhir dicek');
+  });
+
+  it('"fill from earlier spending" fills the empty budgets (not saved until Save)', async () => {
+    store.t[TABS.transactions].push({ id: 't9', date: '2026-09-10', time: '', owner: 'Me', stream: 'Cash', direction: 'out', amount: 120000, category: 'fnb', description: 'Warung', status: 'approved' });
+    click(doc.querySelector('.nav [data-tab=settings]'));
+    await section('budgets', 'form[data-form=budgets] [data-action=fillbudgets]');
+    const form = doc.querySelector('form[data-form=budgets]');
+    expect(form.querySelector('[data-b="fnb"]').value).toBe('');
+    click(form.querySelector('[data-action=fillbudgets]'));
+    expect(form.querySelector('[data-b="fnb"]').value).toBe('150000');
+    expect(form.querySelector('[data-b="Belanja Online"]').value).toBe('200000'); // already set: kept
+    expect(form.querySelector('.state').textContent).toContain('1 budget diisi');
+    expect(store.t[TABS.budgets].some((b) => b.category === 'fnb')).toBe(false);
+    store.t[TABS.transactions] = store.t[TABS.transactions].filter((r) => r.id !== 't9');
   });
 
   it('rules can be edited and show which transactions they match', async () => {
