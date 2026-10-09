@@ -14,14 +14,14 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 
 ## Setiap hari / Every day
 
-- **Tidak perlu apa-apa.** Setiap 10 menit, email transaksi bank masuk otomatis ke spreadsheet. Merchant yang sudah dikenal langsung masuk laporan.
+- **Tidak perlu apa-apa.** Email transaksi bank masuk otomatis ke spreadsheet dalam 1–2 menit, dan app yang sedang terbuka memperbarui dirinya sendiri. Merchant yang sudah dikenal langsung masuk laporan.
 - **Cek** (menu pertama, angka merah = jumlah yang menunggu): pilih kategori → **Simpan**. Kartu langsung hilang; penyimpanan ke Google berjalan di belakang (lihat tanda "Menyimpan…" di pojok kanan atas). Salah pencet? Ketuk **Urungkan** di pesan bawah.
 - Biarkan *Selalu pakai kategori ini untuk …* tercentang supaya merchant itu otomatis lain kali (transaksi lain dari merchant yang sama ikut tersimpan).
 - **Tambah**: untuk uang tunai atau yang tidak ada emailnya. Rekening dan tanggal terakhir diingat, jadi transaksi berikutnya lebih cepat.
 - Salah kategori? **Transaksi** → ketuk barisnya → ubah → **Simpan perubahan**.
 - **Ringkasan**: ketuk Pemasukan, Pengeluaran, kategori atau rekening untuk langsung melihat transaksinya.
 
-> Nothing to do: every 10 minutes bank emails become rows, and known merchants go straight to the reports. **Review** (red number = how many wait): pick a category → **Save**. The card goes at once and the save runs in the background ("Saving…" top right); tap **Undo** if you slipped. Keep "Always use this category for …" ticked. **Add** is for cash and remembers your last account and date. Wrong category? **Transactions** → tap the row → edit. In **Summary**, tap income, expenses, a category or an account to see its transactions.
+> Nothing to do: within a minute or two bank emails become rows (an open app updates itself), and known merchants go straight to the reports. **Review** (red number = how many wait): pick a category → **Save**. The card goes at once and the save runs in the background ("Saving…" top right); tap **Undo** if you slipped. Keep "Always use this category for …" ticked. **Add** is for cash and remembers your last account and date. Wrong category? **Transactions** → tap the row → edit. In **Summary**, tap income, expenses, a category or an account to see its transactions.
 
 ## Fitur lain / More features
 

@@ -4,7 +4,7 @@
 
 import { runSetup } from './gas/setup.js';
 import { runSelfTest } from './gas/selftest.js';
-import { runSync, connect, appSpreadsheet } from './gas/sync.js';
+import { runSync, connect, appSpreadsheet, syncStamp, addRuntime } from './gas/sync.js';
 import { recordStartup } from './gas/perf.js';
 import { cachedInit, storeInit } from './gas/initcache.js';
 import { sheetStore } from './gas/sheetstore.js';
@@ -32,14 +32,14 @@ function describe(s) {
     `Gmail: ${s.gmail}`,
     `Email dibaca / read: ${s.seen} (transaksi ${s.parsed}, dilewati ${s.skipped}, gagal ${s.errors})`,
     `Baris baru / new rows: ${s.added}${s.updated ? `, diperbarui ${s.updated}` : ''}`,
-    s.remaining ? `Sisa / remaining: ${s.remaining} (berlanjut otomatis tiap 10 menit)` : '',
+    s.remaining ? `Sisa / remaining: ${s.remaining} (berlanjut otomatis / continues by itself)` : '',
   ].filter(Boolean).join('\n');
 }
 
 export function menuConnect() {
   const ui = SpreadsheetApp.getUi();
   const s = connect(SEED, SYNC_DEFAULT);
-  ui.alert('Gmail terhubung / Connected', `${describe(s)}\n\nSinkron otomatis setiap 10 menit. / Syncs every 10 minutes.`, ui.ButtonSet.OK);
+  ui.alert('Gmail terhubung / Connected', `${describe(s)}\n\nSinkron otomatis tiap menit. / Syncs every minute.`, ui.ButtonSet.OK);
 }
 
 export function menuSyncNow() {
@@ -87,6 +87,8 @@ const READ_ONLY = new Set(['init', 'bootstrap', 'review', 'list', 'dashboard', '
 export function api(name, payloadJson) {
   const t0 = Date.now();
   try {
+    // Asked every minute by the open page: answered without opening the spreadsheet.
+    if (name === 'stamp') return JSON.stringify({ data: syncStamp() });
     if (!API_METHODS.includes(name)) throw new Error(`unknown method ${name}`);
     const payload = JSON.parse(payloadJson || '{}');
     const ss = appSpreadsheet();
@@ -120,9 +122,14 @@ export function api(name, payloadJson) {
   }
 }
 
-/** Time-driven trigger (every 10 minutes). */
+/** Time-driven trigger (every minute): a quick look at Gmail, the full sync only when needed. */
 export function syncTrigger() {
-  return runSync({ seed: SEED, defaultMode: SYNC_DEFAULT });
+  const t0 = Date.now();
+  try {
+    return runSync({ seed: SEED, defaultMode: SYNC_DEFAULT, quick: true });
+  } finally {
+    addRuntime(Date.now() - t0);
+  }
 }
 
 /** Time-driven trigger (Mondays 07:00): the weekly summary email. */

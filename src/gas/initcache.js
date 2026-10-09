@@ -1,5 +1,5 @@
 // A ready-made copy of the web app's first-screen data ("init"), kept in Apps Script's cache.
-// The sync refreshes it every 10 minutes and every fresh `init` call updates it, so doGet can
+// The sync refreshes it when it adds rows (and every 30 minutes) and every fresh `init` call updates it, so doGet can
 // put it straight into the page: the app shows data without waiting on the spreadsheet.
 /* global CacheService */
 

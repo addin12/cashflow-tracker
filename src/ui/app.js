@@ -153,6 +153,7 @@ const remember = (rows) => rows.forEach((r) => state.rowsById.set(String(r.id), 
 function setAll(rows) { state.all = rows; state.allStale = false; remember(rows); }
 function absorb(data) {
   state.boot = { ...data.boot, lang: state.boot?.lang };
+  state.dataAt = data.at; // when Google built this data: newer sync changes mean refresh
   applyLanguage(state.boot.language);
   if (!state.month) state.month = data.boot.currentMonth || data.boot.today.slice(0, 7);
   state.review = data.review;
@@ -1037,6 +1038,20 @@ const TIMING_KEY = 'cashflow.lastLoad.v1';
 function readCache() {
   try { return JSON.parse(window.localStorage.getItem(CACHE_KEY) || 'null'); } catch (e) { return null; }
 }
+const POLL_MS = 60000;
+/** Cheap check (no spreadsheet on Google's side): refresh only when the sync changed something. */
+async function pollChanges() {
+  if (document.hidden || queue.length || refreshing || !state.boot) return;
+  try {
+    const s = await call('stamp');
+    const c = (state.boot.connections || [])[0];
+    if (c && s.checked && (!c.last_sync || s.checked > Date.parse(c.last_sync))) {
+      c.last_sync = new Date(s.checked).toISOString();
+      updateNav();
+    }
+    if (s.stamp && Number(s.stamp) > Date.parse(state.dataAt || 0)) scheduleRefresh(0);
+  } catch (e) { /* next minute */ }
+}
 function writeCache(data) {
   try { window.localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch (e) { /* storage unavailable */ }
 }
@@ -1400,8 +1415,11 @@ export async function start() {
     waitTimer = setInterval(tick, 1000);
   }
   const mine = seq;
-  // While the page is open, fresh numbers every 10 minutes (as often as the sync runs).
+  // While the page is open, fresh numbers every 10 minutes, and every minute a quick question to
+  // Google ("did the sync add anything?") so a new bank transaction shows up within a minute or two.
   setInterval(() => { if (!document.hidden) scheduleRefresh(0); }, FRESH_MS);
+  setInterval(pollChanges, POLL_MS);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) pollChanges(); });
   // The sync refreshes the data built into the page every 10 minutes, and every change refreshes
   // it too: when it is that fresh, opening the app needs no extra request to Google.
   const age = instant ? Date.now() - Date.parse(instant.at) : Infinity;

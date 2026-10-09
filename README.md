@@ -2,7 +2,7 @@
 
 A personal cashflow tracker that reads bank transaction emails from Gmail (read-only) and fills a Google Sheet built on the *Template Cashflow 2025, V.1* cashflow template. A phone-friendly web app (Indonesian / English) is used to review, add and see totals.
 
-- **Stack:** Google Sheets + Google Apps Script (sync every 10 min) + Apps Script web app. No server, no hosting cost.
+- **Stack:** Google Sheets + Google Apps Script (sync checks Gmail every minute) + Apps Script web app. No server, no hosting cost.
 - **Banks supported (planned v1):** BCA (myBCA), Livin' by Mandiri, blu by BCA Digital, Jago, Mandiri Sekuritas dividends, GoPay monthly summary.
 - **Status:** all v1 phases built (0 setup, 1 email parsers, 2 Gmail sync, 3–4 web app, 5 month-end). 139 automated tests, plus a self-test on the real spreadsheet. v1 connects one Gmail account; collaboration with a partner's Gmail is a planned future phase.
 

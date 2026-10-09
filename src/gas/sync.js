@@ -1,4 +1,8 @@
-// Gmail -> Transactions. Runs every 10 minutes (time trigger) and from the menu.
+// Gmail -> Transactions. A time trigger runs every minute: a quick look asks Gmail whether a bank
+// or shop email arrived since the last sync (two small searches, no spreadsheet work), and only
+// then does the full sync run. A full run also happens every 30 minutes (retries of emails still
+// waiting, a fresh first-screen snapshot) and from the menu or the app's "Sync now".
+// Personal accounts get 90 minutes of trigger time a day: the quick look keeps us well under it.
 /* global SpreadsheetApp, LockService, ScriptApp, PropertiesService, Utilities */
 
 import { TABS, TRANSACTION_HEADERS, CONNECTION_HEADERS, INBOX_LOG_HEADERS, RULE_HEADERS, SETUP_VERSION } from '../core/schema.js';
@@ -15,9 +19,55 @@ import { rolloverYear } from './rollover.js';
 const OVERLAP_MS = 2 * 24 * 3600 * 1000;
 const TIME_BUDGET_MS = 4.5 * 60 * 1000; // Apps Script stops a run at 6 minutes
 const SHEET_KEY = 'SHEET_ID';
-const MAX_EMAILS_PER_RUN = 80; // a backlog is worked off over several 10-minute runs
+const MAX_EMAILS_PER_RUN = 80; // a backlog is worked off over several runs
 const PAUSE_MS = 300; // stays well under Gmail's per-minute quota for personal scripts
 export const TRIGGER_HANDLER = 'syncTrigger';
+const TRIGGER_MINUTES = 1;
+const FULL_EVERY_MS = 30 * 60 * 1000;
+// Script properties shared by the quick look and the full run.
+const P = {
+  checkpoint: 'SYNC_CHECKPOINT_MS', // newest email the last complete run handled
+  known: 'SYNC_KNOWN_IDS', // ids the quick look's searches returned right after that run
+  lastFull: 'SYNC_LAST_FULL_MS',
+  setup: 'SYNC_SETUP_VERSION',
+  stamp: 'SYNC_DATA_STAMP', // changes when a sync adds or changes rows (the open app refreshes)
+  checked: 'SYNC_LAST_CHECK_MS', // last time Gmail was looked at, quick or full
+};
+
+/** Ids of bank and shop emails since a moment just before `checkpointMs`. */
+function recentIds(checkpointMs) {
+  const since = Math.floor(checkpointMs / 1000) - 60;
+  return [...listMessageIds(`from:(${SENDERS.join(' OR ')}) after:${since}`, 20), ...listMessageIds(backfillQuery(since), 20)];
+}
+
+/** The quick look: does anything call for a full run? */
+function needsFullRun(props) {
+  const p = props.getProperties();
+  if (!p[P.checkpoint] || !p[P.known] || p[P.setup] !== String(SETUP_VERSION)) return true;
+  if (Date.now() - Number(p[P.lastFull] || 0) > FULL_EVERY_MS) return true;
+  const known = new Set(JSON.parse(p[P.known]));
+  const fresh = recentIds(Number(p[P.checkpoint])).some((id) => !known.has(id));
+  props.setProperty(P.checked, String(Date.now()));
+  return fresh;
+}
+
+/** For the web app: has a sync changed anything, and when was Gmail last looked at? Cheap: no spreadsheet. */
+export function syncStamp() {
+  const p = PropertiesService.getScriptProperties().getProperties();
+  return { stamp: p[P.stamp] || '', checked: Number(p[P.checked] || 0) || null, today: Number(p[runtimeKey()] || 0) };
+}
+
+const runtimeKey = () => `SYNC_RUNTIME_${Utilities.formatDate(new Date(), 'Asia/Jakarta', 'yyyy-MM-dd')}`;
+/** Trigger time used today (ms), to stay inside the 90-minute daily allowance. */
+export function addRuntime(ms) {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const key = runtimeKey();
+    props.setProperty(key, String((Number(props.getProperty(key)) || 0) + ms));
+    // Old days go away.
+    Object.keys(props.getProperties()).filter((k) => k.startsWith('SYNC_RUNTIME_') && k !== key).forEach((k) => props.deleteProperty(k));
+  } catch (e) { /* bookkeeping only */ }
+}
 
 /** The spreadsheet, also when running from a time trigger. */
 export function appSpreadsheet() {
@@ -71,6 +121,10 @@ function upsertConnection(ss, gmail, changes) {
  * @returns {object} summary (also written to the Connections row)
  */
 export function runSync(opts = {}) {
+  // The every-minute trigger: nothing new in Gmail means nothing to do.
+  if (opts.quick) {
+    try { if (!needsFullRun(PropertiesService.getScriptProperties())) return { status: 'idle' }; } catch (e) { /* look properly instead */ }
+  }
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return { status: 'busy' };
   try {
@@ -102,7 +156,7 @@ function syncOnce(opts) {
     if ((Number(configValue(ss, 'setup_version')) || 0) < SETUP_VERSION) {
       runSetup(ss, opts.seed);
       // After an upgrade: make sure the email triggers exist, and check the reports again.
-      try { installMailTriggers(); scheduleSelfTest(); } catch (e) { /* tried again at the next upgrade */ }
+      try { installTrigger(); installMailTriggers(); scheduleSelfTest(); } catch (e) { /* tried again at the next upgrade */ }
     }
     const mode = modeOf(ss, opts.defaultMode || 'preview');
     let yearNote = '';
@@ -195,8 +249,18 @@ function syncOnce(opts) {
       status: complete ? 'ok' : 'partial', mode, gmail, ...counts, added: plan.add.length, updated: plan.update.length,
       remaining: ids.length - emails.length, seconds: Math.round((Date.now() - started) / 1000),
     };
+    // What the quick look needs next time; a partial run leaves no known ids, so the next minute continues.
+    if (mode === 'live') {
+      const props = PropertiesService.getScriptProperties();
+      const now = String(Date.now());
+      props.setProperties({ [P.lastFull]: now, [P.checked]: now, [P.setup]: String(SETUP_VERSION) });
+      if (complete) props.setProperties({ [P.checkpoint]: String(newest), [P.known]: JSON.stringify(recentIds(newest)) });
+      else props.deleteProperty(P.known);
+      if (plan.add.length || plan.update.length) props.setProperty(P.stamp, now);
+    }
+    const usedMin = Math.round(syncStamp().today / 6000) / 10;
     upsertConnection(ss, gmail, {
-      last_sync: new Date(), last_status: `${mode} ${summary.status}: +${summary.added} rows, ${counts.errors} errors${summary.remaining ? `, ${summary.remaining} left` : ''}${note ? ` (${note})` : ''}`,
+      last_sync: new Date(), last_status: `${mode} ${summary.status}: +${summary.added} rows, ${counts.errors} errors${summary.remaining ? `, ${summary.remaining} left` : ''}${note ? ` (${note})` : ''} · ${summary.seconds}s · today ${usedMin} min`,
       seen: counts.seen, parsed: counts.parsed, skipped: counts.skipped, errors: counts.errors,
       ...(mode === 'live' && complete ? { checkpoint: newest } : {}),
     });
@@ -225,10 +289,10 @@ function resetPreviewIfStale(ss) {
   props.setProperty('PREVIEW_EPOCH', PREVIEW_EPOCH);
 }
 
-/** (Re)installs the 10-minute trigger for the person running this. */
+/** (Re)installs the every-minute trigger for the person running this. */
 export function installTrigger() {
   ScriptApp.getProjectTriggers().filter((t) => t.getHandlerFunction() === TRIGGER_HANDLER).forEach((t) => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger(TRIGGER_HANDLER).timeBased().everyMinutes(10).create();
+  ScriptApp.newTrigger(TRIGGER_HANDLER).timeBased().everyMinutes(TRIGGER_MINUTES).create();
 }
 
 export function connect(seed, defaultMode) {

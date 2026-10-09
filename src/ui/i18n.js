@@ -56,7 +56,7 @@ export const STRINGS = {
     errNoCategory: 'Pilih kategori dulu.', errNoAccount: 'Pilih rekening dulu.', errAmount: 'Isi jumlah lebih dari 0.', errSameAccount: 'Pilih rekening tujuan yang berbeda.',
     // Settings
     settingsSub: 'Sinkron, rekening, kategori, budget dan aturan otomatis.',
-    settingsSync: 'Sinkron Gmail', settingsSyncHint: 'Email bank dibaca otomatis setiap 10 menit.',
+    settingsSync: 'Sinkron Gmail', settingsSyncHint: 'Email bank dibaca otomatis tiap menit: transaksi baru muncul dalam 1–2 menit.',
     preferences: 'Preferensi', language: 'Bahasa / Language', languageAuto: 'Otomatis (ikuti browser)',
     payday: 'Tanggal gajian', paydayHelp: 'Angka 1–31. Dipakai untuk “Budget per hari”.',
     ownerNames: 'Nama Anda di bank', ownerNamesHelp: 'Seperti tertulis di email bank. Pisahkan dengan koma kalau lebih dari satu.',
@@ -180,7 +180,7 @@ export const STRINGS = {
     chooseCategory: 'Choose a category', chooseAccount: 'Choose an account', otherGroup: 'Other',
     errNoCategory: 'Choose a category first.', errNoAccount: 'Choose an account first.', errAmount: 'Enter an amount above 0.', errSameAccount: 'Choose a different destination account.',
     settingsSub: 'Sync, accounts, categories, budgets and automatic rules.',
-    settingsSync: 'Gmail sync', settingsSyncHint: 'Bank emails are read automatically every 10 minutes.',
+    settingsSync: 'Gmail sync', settingsSyncHint: 'Bank emails are read automatically every minute: new transactions show up within 1–2 minutes.',
     preferences: 'Preferences', language: 'Bahasa / Language', languageAuto: 'Automatic (follow the browser)',
     payday: 'Payday', paydayHelp: 'A day 1–31. Used for “Budget per day”.',
     ownerNames: 'Your name at the bank', ownerNamesHelp: 'As bank emails print it. Separate several with commas.',
