@@ -21,6 +21,7 @@ import {
 import { compileRule } from './rules.js';
 import { recurringCharges, payee } from './recurring.js';
 import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth } from './salary.js';
+import { topPlaces, biggestExpenses, moneyFlow } from './insights.js';
 import { weeklySummary } from './summary.js';
 import { monthlyReport } from './notices.js';
 import { goalProgress, goalProblems } from './goals.js';
@@ -81,6 +82,7 @@ export function createApi(store, env) {
     const checks = json('balance_checks');
     if (!checks[stream] || String(checks[stream]) < d) store.setConfig('balance_checks', JSON.stringify({ ...checks, [stream]: d }));
   };
+  const importHistory = () => { try { return JSON.parse(String(store.config('imports') || '[]')) || []; } catch (e) { return []; } };
   /** Accounts whose opening balance came from a balance check, and that check's date. */
   const openingChecks = () => { try { return JSON.parse(String(store.config('opening_checks') || '{}')) || {}; } catch (e) { return {}; } };
 
@@ -296,11 +298,90 @@ export function createApi(store, env) {
         today: all.filter((r) => String(r.date).slice(0, 10) === isoDate(today) && r.direction === 'out' && r.status !== 'ignored' && !fixedNames().includes(r.category))
           .sort(newestFirst).map(rowView),
         recent: all.filter((r) => r.status === 'approved').sort(newestFirst).slice(0, 8).map(rowView),
+        places: topPlaces(all, c, spanOf(m)),
+        biggest: biggestExpenses(all, c, spanOf(m)),
+        flow: moneyFlow(all, c, spanOf(m), fixedNames()[1]),
         bigAmount: bigAmount(),
         big: bigSpends(all, { from: summary.from || `${m}-01`, to: summary.to || `${m}-31`, threshold: bigAmount(), skipCategories: fixedNames() }),
         recurring: recurring(all),
         goals: goalProgress(store.read(TABS.goals), streamBalances(all, accounts(), { year: year(), asOf: isoDate(today) }), today),
       };
+    },
+
+    /** A year month by month (each month as the summary counts it), with the year's places and biggest payments. */
+    yearly({ year: y } = {}) {
+      const yy = Number(y) || now().getFullYear();
+      const all = rows();
+      const c = cats();
+      const months = [...Array(12)].map((_, i) => `${yy}-${String(i + 1).padStart(2, '0')}`).map((m) => {
+        const t = summarizeMonth(all, c, m, '', rangeOf(m));
+        return { month: m, income: t.income, expense: t.expense, byCategory: Object.fromEntries(t.byCategory.filter((x) => x.kind === 'expense').map((x) => [x.category, x.amount])) };
+      });
+      const range = { from: spanOf(`${yy}-01`).from, to: spanOf(`${yy}-12`).to };
+      return { year: yy, months, places: topPlaces(all, c, range, 10), biggest: biggestExpenses(all, c, range, 8) };
+    },
+
+    /**
+     * Rows from a bank statement (already read and checked against the app's rows on the phone).
+     * A row with a category is saved as approved, one without waits in Review. Rows dated on or
+     * before the account's first balance check were already in that balance, so the opening
+     * balance moves by the same amount and today's balance stays what the bank said.
+     */
+    importStatement({ stream, rows: list, file }) {
+      if (!accounts().some((a) => a.stream === stream)) throw new Error('choose an account');
+      if (!Array.isArray(list) || !list.length) throw new Error('nothing to import');
+      if (list.length > 2000) throw new Error('too many rows in one import (max 2000)');
+      const known = allCategories();
+      const batch = newId('b');
+      const added = list.map((r, i) => {
+        const amount = Math.round(Math.abs(Number(r.amount)) * 100) / 100;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.date || ''))) throw new Error(`row ${i + 1}: date must be YYYY-MM-DD`);
+        if (!(amount > 0)) throw new Error(`row ${i + 1}: amount must be more than 0`);
+        if (r.direction !== 'in' && r.direction !== 'out') throw new Error(`row ${i + 1}: direction must be in or out`);
+        if (r.category && !known.has(r.category)) throw new Error(`row ${i + 1}: unknown category ${r.category}`);
+        return {
+          id: newId('i'), date: r.date, time: '', owner: owner(), stream, direction: r.direction, amount, category: r.category || '',
+          description: String(r.description || '').slice(0, 200), details: 'Mutasi', source: 'import', sender: '', gmail: '', gmail_id: '',
+          ref_no: `import:${batch}`, status: r.category ? 'approved' : 'pending', transfer_id: '', rule_id: '', updated_by: owner() || 'app', updated_at: nowIso(),
+        };
+      });
+      store.append(TABS.transactions, added);
+      const checked = openingChecks()[stream];
+      const openingChange = checked ? -Math.round(added.filter((r) => r.date <= String(checked))
+        .reduce((t, r) => t + (r.direction === 'in' ? r.amount : -r.amount), 0) * 100) / 100 : 0;
+      if (openingChange) {
+        store.replace(TABS.accounts, accounts().map((a) => (a.stream === stream ? { ...a, opening_balance: Math.round((Number(a.opening_balance || 0) + openingChange) * 100) / 100 } : a)));
+      }
+      const history = [{ batch, stream, file: String(file || '').slice(0, 80), at: nowIso(), count: added.length, openingChange }, ...importHistory()].slice(0, 30);
+      store.setConfig('imports', JSON.stringify(history));
+      return { ok: true, batch, added: added.length, pending: added.filter((r) => r.status === 'pending').length, openingChange };
+    },
+
+    /** Takes an import back out: its rows, and the opening-balance change it made. */
+    undoImport({ batch }) {
+      const h = importHistory();
+      const entry = h.find((x) => x.batch === batch);
+      if (!entry) throw new Error('import not found');
+      rows().filter((r) => r.ref_no === `import:${batch}`).forEach((r) => store.remove(TABS.transactions, r.id));
+      if (entry.openingChange) {
+        store.replace(TABS.accounts, accounts().map((a) => (a.stream === entry.stream ? { ...a, opening_balance: Math.round((Number(a.opening_balance || 0) - entry.openingChange) * 100) / 100 } : a)));
+      }
+      store.setConfig('imports', JSON.stringify(h.filter((x) => x.batch !== batch)));
+      return { ok: true };
+    },
+
+    /** One category (or "ignore") for several rows at once. */
+    updateMany({ ids, category, status }) {
+      const list = Array.isArray(ids) ? ids.map(String) : [];
+      if (!list.length) throw new Error('choose at least one transaction');
+      if (category && !allCategories().has(category)) throw new Error(`unknown category ${category}`);
+      if (status && !['approved', 'pending', 'ignored'].includes(status)) throw new Error('unknown status');
+      if (!category && !status) throw new Error('nothing to change');
+      const byId = new Map(rows().map((r) => [String(r.id), r]));
+      const missing = list.filter((id) => !byId.has(id));
+      if (missing.length) throw new Error(`transaction ${missing[0]} not found`);
+      store.update(TABS.transactions, list.map((id) => ({ id, changes: touch({ ...(category ? { category, status: status || 'approved' } : { status }) }) })));
+      return { ok: true, changed: list.length };
     },
 
     /** Data for the weekly summary email (gas/weekly.js turns it into the email). */
@@ -332,6 +413,7 @@ export function createApi(store, env) {
           big_amount: bigAmount(),
         },
         balances: streamBalances(rows(), accounts(), { year: year(), asOf: isoDate(now()) }), lastChecks: lastChecks(rows()),
+        imports: importHistory(), salaryStream: salaryStream(),
         budgetSuggestions: suggestBudgets(rows(), cats(), { start: start(), today: now() }),
         archives: String(store.config('archives') || '').split('\n').filter(Boolean)
           .map((line) => { const [year, url] = line.split(' '); return { year, url }; }),
@@ -528,4 +610,5 @@ export const API_METHODS = [
   'init', 'bootstrap', 'review', 'approve', 'ignore', 'restore', 'list', 'update', 'remove', 'add', 'dashboard', 'settings',
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
+  'yearly', 'importStatement', 'undoImport', 'updateMany',
 ];

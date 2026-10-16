@@ -78,7 +78,7 @@ export function doGet() {
 /** The tab icon: a plain "Rp" logo kept in the public repo (docs/icon-192.png). */
 const ICON_URL = 'https://raw.githubusercontent.com/addin12/cashflow-tracker/main/docs/icon-192.png';
 
-const READ_ONLY = new Set(['init', 'bootstrap', 'review', 'list', 'dashboard', 'settings']);
+const READ_ONLY = new Set(['init', 'bootstrap', 'review', 'list', 'dashboard', 'settings', 'yearly']);
 
 /**
  * The web app's single server entry point: google.script.run.api(name, payloadJson).

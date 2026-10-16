@@ -174,6 +174,12 @@ describe('web app', () => {
     expect(doc.querySelectorAll('.chart .m')).toHaveLength(2); // Sep and Oct (starts 1 Sep)
     expect(doc.querySelectorAll('.hm-grid .hm-cell:not(.blank)')).toHaveLength(31);
     expect(doc.querySelector('.donut')).not.toBeNull();
+    click(doc.querySelector('[data-action=reportmode][data-mode=year]'));
+    await until(() => doc.querySelector('.year-chart'), 'year view');
+    expect(calls).toContain('yearly');
+    expect(doc.querySelectorAll('.year-chart .m')).toHaveLength(12);
+    click(doc.querySelector('[data-action=reportmode][data-mode=month]'));
+    await until(() => doc.querySelector('.hm-grid'), 'month report again');
     click(doc.querySelector('[data-action=dashview][data-view=overview]'));
     await until(() => doc.querySelector('.cat-row'), 'overview again');
   });
@@ -206,6 +212,29 @@ describe('web app', () => {
     click(doc.querySelector('[data-action=kindchip][data-k=all]'));
     click(doc.querySelector('[data-action=preset][data-p=period]'));
     await until(() => doc.querySelector('[data-action=preset][data-p=period]').getAttribute('aria-pressed') === 'true', 'this period');
+  });
+
+  it('several rows get one category at once, and the list can be exported', async () => {
+    click(doc.querySelector('[data-action=selectmode]'));
+    await until(() => doc.querySelector('.pick-bar'), 'select mode');
+    click(doc.querySelector('.trow[data-id=t1]'));
+    click(doc.querySelector('.trow[data-id=t2]'));
+    expect(doc.querySelector('.pick-bar').textContent).toContain('2 dipilih');
+    doc.querySelector('#pickCat').value = 'fnb';
+    click(doc.querySelector('[data-action=pickapply]'));
+    await until(() => calls.includes('updateMany'), 'saved together');
+    expect(['t1', 't2'].map((id) => store.t[TABS.transactions].find((r) => r.id === id)).map((r) => [r.category, r.status])).toEqual([['fnb', 'approved'], ['fnb', 'approved']]);
+    expect(doc.querySelector('.pick-bar')).toBeNull();
+    dom.window.URL.createObjectURL = () => 'blob:test';
+    dom.window.URL.revokeObjectURL = () => {};
+    click(doc.querySelector('[data-action=exportcsv]'));
+    await until(() => /diekspor/.test(doc.querySelector('#toast').textContent), 'export');
+  });
+
+  it('N opens Add when not typing', async () => {
+    doc.body.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'n', bubbles: true }));
+    await until(() => doc.querySelector('form[data-form=add]'), 'add screen');
+    await tab('transactions', 'Transaksi');
   });
 
   it('transactions list filters by search', async () => {
@@ -342,6 +371,26 @@ describe('web app', () => {
     store.t[TABS.transactions] = store.t[TABS.transactions].filter((r) => r.id !== 't9');
   });
 
+  it('a bank statement: rows already recorded are skipped, the rest added, and it can be undone', async () => {
+    click(doc.querySelector('.nav [data-tab=settings]'));
+    await section('import', 'form[data-form=import]');
+    const form = doc.querySelector('form[data-form=import]');
+    form.querySelector('[name=stream]').value = 'BCA';
+    const input = form.querySelector('[name=statement]');
+    const csv = 'Tanggal,Keterangan,Debit,Kredit\n2026-10-03,Tokopedia,320000,\n2026-10-04,Transfer dari teman,,75000\n';
+    Object.defineProperty(input, 'files', { value: [new dom.window.File([csv], 'mutasi.csv', { type: 'text/csv' })], configurable: true });
+    input.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    await until(() => doc.querySelector('.imp-row'), 'review list');
+    expect(doc.querySelector('.imp-sum').textContent).toContain('1 sudah tercatat');
+    expect(doc.querySelectorAll('.imp-row')).toHaveLength(1);
+    form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+    await until(() => store.t[TABS.transactions].some((r) => r.source === 'import'), 'imported');
+    expect(store.t[TABS.transactions].find((r) => r.source === 'import')).toMatchObject({ stream: 'BCA', direction: 'in', amount: 75000, status: 'pending', description: 'Transfer dari teman' });
+    await until(() => doc.querySelector('[data-action=undoimport]'), 'history');
+    click(doc.querySelector('[data-action=undoimport]'));
+    await until(() => !store.t[TABS.transactions].some((r) => r.source === 'import'), 'undone');
+  });
+
   it('rules can be edited and show which transactions they match', async () => {
     await section('rules', 'form[data-form=rules]');
     await until(() => doc.querySelector('.rule .rule-preview') && /Cocok dengan/.test(doc.querySelector('.rule .rule-preview').textContent), 'rule preview');
@@ -375,7 +424,7 @@ describe('web app', () => {
     expect(doc.querySelectorAll('.set-detail > form, .set-detail > section').length).toBe(1);
     click(doc.querySelector('.set-back'));
     await until(() => !doc.querySelector('.settings').classList.contains('show-detail'), 'back to the list');
-    expect(doc.querySelectorAll('.set-row').length).toBe(10);
+    expect(doc.querySelectorAll('.set-row').length).toBe(11);
     expect(doc.querySelector('[data-section=accounts]').textContent).toContain('3 rekening');
   });
 

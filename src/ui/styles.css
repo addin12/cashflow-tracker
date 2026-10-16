@@ -552,3 +552,64 @@ button.rowi:hover { background: var(--zebra); }
 .trow .c-desc .cat-ic { width: 36px; height: 36px; font-size: 18px; }
 .mini-stats b { text-align: left; }
 .trow .c-date { color: var(--muted); font-size: 15px; }
+
+/* ---------------------------------------------------------------- Round 11
+   Reports: monthly/yearly switch, stacked month bars, category × month grid, places, money flow.
+   Transactions: picking several rows. Settings: statement import. */
+.report-seg { margin-top: 16px; width: min(100%, 320px); }
+.rank { width: 28px; text-align: center; color: var(--muted); font-weight: 600; flex: none; }
+.year-chart { position: relative; height: 220px; gap: 6px; }
+.year-chart .m:disabled { opacity: .35; cursor: default; }
+.stack-bar { flex: 1; width: 70%; max-width: 34px; display: flex; flex-direction: column-reverse; justify-content: flex-start; gap: 2px; }
+.stack-bar i { display: block; width: 100%; border-radius: 4px; min-height: 2px; }
+.avg-line { position: absolute; left: 0; right: 0; border-top: 1.5px dashed var(--muted); opacity: .7; pointer-events: none; }
+.ct-grid { display: flex; flex-direction: column; overflow-x: auto; }
+.ct-head, .ct-row { display: grid; grid-template-columns: 36px minmax(90px, 1.4fr) repeat(var(--n, 12), minmax(18px, 1fr)) minmax(90px, auto); gap: 6px; align-items: center; }
+.ct-head { font-size: 12px; color: var(--muted); text-align: center; padding-bottom: 6px; }
+.ct-row { padding: 6px 0; border: 0; border-bottom: 1px solid var(--line-soft); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; min-height: 48px; }
+.ct-row:last-child { border-bottom: 0; }
+.ct-row .cat-ic { width: 32px; height: 32px; font-size: 16px; }
+.ct-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-row .amt { font-size: 15px; }
+.hm-dot { display: block; height: 22px; border-radius: 6px; background: var(--line-soft); }
+.hm-dot.l1 { background: color-mix(in srgb, var(--accent) 18%, var(--card)); } .hm-dot.l2 { background: color-mix(in srgb, var(--accent) 38%, var(--card)); }
+.hm-dot.l3 { background: color-mix(in srgb, var(--accent) 62%, var(--card)); } .hm-dot.l4 { background: var(--accent); }
+
+.flow { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.flow-root { display: flex; align-items: center; gap: 10px; }
+.flow-in { width: 32px; height: 32px; border-radius: 99px; border: 1.5px solid var(--ink-2); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
+.flow-root .amt { margin-left: auto; }
+.flow-node { margin-left: 15px; padding-left: 18px; border-left: 2px solid var(--line); }
+.flow-acct { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.flow-acct small { color: var(--muted); font-size: 14px; flex-basis: 100%; padding-left: 50px; margin-top: -4px; }
+.flow-node ul { list-style: none; margin: 6px 0 0 20px; padding: 0 0 0 16px; border-left: 2px dashed var(--line); }
+.flow-node li { display: flex; align-items: center; gap: 8px; padding: 6px 0; min-height: 40px; }
+.flow-node li .amt { margin-left: auto; }
+.flow-tag { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--ink-2); flex: none; }
+.flow-tag.save { background: var(--success-soft); color: var(--success); border-color: transparent; }
+.flow-tag.spend { background: var(--line-soft); }
+
+.wallet-total { margin: 4px 0 8px; }
+.wallet-total p { margin: 2px 0 0; font-size: 15px; }
+
+.trow.picking { cursor: pointer; }
+.trow.picked { background: var(--accent-soft); }
+.pick-box { display: inline-flex; width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--field-line); align-items: center; justify-content: center; margin-right: 8px; font-size: 14px; font-weight: 700; color: var(--on-accent); vertical-align: middle; }
+.trow.picked .pick-box { background: var(--accent); border-color: var(--accent); }
+.pick-bar { position: sticky; bottom: 12px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding: 12px 16px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-modal); }
+.pick-bar select { min-height: 40px; border-radius: 10px; border: 1px solid var(--field-line); background: var(--field); color: var(--ink); font: inherit; padding: 0 10px; max-width: 220px; }
+@media (max-width: 899px) { .pick-bar { bottom: 84px; } }
+
+.howto { margin: 12px 0; font-size: 15px; }
+.howto summary { cursor: pointer; color: var(--accent); font-weight: 500; min-height: 32px; }
+.howto ol { margin: 8px 0 0; padding-left: 20px; color: var(--ink-2); }
+.imp-sum { margin: 12px 0 8px; font-size: 15px; }
+.imp-list { max-height: 420px; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px; }
+.imp-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+.imp-row:last-child { border-bottom: 0; }
+.imp-row .check { margin: 0; }
+.imp-row .check span { display: flex; flex-direction: column; min-width: 0; }
+.imp-row .check b { font-weight: 500; word-break: break-word; }
+.imp-row .check small { color: var(--muted); font-size: 14px; }
+.imp-row select { grid-column: 1 / -1; min-height: 40px; border-radius: 10px; border: 1px solid var(--field-line); background: var(--field); color: var(--ink); font: inherit; padding: 0 10px; }
+.hint.bad { color: var(--critical); }

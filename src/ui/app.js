@@ -9,11 +9,12 @@ import { STRINGS, pickLanguage } from './i18n.js';
 import { filterTransactions, ruleFromApproval, pendingMatching, renamedCategories } from '../core/app.js';
 import { buildCategorySlots } from '../core/categories.js';
 import { compileRule } from '../core/rules.js';
+import { parseStatement, matchStatement } from '../core/statement.js';
 
 const state = {
   boot: null, tab: 'review', month: '', review: null, dashByMonth: {}, all: null, allStale: true,
   filters: { q: '', month: null, stream: '', category: '', status: '', direction: '' },
-  limit: 50, addKind: 'out', settings: null, rowsById: new Map(),
+  limit: 50, addKind: 'out', settings: null, rowsById: new Map(), picked: new Set(), yearly: null,
 };
 let T = STRINGS.id;
 
@@ -451,6 +452,13 @@ async function viewDashboard() {
   const prev = monthAdd(d.month, -1);
   const next = monthAdd(d.month, 1);
   const report = state.dashView === 'report';
+  // The year view: one request per year, fetched again whenever the month data was.
+  const yr = Number(d.month.slice(0, 4));
+  if (report && state.reportYearly && !(state.yearly && state.yearly.forDash === d && state.yearly.data.year === yr)) {
+    skeleton(T.tabDashboard);
+    state.yearly = { forDash: d, data: await call('yearly', { year: yr }) };
+    if (state.tab !== 'dashboard' || state.dashView !== 'report') return;
+  }
   const viewBtn = (v, label) => `<button type="button" class="${(v === 'report') === report ? 'on' : ''}" aria-pressed="${(v === 'report') === report}" data-action="dashview" data-view="${v}">${esc(label)}</button>`;
   setView(`
     <header class="page-head"><div><h1>${esc(T.tabDashboard)}</h1><p class="sub">${esc(monthLabel(d.month))}${s.from ? ` · ${esc(rangeLabel(s.from, s.to))}` : ''}</p></div>
@@ -460,7 +468,14 @@ async function viewDashboard() {
           <button class="btn secondary small" data-action="setmonth" data-month="${prev}" aria-label="${esc(monthLabel(prev))}">‹ ${esc(monthShort(prev))}</button>
           <button class="btn secondary small" data-action="setmonth" data-month="${next}" aria-label="${esc(monthLabel(next))}" ${next > current ? 'disabled' : ''}>${esc(monthShort(next))} ›</button>
         </div></div></header>
-    ${report ? reportHtml(d) : overviewHtml(d)}`);
+    ${report ? `<div class="seg report-seg">${[['month', T.reportMonthly], ['year', T.reportYearly]].map(([v, l]) => `<button type="button" class="${(v === 'year') === !!state.reportYearly ? 'on' : ''}" aria-pressed="${(v === 'year') === !!state.reportYearly}" data-action="reportmode" data-mode="${v}">${esc(l)}</button>`).join('')}</div>${state.reportYearly ? yearlyHtml(state.yearly.data) : reportHtml(d)}` : overviewHtml(d)}`);
+}
+
+/** Total balance, then what is free and what is set aside for savings goals. */
+function walletLine(d) {
+  const total = (d.balances || []).reduce((t, b) => t + b.balance, 0);
+  const goals = (d.goals || []).reduce((t, g) => t + Math.min(g.saved, g.target), 0);
+  return `<div class="wallet-total">${bigRp(total, 'lg')}<p class="muted">${esc(goals > 0 ? T.walletSplit(rp(total - goals), rp(goals)) : T.walletTotal)}</p></div>`;
 }
 
 /** Day number of today inside the month's dates (the whole month for a past one). */
@@ -574,7 +589,7 @@ function overviewHtml(d) {
         ${incomeRows ? `<section class="card"><h2>${esc(T.incomeByCategory)}</h2><div class="rows">${incomeRows}</div></section>` : ''}
         ${goalsCard(d.goals)}
         ${recurringCard(d.recurring)}
-        <section class="card"><h2>${esc(T.accounts)}</h2><p class="lead">${esc(T.accountsHint)}</p><div class="rows">${group('Spending', T.spendingGroup)}${group('Saving', T.savingGroup)}</div></section>
+        <section class="card"><h2>${esc(T.accounts)}</h2>${walletLine(d)}<p class="lead">${esc(T.accountsHint)}</p><div class="rows">${group('Spending', T.spendingGroup)}${group('Saving', T.savingGroup)}</div></section>
       </div>
     </div>`;
 }
@@ -608,14 +623,7 @@ function reportHtml(d) {
   const line = `<svg class="line-chart" viewBox="0 0 ${W} ${H + 4}" preserveAspectRatio="none" role="img" aria-label="${esc(`${monthName(d.month)} ${rp(lastA)}, ${prevName} ${rp(lastB)}`)}">
       ${b.length ? `<path class="prev" d="${path(b)}"/>` : ''}${a.length ? `<path class="now-fill" d="${path(a)} L${(((a.length - 1) / (n - 1)) * W).toFixed(1)},${H} L0,${H} Z"/><path class="now" d="${path(a)}"/>` : ''}
     </svg>`;
-  // Donut of the spending categories, in the same order and colours as the list under it.
   const cats = s.byCategory.filter((c) => c.kind !== 'income').sort((x, y) => y.amount - x.amount);
-  const total = cats.reduce((t, c) => t + c.amount, 0);
-  let at = 0;
-  const stops = cats.map((c, i) => { const from = at; at += total ? (c.amount / total) * 100 : 0; return `var(--ch${i % 8}) ${from.toFixed(2)}% ${at.toFixed(2)}%`; }).join(', ');
-  const catList = cats.map((c, i) => `<button class="lrow" data-action="drill" data-category="${esc(c.category)}">${icon(c.category)}
-      <span class="what"><b><i class="dot" style="background:var(--ch${i % 8})"></i>${esc(c.category)}</b><span class="meta">${esc(`${total ? Math.round((c.amount / total) * 100) : 0}% · ${T.perDayShort(rp(c.amount / idx))}`)}</span></span>
-      <span class="amt">${rp(c.amount)}</span></button>`).join('');
   const trend = d.trend || [];
   const tTop = Math.max(1, ...trend.map((t) => Math.max(t.income, t.expense)));
   const chart = trend.map((t) => `
@@ -631,14 +639,232 @@ function reportHtml(d) {
         <div class="hm-legend"><span>${esc(T.heatLess)}</span><i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span>${esc(T.heatMore)}</span></div></section>
       <section class="card"><h2>${esc(T.spendTrend)}</h2><p class="lead">${esc(T.spendTrendHint)}</p>${line}
         <div class="legend"><span><i class="out-now"></i>${esc(monthName(d.month))} ${rp(lastA)}</span>${b.length ? `<span><i class="out-prev"></i>${esc(prevName)} ${rp(lastB)}</span>` : ''}</div></section>
+      ${flowCard(d.flow, d)}
     </div>
     <div class="stack">
-      <section class="card"><h2>${esc(T.whereItWent)}</h2><p class="lead">${esc(T.donutHint)}</p>
-        ${total ? `<div class="donut" style="background:conic-gradient(${stops})" role="img" aria-label="${esc(`${T.moneyOut} ${rp(total)}`)}"><div><span>${esc(T.moneyOut)}</span><b>${rp(total)}</b><small>${esc(T.nCats(cats.length))}</small></div></div>
-        <div class="rows">${catList}</div>` : `<p class="hint">${esc(T.nothingYet)}</p>`}</section>
+      ${donutCard(cats, (v) => T.perDayShort(rp(v / idx)))}
+      ${placesCard(d.places)}
+      ${biggestCard(d.biggest)}
       ${trend.length ? `<section class="card"><h2>${esc(T.trendTitle)}</h2><p class="lead">${esc(T.trendHint)}</p><div class="chart">${chart}</div></section>` : ''}
     </div>
   </div>`;
+}
+
+
+/** Donut and list of spending categories; `per` labels each row's average (per day or per month). */
+function donutCard(cats, per, title = T.whereItWent) {
+  const total = cats.reduce((t, c) => t + c.amount, 0);
+  let at = 0;
+  const stops = cats.map((c, i) => { const from = at; at += total ? (c.amount / total) * 100 : 0; return `var(--ch${i % 8}) ${from.toFixed(2)}% ${at.toFixed(2)}%`; }).join(', ');
+  const list = cats.map((c, i) => `<button class="lrow" data-action="drill" data-category="${esc(c.category)}">${icon(c.category)}
+      <span class="what"><b><i class="dot" style="background:var(--ch${i % 8})"></i>${esc(c.category)}</b><span class="meta">${esc(`${total ? Math.round((c.amount / total) * 100) : 0}% · ${per(c.amount)}`)}</span></span>
+      <span class="amt">${rp(c.amount)}</span></button>`).join('');
+  return `<section class="card"><h2>${esc(title)}</h2><p class="lead">${esc(T.donutHint)}</p>
+    ${total ? `<div class="donut" style="background:conic-gradient(${stops})" role="img" aria-label="${esc(`${T.moneyOut} ${rp(total)}`)}"><div><span>${esc(T.moneyOut)}</span><b>${rp(total)}</b><small>${esc(T.nCats(cats.length))}</small></div></div>
+    <div class="rows">${list}</div>` : `<p class="hint">${esc(T.nothingYet)}</p>`}</section>`;
+}
+
+/** Top places (by transaction name) and the biggest single payments. */
+function placesCard(places) {
+  if (!places || !places.length) return '';
+  return `<section class="card"><h2>${esc(T.topPlaces)}</h2><p class="lead">${esc(T.topPlacesHint)}</p><div class="rows">${places.map((p, i) => `
+    <button class="lrow" data-action="drill" data-q="${esc(p.name)}"><span class="rank">${i + 1}</span><span class="what"><b>${esc(p.name)}</b><span class="meta">${esc(`${p.count}× · ${p.category}`)}</span></span><span class="amt">${rp(p.total)}</span></button>`).join('')}</div></section>`;
+}
+function biggestCard(list) {
+  if (!list || !list.length) return '';
+  remember(list);
+  return `<section class="card"><h2>${esc(T.biggestTitle)}</h2><p class="lead">${esc(T.biggestHint)}</p><div class="rows">${list.map(lineRow).join('')}</div></section>`;
+}
+
+/**
+ * Where the money moved this month: income into accounts, transfers between them (a saving
+ * account is "saved"), and what was spent from each.
+ */
+function flowCard(flow, d) {
+  if (!flow || (!flow.income.length && !flow.transfers.length && !flow.spent.length)) return '';
+  const type = new Map((d.balances || []).map((b) => [b.stream, b.type]));
+  const income = new Map(flow.income.map((x) => [x.stream, x.amount]));
+  const spent = new Map(flow.spent.map((x) => [x.stream, x.amount]));
+  const inFrom = new Map();
+  for (const t of flow.transfers) inFrom.set(t.to, (inFrom.get(t.to) || 0) + t.amount);
+  const order = [...new Set([...flow.income.map((x) => x.stream), ...flow.transfers.map((t) => t.from), ...flow.transfers.map((t) => t.to), ...flow.spent.map((x) => x.stream)])];
+  const totalIn = flow.income.reduce((t, x) => t + x.amount, 0);
+  const node = (stream) => {
+    const kids = [
+      ...flow.transfers.filter((t) => t.from === stream).map((t) => `<li><span class="flow-tag ${type.get(t.to) === 'Saving' ? 'save' : ''}">${esc(type.get(t.to) === 'Saving' ? T.flowSave : T.flowMove)}</span><span>→ ${esc(t.to)}</span><b class="amt">${rp(t.amount)}</b></li>`),
+      spent.get(stream) ? `<li><span class="flow-tag spend">${esc(T.flowSpend)}</span><button class="link" data-action="drill" data-stream="${esc(stream)}">${esc(T.flowSpentFrom(stream))}</button><b class="amt">${rp(spent.get(stream))}</b></li>` : '',
+    ].filter(Boolean);
+    const got = [income.get(stream) ? T.flowIncome(rp(income.get(stream))) : '', inFrom.get(stream) ? T.flowFrom(rp(inFrom.get(stream))) : ''].filter(Boolean).join(' · ');
+    return `<div class="flow-node"><div class="flow-acct"><span class="cat-ic acct" aria-hidden="true">${esc(stream.slice(0, 1).toUpperCase())}</span><b>${esc(stream)}</b>${got ? `<small>${esc(got)}</small>` : ''}</div>${kids.length ? `<ul>${kids.join('')}</ul>` : ''}</div>`;
+  };
+  return `<section class="card"><h2>${esc(T.flowTitle)}</h2><p class="lead">${esc(T.flowHint)}</p>
+    <div class="flow"><div class="flow-root"><span class="flow-in" aria-hidden="true">↓</span><b>${esc(T.flowMoneyIn)}</b><span class="amt in">+${rp(totalIn)}</span></div>
+    ${order.map(node).join('')}</div></section>`;
+}
+
+/** A year month by month: bars split by the biggest categories, a category × month grid, places. */
+function yearlyHtml(y) {
+  const nowMonth = state.boot.today.slice(0, 7);
+  const months = y.months.filter((m) => m.month <= nowMonth || m.expense || m.income);
+  const shown = months.filter((m) => m.expense || m.income);
+  const totalOut = months.reduce((t, m) => t + m.expense, 0);
+  const totalIn = months.reduce((t, m) => t + m.income, 0);
+  const byCat = new Map();
+  for (const m of y.months) for (const [c, v] of Object.entries(m.byCategory)) byCat.set(c, (byCat.get(c) || 0) + v);
+  const cats = [...byCat].map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
+  const top = cats.slice(0, 4).map((c) => c.category);
+  const max = Math.max(1, ...y.months.map((m) => m.expense));
+  const avg = shown.length ? totalOut / shown.length : 0;
+  const bars = y.months.map((m) => {
+    const other = m.expense - top.reduce((t, c) => t + (m.byCategory[c] || 0), 0);
+    const segs = [...top.map((c, i) => [m.byCategory[c] || 0, `var(--ch${i})`]), [other, 'var(--ch7)']].filter(([v]) => v > 0)
+      .map(([v, color]) => `<i style="height:${((v / max) * 100).toFixed(1)}%;background:${color}"></i>`).join('');
+    return `<button class="m ${m.month === nowMonth ? 'on' : ''}" data-action="yearmonth" data-month="${m.month}" ${m.month > nowMonth ? 'disabled' : ''} aria-label="${esc(`${monthLabel(m.month)}: ${rp(m.expense)}`)}"><span class="stack-bar">${segs}</span><span>${esc(monthShort(m.month))}</span></button>`;
+  }).join('');
+  const legend = [...top.map((c, i) => [c, `var(--ch${i})`]), [T.otherCats, 'var(--ch7)']].map(([c, color]) => `<span><i style="background:${color}"></i>${esc(c)}</span>`).join('');
+  // The grid shows the months since the start date (up to now), so it fits a phone.
+  const first = String(state.boot.start || '').slice(0, 7);
+  const gridMonths = y.months.filter((m) => (!first || m.month >= first) && m.month <= nowMonth);
+  const gridCats = cats.slice(0, 8);
+  const grid = gridCats.map((c) => {
+    const rowMax = Math.max(1, ...gridMonths.map((m) => m.byCategory[c.category] || 0));
+    return `<button class="ct-row" data-action="drill" data-category="${esc(c.category)}">${icon(c.category)}<span class="ct-name">${esc(c.category)}</span>${gridMonths.map((m) => {
+      const v = m.byCategory[c.category] || 0;
+      const lvl = v > 0 ? Math.min(4, 1 + Math.floor((v / rowMax) * 3.999)) : 0;
+      return `<i class="hm-dot l${lvl}" title="${esc(`${monthShort(m.month)}: ${rp(v)}`)}"></i>`;
+    }).join('')}<span class="amt">${rp(c.amount)}</span></button>`;
+  }).join('');
+  return `<div class="ov-grid">
+    <div class="stack">
+      <section class="spend"><p class="k">${esc(T.moneyOutYear(shown.length ? `${monthShort(shown[0].month)}–${monthShort(shown[shown.length - 1].month)}` : String(y.year)))}</p>${bigRp(totalOut, 'lg')}
+        <p class="muted">${esc(T.ofIncome(rp(totalIn), rp(totalIn - totalOut)))}</p></section>
+      <section class="card"><h2>${esc(T.monthlyTrend)}</h2><p class="lead">${esc(T.monthlyTrendHint(rp(avg)))}</p>
+        <div class="chart year-chart">${avg ? `<span class="avg-line" style="bottom:calc(${((avg / max) * 100).toFixed(1)}% * 0.82 + 30px)"></span>` : ''}${bars}</div>
+        <div class="legend">${legend}</div></section>
+      ${grid ? `<section class="card"><h2>${esc(T.catsOverTime)}</h2><p class="lead">${esc(T.catsOverTimeHint)}</p>
+        <div class="ct-grid" style="--n:${gridMonths.length}"><div class="ct-head"><span></span><span></span>${gridMonths.map((m) => `<span>${esc(monthShort(m.month).slice(0, 3))}</span>`).join('')}<span></span></div>${grid}</div></section>` : ''}
+    </div>
+    <div class="stack">
+      ${donutCard(cats, (v) => T.perMonthShort(rp(v / Math.max(1, shown.length))))}
+      ${placesCard(y.places)}
+      ${biggestCard(y.biggest)}
+    </div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------- Statement import
+/** The import section: the account, the file, then the rows to add (the ones already in the app are skipped). */
+function importForm(s) {
+  const def = s.salaryStream || (s.accounts[0] && s.accounts[0].stream) || '';
+  const hist = (s.imports || []).map((h) => `<div class="rowi"><span class="what"><b>${esc(T.importDone(h.count, h.stream))}</b><span class="meta">${esc([h.file, new Date(h.at).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })].filter(Boolean).join(' · '))}</span></span>
+    <button class="btn secondary small" type="button" data-action="undoimport" data-batch="${esc(h.batch)}">${esc(T.undo)}</button></div>`).join('');
+  return `<form class="card" data-form="import" novalidate><h2>${esc(T.importTitle)}</h2><p class="lead">${esc(T.importHint)}</p>
+    <div class="fields2">
+      ${field(T.account, `<select name="stream">${accountOptions(def, '')}</select>`)}
+      ${field(T.importFile, '<input name="statement" type="file" accept=".csv,text/csv,text/plain">', { help: T.importFileHelp })}
+    </div>
+    <details class="howto"><summary>${esc(T.importHowTo)}</summary><ol>${T.importSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></details>
+    <div id="impReview" role="status"></div>
+    <div class="actions"><span class="state" role="status"></span><button class="btn primary" type="submit" disabled>${esc(T.importSave(0))}</button></div></form>
+    ${hist ? `<section class="card"><h2>${esc(T.importHistory)}</h2><p class="lead">${esc(T.importHistoryHint)}</p><div class="rows">${hist}</div></section>` : ''}`;
+}
+
+/** Category for a statement row from the automatic rules (only rules that file by themselves). */
+function ruleCategory(description) {
+  for (const r of (state.settings && state.settings.rules) || []) {
+    if (!(r.auto_approve === true || r.auto_approve === 'TRUE')) continue;
+    const c = compileRule(r);
+    if (c.re && c.re.test(description)) return r.category;
+  }
+  return '';
+}
+
+async function readStatement(form) {
+  const input = form.querySelector('[name=statement]');
+  const box = $('#impReview');
+  const btn = form.querySelector('button[type=submit]');
+  const file = input.files && input.files[0];
+  state.importRows = null;
+  btn.disabled = true;
+  if (!file) { box.innerHTML = ''; return; }
+  box.innerHTML = `<p class="hint">${esc(T.loading)}</p>`;
+  try {
+    // file.text() is missing in older phone browsers.
+    const text = file.text ? await file.text() : await new Promise((ok, fail) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = () => fail(fr.error); fr.readAsText(file); });
+    const parsed = parseStatement(text);
+    if (!state.all || state.allStale) setAll((await call('list', { limit: 1000000 })).rows);
+    const stream = form.querySelector('[name=stream]').value;
+    const rows = matchStatement(parsed.rows, state.all, { stream }).map((r) => ({ ...r, category: r.matchId ? '' : ruleCategory(r.description) }));
+    state.importRows = { file: file.name, stream, rows };
+    renderImport(form);
+  } catch (e) {
+    box.innerHTML = `<p class="hint bad">${esc(T.importFailed(e.message))}</p>`;
+  }
+}
+
+function renderImport(form) {
+  const box = $('#impReview');
+  const btn = form.querySelector('button[type=submit]');
+  const imp = state.importRows;
+  if (!imp) return;
+  const fresh = imp.rows.filter((r) => !r.matchId);
+  const known = imp.rows.length - fresh.length;
+  const c = state.boot.categories;
+  const opts = (dir, sel) => `<option value="">${esc(T.importLater)}</option>${(dir === 'in' ? [...c.income, ...c.fixed] : [...c.expense, ...c.fixed]).map((x) => `<option ${x === sel ? 'selected' : ''}>${esc(x)}</option>`).join('')}`;
+  box.innerHTML = `<p class="imp-sum"><b>${esc(T.importRead(imp.rows.length))}</b> · ${esc(T.importKnown(known))} · <b>${esc(T.importNew(fresh.length))}</b></p>
+    ${fresh.length ? `<div class="imp-list">${imp.rows.map((r, i) => (r.matchId ? '' : `<div class="imp-row" data-i="${i}">
+      <label class="check"><input type="checkbox" data-imp="on" checked><span><b>${esc(r.description || '—')}</b><small>${esc(dateLabel(r.date))}</small></span></label>
+      <span class="amt ${r.direction}">${r.direction === 'in' ? '+' : '−'}${rp(r.amount)}</span>
+      <select data-imp="category" aria-label="${esc(T.category)}">${opts(r.direction, r.category)}</select></div>`)).join('')}</div>
+      <p class="hint">${esc(T.importNote)}</p>` : `<p class="hint">${esc(T.importNothingNew)}</p>`}`;
+  const n = fresh.length;
+  btn.disabled = !n;
+  btn.textContent = T.importSave(n);
+}
+
+function importChosen(form) {
+  const imp = state.importRows;
+  return $$('.imp-row', form).filter((el) => $('[data-imp=on]', el).checked).map((el) => {
+    const r = imp.rows[Number(el.dataset.i)];
+    return { date: r.date, description: r.description, amount: r.amount, direction: r.direction, category: $('[data-imp=category]', el).value };
+  });
+}
+
+// ---------------------------------------------------------------- Transactions: export, select several
+function exportCsv() {
+  const list = filterTransactions(state.all || [], { ...state.filters, limit: 1e9 }).rows;
+  const cell = (v) => { const s = String(v ?? ''); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const head = [T.date, T.time, T.description, T.notes, T.category, T.account, T.kind, T.amount, T.status];
+  const lines = list.map((r) => [String(r.date).slice(0, 10), String(r.time || '').slice(0, 5), r.description, r.details, r.category, r.stream,
+    r.direction === 'in' ? T.kindIn : T.kindOut, (r.direction === 'in' ? 1 : -1) * (Number(r.amount) || 0), T[`status${r.status[0].toUpperCase()}${r.status.slice(1)}`] || r.status].map(cell).join(','));
+  const blob = new Blob([`﻿${[head.map(cell).join(','), ...lines].join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `cashflow-${state.boot.today}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  toast(T.exported(list.length));
+}
+
+/** Applies a category (or "ignore") to the picked rows at once, with undo. */
+function applyPicked(category, status) {
+  const ids = [...state.picked];
+  if (!ids.length) return null;
+  const before = ids.map((id) => ({ id, ...state.rowsById.get(id) }));
+  ids.forEach((id) => patchRow(id, category ? { category, status: 'approved' } : { status }));
+  state.picked = new Set();
+  state.selecting = false;
+  updateNav();
+  showResults();
+  toast(T.changedN(ids.length), {
+    undo: () => {
+      before.forEach((r) => { patchRow(r.id, { category: r.category, status: r.status }); save('update', { id: r.id, fields: { category: r.category, status: r.status } }).catch(() => {}); });
+      updateNav(); showResults();
+    },
+  });
+  return save('updateMany', { ids, category: category || '', status: status || '' })
+    .catch((e) => { before.forEach((r) => patchRow(r.id, { category: r.category, status: r.status })); updateNav(); showResults(); toast(`${T.notSaved}: ${e.message}`, { kind: 'bad' }); });
 }
 
 function recurringCard(r) {
@@ -683,7 +909,9 @@ async function viewTransactions() {
   const opt = (v, label, cur) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(label)}</option>`;
   setView(`
     <header class="page-head"><div><h1>${esc(T.tabTransactions)}</h1><p class="sub">${esc(T.transactionsSub)}</p></div>
-      <div class="tools"><button class="btn primary small" data-action="go" data-tab="add">＋ ${esc(T.addTransaction)}</button></div></header>
+      <div class="tools"><button class="btn secondary small" data-action="selectmode" aria-pressed="${!!state.selecting}">${esc(state.selecting ? T.selectDone : T.selectMany)}</button>
+        <button class="btn secondary small" data-action="exportcsv">${esc(T.exportCsv)}</button>
+        <button class="btn primary small" data-action="go" data-tab="add">＋ ${esc(T.addTransaction)}</button></div></header>
     <div class="pchips" role="group" aria-label="${esc(T.period)}">${[['period', T.presetPeriod], ['30', T.presetThirty], ['90', T.presetNinety], ['year', T.presetYear], ['all', T.presetAll]]
       .map(([v, l]) => `<button type="button" class="${presetOf(f) === v ? 'on' : ''}" aria-pressed="${presetOf(f) === v}" data-action="preset" data-p="${v}">${esc(l)}</button>`).join('')}</div>
     <div class="pchips" role="group" aria-label="${esc(T.kind)}">${[['all', T.allKinds], ['out', T.kindOut], ['in', T.kindIn], ['transfer', T.kindTransfer], ['adjust', T.kindAdjust]]
@@ -779,8 +1007,8 @@ function showResults() {
     return `<div class="day-head" role="row"><span>${esc(label)}</span><span class="amt">${t.out ? `−${rp(t.out)}` : ''}${t.in ? ` <span class="in">+${rp(t.in)}</span>` : ''}</span></div>`;
   };
   const items = rows.map((x) => `${dayHead(x)}
-    <button class="trow" data-action="edit" data-id="${esc(x.id)}">
-      <span class="c-date">${esc(timeLabel(x.time) || '—')}</span>
+    <button class="trow${state.selecting ? ' picking' : ''}${state.picked.has(String(x.id)) ? ' picked' : ''}" data-action="${state.selecting ? 'pick' : 'edit'}" data-id="${esc(x.id)}" ${state.selecting ? `aria-pressed="${state.picked.has(String(x.id))}"` : ''}>
+      <span class="c-date">${state.selecting ? `<span class="pick-box" aria-hidden="true">${state.picked.has(String(x.id)) ? '✓' : ''}</span>` : ''}${esc(timeLabel(x.time) || '—')}</span>
       <span class="c-desc">${icon(x.category)}<span>${esc(x.description || '—')}${x.details ? `<small>${esc(x.details)}</small>` : ''}</span></span>
       <span class="c-mobile-meta">${esc([timeLabel(x.time), x.stream || T.noAccount].filter(Boolean).join(' · '))}</span>
       <span class="c-cat">${tag(x.category)}${statusBadge(x.status)}</span>
@@ -792,7 +1020,12 @@ function showResults() {
       <span>${esc(T.kindIn)} <b class="amt in">+${rp(sum('in'))}</b> · ${esc(T.kindOut)} <b class="amt">${rp(sum('out'))}</b></span></div>
     ${rows.length ? `<div class="table" role="table"><div class="thead" role="row"><span>${esc(T.time)}</span><span>${esc(T.description)}</span><span>${esc(T.category)}</span><span>${esc(T.account)}</span><span class="r">${esc(T.amount)}</span></div>${items}</div>`
     : `<div class="card empty"><b>${esc(T.noTransactions)}</b>${esc(chips.length ? T.noTransactionsFiltered : '')}</div>`}
-    ${all.total > rows.length ? `<div class="more"><span>${esc(T.showing(rows.length, all.total))}</span><button class="btn secondary" data-action="more">${esc(T.showMore)}</button></div>` : ''}`;
+    ${all.total > rows.length ? `<div class="more"><span>${esc(T.showing(rows.length, all.total))}</span><button class="btn secondary" data-action="more">${esc(T.showMore)}</button></div>` : ''}
+    ${state.selecting ? `<div class="pick-bar" role="region" aria-label="${esc(T.selectMany)}"><b>${esc(T.pickedN(state.picked.size))}</b>
+      <select id="pickCat" aria-label="${esc(T.category)}">${categoryOptions('', 'out')}</select>
+      <button class="btn primary small" data-action="pickapply" ${state.picked.size ? '' : 'disabled'}>${esc(T.pickApply)}</button>
+      <button class="btn secondary small" data-action="pickignore" ${state.picked.size ? '' : 'disabled'}>${esc(T.ignore)}</button>
+      <button class="btn plain small" data-action="selectmode">${esc(T.cancel)}</button></div>` : ''}`;
 }
 
 /** Six months of one category, as labelled bars (tap a month to filter on it). */
@@ -1053,6 +1286,7 @@ async function viewSettings(local) {
   // phone the list and the section are two screens; on a PC the list stays on the left.
   const sections = {
     monthend: balanceForm(s),
+    import: importForm(s),
     sync: `
       <section class="card"><h2>${esc(T.settingsSync)}</h2><p class="lead">${esc(T.settingsSyncHint)}</p><div class="rows">${conns}</div>
         <div class="actions"><button class="btn primary" type="button" data-action="sync">↻ ${esc(T.syncNow)}</button></div></section>`,
@@ -1102,7 +1336,7 @@ async function viewSettings(local) {
   const emailsOn = ['weekly_email', 'monthly_email', 'payday_email'].filter((k) => cfg[k] !== 'off').length;
   const lang = cfg.language === 'en' ? 'English' : cfg.language === 'id' ? 'Bahasa Indonesia' : T.languageAuto;
   const groups = [
-    [T.setGroupRoutine, [['monthend', T.monthEnd, T.monthEndShort], ['sync', T.settingsSync, syncNote]]],
+    [T.setGroupRoutine, [['monthend', T.monthEnd, T.monthEndShort], ['import', T.importTitle, (s.imports || []).length ? T.importLast(new Date(s.imports[0].at).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })) : T.importNever], ['sync', T.settingsSync, syncNote]]],
     [T.setGroupMoney, [['accounts', T.accountsTitle, T.nAccounts(s.accounts.length)], ['budgets', T.budgetsTitle, T.nBudgets(s.budgets.length)], ['goals', T.goalsTitle, T.nGoals((s.goals || []).length)]]],
     [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['emails', T.emailsTitle, T.nEmailsOn(emailsOn, 3)]]],
     [T.setGroupApp, [['prefs', T.preferences, T.prefSummary(lang, Number(cfg.payday_day) || 28)], ['more', T.more, T.moreSummary]]],
@@ -1341,6 +1575,29 @@ function onClick(e) {
   if (a === 'preset') { setPreset(el.dataset.p); state.limit = 50; return viewTransactions(); }
   if (a === 'kindchip') { setKind(el.dataset.k); state.limit = 50; return viewTransactions(); }
   if (a === 'dashview') { state.dashView = el.dataset.view; return viewDashboard(); }
+  if (a === 'reportmode') { state.reportYearly = el.dataset.mode === 'year'; return viewDashboard(); }
+  if (a === 'yearmonth') { state.month = el.dataset.month; state.reportYearly = false; return show('dashboard'); }
+  if (a === 'exportcsv') {
+    if (!state.all) { call('list', { limit: 1000000 }).then((r) => { setAll(r.rows); exportCsv(); }).catch((err) => toast(`${T.error}: ${err.message}`, { kind: 'bad' })); return null; }
+    return exportCsv();
+  }
+  if (a === 'selectmode') { state.selecting = !state.selecting; state.picked = new Set(); return viewTransactions(); }
+  if (a === 'pick') {
+    const id = String(el.dataset.id);
+    if (state.picked.has(id)) state.picked.delete(id); else state.picked.add(id);
+    return showResults();
+  }
+  if (a === 'pickapply') { const cat = $('#pickCat').value; if (!cat) { $('#pickCat').focus(); return null; } return applyPicked(cat, ''); }
+  if (a === 'pickignore') return applyPicked('', 'ignored');
+  if (a === 'undoimport') {
+    if (!window.confirm(T.importUndoConfirm)) return null;
+    return call('undoImport', { batch: el.dataset.batch }).then(async () => {
+      toast(T.importUndone);
+      state.allStale = true; state.dashByMonth = {};
+      viewSettings(await call('settings'));
+      scheduleRefresh(0);
+    }).catch((err) => toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }));
+  }
   if (a === 'hide') {
     hideAmounts = !hideAmounts;
     try { window.localStorage.setItem(HIDE_KEY, hideAmounts ? '1' : '0'); } catch (err) { /* this visit only */ }
@@ -1546,6 +1803,22 @@ function onSubmit(e) {
     applyTheme(d.theme);
     return saveForm(form, 'saveConfig', d, async () => { applyLanguage(d.language); state.month = ''; state.dashByMonth = {}; await refresh(); if (state.tab === 'settings') viewSettings(); });
   }
+  if (kind === 'import') {
+    const rows = importChosen(form);
+    if (!rows.length || !state.importRows) return null;
+    const imp = state.importRows;
+    return saveForm(form, 'importStatement', { stream: imp.stream, rows, file: imp.file }, async (r) => {
+      state.importRows = null;
+      state.allStale = true; state.dashByMonth = {};
+      const fresh = await call('settings');
+      if (state.tab === 'settings' && state.settingsSection === 'import') {
+        viewSettings(fresh);
+        const st = $('form[data-form=import] .state');
+        if (st) { st.className = 'state ok'; st.textContent = `✓ ${T.importSaved(r.added, r.pending)}${r.openingChange ? ` ${T.importOpening(imp.stream, rp(r.openingChange))}` : ''}`; }
+      }
+      scheduleRefresh(0);
+    });
+  }
   if (kind === 'monthend') {
     const items = $$('.bal-row', form).filter((row) => $('[data-k=actual]', row).value !== '').map((row) => {
       const how = $('.bal-how', row);
@@ -1629,6 +1902,14 @@ function onSubmit(e) {
 
 function onChange(e) {
   if (e.target.dataset.k === 'as_opening') { updateBalRow(e.target.closest('.bal-row')); return null; }
+  const impForm = e.target.closest('form[data-form=import]');
+  if (impForm && (e.target.name === 'statement' || e.target.name === 'stream')) { readStatement(impForm); return null; }
+  if (impForm && e.target.dataset.imp) {
+    const n = importChosen(impForm).length;
+    const btn = impForm.querySelector('button[type=submit]');
+    btn.textContent = T.importSave(n); btn.disabled = !n;
+    return null;
+  }
   if (e.target.name === 'theme' && e.target.closest('form[data-form=config]')) { applyTheme(e.target.value); return null; }
   const f = e.target.closest('[data-filter]');
   if (f) {
@@ -1661,7 +1942,11 @@ export async function start() {
   document.addEventListener('click', onClick);
   document.addEventListener('submit', onSubmit);
   document.addEventListener('change', onChange);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('#modal').classList.contains('open')) closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && $('#modal').classList.contains('open')) closeModal();
+    const typing = e.target.closest && e.target.closest('input, textarea, select, [contenteditable]');
+    if ((e.key === 'n' || e.key === 'N') && !typing && !e.ctrlKey && !e.metaKey && !e.altKey && !$('#modal').classList.contains('open') && state.boot) show('add');
+  });
   let searchTimer;
   document.addEventListener('input', (e) => {
     if (e.target.closest('form[data-form=split]')) updateSplitLeft();

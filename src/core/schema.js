@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 15; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount
+export const SETUP_VERSION = 16; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports
 
 export const TABS = {
   transactions: 'Transactions',
@@ -66,6 +66,8 @@ export const CONFIG_KEYS = [
   // Added in setup version 15.
   { key: 'balance_checks', name: 'CFG_BALANCE_CHECKS', note: 'Date of the last balance check per account (JSON); written by the app' },
   { key: 'big_amount', name: 'CFG_BIG_AMOUNT', note: 'Spending from this amount up is flagged in the bell and the weekly email (empty = Rp1.000.000, 0 = off)' },
+  // Added in setup version 16.
+  { key: 'imports', name: 'CFG_IMPORTS', note: 'Bank statement imports (JSON, newest first); each can be undone in the app' },
 ];
 
 export const STATUS = ['pending', 'approved', 'ignored'];
