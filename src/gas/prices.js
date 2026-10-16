@@ -4,7 +4,7 @@
 /* global UrlFetchApp */
 
 import { TABS, ASSET_HEADERS } from '../core/schema.js';
-import { priceSymbols, priceFromYahoo, priceFromGooglePage } from '../core/wealth.js';
+import { priceSymbols, priceFromYahoo, priceFromGooglePage, goldFromHargaEmas } from '../core/wealth.js';
 import { readTable } from './store.js';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36';
@@ -29,15 +29,26 @@ export function fetchPrice(ticker) {
   return null;
 }
 
-/** Fetches the prices older than `maxAgeMs`; returns how many were updated. */
+/** Antam gold, buyback price per gram (Antam's own site refuses scripts; harga-emas.org publishes its table). */
+export function fetchGold() {
+  try {
+    const v = goldFromHargaEmas(get('https://harga-emas.org/'));
+    return v > 0 ? { price: v, source: 'harga-emas.org' } : null;
+  } catch (e) { return null; }
+}
+
+/** Fetches the prices older than `maxAgeMs` (stocks by ticker, gold per gram); returns how many were updated. */
 export function refreshPrices(ss, { maxAgeMs = 25 * 60000 } = {}) {
   const sh = ss.getSheetByName(TABS.assets);
   if (!sh || sh.getLastRow() < 2) return 0;
   const col = (h) => ASSET_HEADERS.indexOf(h) + 1;
   let n = 0;
+  let gold;
   for (const r of readTable(ss, TABS.assets)) {
-    if (!r.ticker || (Number(r.price_at) && Date.now() - Number(r.price_at) < maxAgeMs)) continue;
-    const p = fetchPrice(r.ticker);
+    const isGold = r.kind === 'gold' && !r.ticker;
+    if ((!r.ticker && !isGold) || (Number(r.price_at) && Date.now() - Number(r.price_at) < maxAgeMs)) continue;
+    if (isGold && gold === undefined) gold = fetchGold(); // one fetch for every gold item
+    const p = isGold ? gold : fetchPrice(r.ticker);
     if (!p) continue;
     sh.getRange(r._row, col('price')).setValue(p.price);
     sh.getRange(r._row, col('price_at')).setValue(Date.now());

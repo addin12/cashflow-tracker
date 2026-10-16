@@ -16,6 +16,17 @@ export function priceSymbols(ticker) {
   return ex === 'IDX' ? { yahoo: `${sym}.JK`, google: `${sym}:IDX` } : { yahoo: sym, google: `${sym}:${ex}` };
 }
 
+/**
+ * harga-emas.org's page -> Antam's buyback price per gram ("Harga pembelian kembali: Rp2.443.500/grm"),
+ * what gold is worth if you sell it. NaN when the page doesn't have it.
+ */
+export function goldFromHargaEmas(html) {
+  const text = String(html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const m = text.match(/pembelian kembali:?\s*Rp\s?([\d.]+)/i);
+  const v = m ? Number(m[1].replace(/\./g, '')) : NaN;
+  return v > 0 ? v : NaN;
+}
+
 /** Yahoo Finance chart JSON -> the latest price (NaN when missing). */
 export function priceFromYahoo(json) {
   const v = Number(json && json.chart && json.chart.result && json.chart.result[0] && json.chart.result[0].meta && json.chart.result[0].meta.regularMarketPrice);
@@ -58,7 +69,7 @@ export function assetProblems(list) {
     if (!String(a.name || '').trim()) out.push(`${n}: name is required`);
     if (!ASSET_KINDS.includes(a.kind)) out.push(`${n}: unknown kind ${a.kind}`);
     if (a.ticker && !TICKER.test(a.ticker)) out.push(`${n}: ticker must look like BBCA or IDX:BBCA`);
-    if (!(num(a.unit_value) > 0) && !(a.ticker && TICKER.test(a.ticker))) out.push(`${n}: enter a value`);
+    if (!(num(a.unit_value) > 0) && !(a.ticker && TICKER.test(a.ticker)) && a.kind !== 'gold') out.push(`${n}: enter a value`);
     if (a.qty !== '' && a.qty != null && !(Number(a.qty) > 0)) out.push(`${n}: quantity must be above 0`);
   });
   return out;

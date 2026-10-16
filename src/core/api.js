@@ -468,10 +468,10 @@ export function createApi(store, env) {
       // A price already fetched stays while the ticker is the same; a new ticker is fetched after saving.
       store.replace(TABS.assets, list.map((a) => {
         const old = before.get(String(a.id));
-        const keep = old && a.ticker && String(old.ticker || '').toUpperCase() === a.ticker;
+        const keep = old && ((a.ticker && String(old.ticker || '').toUpperCase() === a.ticker) || (a.kind === 'gold' && !a.ticker && old.kind === 'gold' && !old.ticker));
         return { ...a, price: keep ? old.price : '', price_at: keep ? old.price_at : '' };
       }));
-      return { ok: true, fetch: list.some((a) => a.ticker) };
+      return { ok: true, fetch: list.some((a) => a.ticker || a.kind === 'gold') };
     },
 
     /** "Keep" or "stop" on a subscription ('' clears it). */
