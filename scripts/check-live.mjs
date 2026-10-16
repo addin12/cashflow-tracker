@@ -24,6 +24,11 @@ for (let i = 0; i < rounds; i += 1) {
     console.error(`live page FAILED (try ${i + 1}): HTTP ${res.status} ${err ? err[0] : ''}`);
     process.exit(1);
   }
+  // The no-access page also says "Cashflow": it once locked the owner out with this check passing.
+  if (body.includes('belum punya akses')) {
+    console.error(`live page FAILED (try ${i + 1}): the no-access page was served to the owner`);
+    process.exit(1);
+  }
   if (!body.includes('Cashflow')) {
     console.error(`live page FAILED (try ${i + 1}): no "Cashflow" in the page (${body.length} chars)`);
     process.exit(1);

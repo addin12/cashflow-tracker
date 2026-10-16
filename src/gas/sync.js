@@ -14,7 +14,7 @@ import { readTable, appendRows, updateRows } from './store.js';
 import { listMessageIds, getEmail, myAddress } from './gmail.js';
 import { notesFromEmail } from '../core/quick.js';
 import { bodyToTokens } from '../core/text.js';
-import { configValue, runSetup } from './setup.js';
+import { configValue, setConfigValue, runSetup } from './setup.js';
 import { flushStartupTimings } from './perf.js';
 import { refreshInit } from './initcache.js';
 import { refreshPrices } from './prices.js';
@@ -22,7 +22,7 @@ import { createApi } from '../core/api.js';
 import { sheetStore } from './sheetstore.js';
 import { installMailTriggers, scheduleSelfTest, sendSyncAlert } from './weekly.js';
 import { rolloverYear } from './rollover.js';
-import { memberName, bankNames, isPartner, sharePartner, rememberMember } from './members.js';
+import { memberName, bankNames, isOwnerEmail, ownerEmail, sharePartner, rememberMember } from './members.js';
 
 const OVERLAP_MS = 2 * 24 * 3600 * 1000;
 const TIME_BUDGET_MS = 4.5 * 60 * 1000; // Apps Script stops a run at 6 minutes
@@ -164,7 +164,9 @@ function syncOnce(opts) {
     // An archived year (a copy made at New Year) keeps its data as it was.
     if (configValue(ss, 'archived')) return { status: 'archived' };
     const me = myAddress();
-    const owner = !isPartner(ss, me);
+    const owner = isOwnerEmail(ss, me);
+    // The owner's own sync records whose account the owner is (who the app calls "Addin").
+    if (owner && !ownerEmail(ss)) setConfigValue(ss, 'owner_email', me.toLowerCase());
     if ((Number(configValue(ss, 'setup_version')) || 0) < SETUP_VERSION) {
       runSetup(ss, opts.seed);
       // After an upgrade: make sure the triggers exist (the emails are the owner's), and check the reports again.

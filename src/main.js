@@ -12,7 +12,7 @@ import { createApi, API_METHODS } from './core/api.js';
 import { scanYearly } from './gas/yearly.js';
 import { syncCalendar } from './gas/calendar.js';
 import { pushSite, sendPush, acceptDevice } from './gas/push.js';
-import { activeEmail, isMember, rememberMember, isPartner, memberName, sharePartner } from './gas/members.js';
+import { activeEmail, isMember, rememberMember, isOwnerEmail, memberName, sharePartner } from './gas/members.js';
 import { sendWeeklySummary, clearSelfTestTrigger, runDaily, scheduleSelfTest, sendSyncAlert, installMailTriggers, runEvening } from './gas/weekly.js';
 import { refreshPrices } from './gas/prices.js';
 
@@ -69,7 +69,7 @@ export function menuSelfTest() {
 
 /** Web app page (deployed for the owner only: "execute as me, access: only myself"). */
 const TABS_OPENABLE = ['review', 'dashboard', 'transactions', 'add', 'settings'];
-/** Someone the spreadsheet isn't shared with: no data, only how to get access. */
+/** Someone the spreadsheet isn't shared with, or who is neither the owner nor the partner: no data, only how to get access. */
 const NO_ACCESS = '<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><div style="font:17px/1.5 -apple-system,Segoe UI,sans-serif;max-width:480px;margin:48px auto;padding:0 16px"><h1 style="font-size:24px">Cashflow</h1><p>Akun ini belum punya akses. Minta pemilik menambahkan email Google-mu di Pengaturan → Pasangan.</p><p style="color:#6e6e73">This account has no access yet. Ask the owner to add your Google email in Settings → Partner.</p></div>';
 
 /** The person opening the app may use it: the spreadsheet is shared with them (that open fails otherwise). */
@@ -79,8 +79,9 @@ function openAsMember() {
   let name = '';
   // Reading Config is the check: getting the spreadsheet object alone may not ask for access.
   try { ss = appSpreadsheet(); name = memberName(ss, email); } catch (err) { return null; }
+  if (!name) return null; // shared with the sheet but not the owner or the partner: no guessing whose they are
   rememberMember(email);
-  return { ss, email, name, owner: !isPartner(ss, email) };
+  return { ss, email, name, owner: isOwnerEmail(ss, email) };
 }
 
 export function doGet(e) {

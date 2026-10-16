@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 24; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at · 19: price_status · 20: notes by email, tag budgets, close the day, bill reminders · 21: paydays before weekends/holidays, cards, yearly plans, calendar · 22: phone notifications · 23: partner · 24: a partner with several Google accounts
+export const SETUP_VERSION = 25; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at · 19: price_status · 20: notes by email, tag budgets, close the day, bill reminders · 21: paydays before weekends/holidays, cards, yearly plans, calendar · 22: phone notifications · 23: partner · 24: a partner with several Google accounts · 25: owner_email
 
 export const TABS = {
   transactions: 'Transactions',
@@ -103,6 +103,8 @@ export const CONFIG_KEYS = [
   { key: 'partner_email', name: 'CFG_PARTNER_EMAIL', note: 'Your partner\'s Google account(s), comma-separated: the spreadsheet is shared with them and they can use the app' },
   { key: 'partner_name', name: 'CFG_PARTNER_NAME', note: 'Short name used as the owner of your partner\'s rows' },
   { key: 'partner_bank_names', name: 'CFG_PARTNER_BANK_NAMES', note: 'Your partner\'s name as banks print it (comma-separated): money between you two is a transfer' },
+  // Added in setup version 25.
+  { key: 'owner_email', name: 'CFG_OWNER_EMAIL', note: 'Your Google account (written by your own sync): only it is shown as you in the app' },
 ];
 
 export const STATUS = ['pending', 'approved', 'ignored'];
