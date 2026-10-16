@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 18; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at
+export const SETUP_VERSION = 19; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at · 19: price_status
 
 export const TABS = {
   transactions: 'Transactions',
@@ -81,6 +81,8 @@ export const CONFIG_KEYS = [
   { key: 'imports', name: 'CFG_IMPORTS', note: 'Bank statement imports (JSON, newest first); each can be undone in the app' },
   // Added in setup version 17.
   { key: 'recurring_marks', name: 'CFG_RECURRING_MARKS', note: 'Subscriptions marked keep or stop (JSON by payee)' },
+  // Added in setup version 19.
+  { key: 'price_status', name: 'CFG_PRICE_STATUS', note: 'Last market-price run: how many priced, and why any failed' },
 ];
 
 export const STATUS = ['pending', 'approved', 'ignored'];

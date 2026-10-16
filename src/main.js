@@ -2,7 +2,7 @@
 // SEED (first-run data) and SYNC_DEFAULT ('preview' | 'live') are injected by scripts/build.mjs.
 /* global SpreadsheetApp, HtmlService, LockService, SEED, SYNC_DEFAULT */
 
-import { runSetup } from './gas/setup.js';
+import { runSetup, configValue } from './gas/setup.js';
 import { runSelfTest } from './gas/selftest.js';
 import { runSync, connect, appSpreadsheet, syncStamp, addRuntime } from './gas/sync.js';
 import { recordStartup } from './gas/perf.js';
@@ -23,6 +23,7 @@ export function onOpen() {
     .addItem('Siapkan spreadsheet / Set up', 'menuSetup')
     .addItem('Uji otomatis / Self-test', 'menuSelfTest')
     .addItem('Kirim ringkasan mingguan / Send weekly summary', 'menuWeeklySummary')
+    .addItem('Perbarui harga aset / Update asset prices', 'menuPrices')
     .addToUi();
 }
 
@@ -158,6 +159,13 @@ export function selfTestTrigger() {
   return r;
 }
 
+export function menuPrices() {
+  const ui = SpreadsheetApp.getUi();
+  const ss = appSpreadsheet();
+  const n = refreshPrices(ss, { maxAgeMs: 0 });
+  ui.alert('Harga aset / Asset prices', `${n} harga diperbarui / prices updated.\n${configValue(ss, 'price_status') || ''}`, ui.ButtonSet.OK);
+}
+
 export function menuWeeklySummary() {
   const ui = SpreadsheetApp.getUi();
   const r = sendWeeklySummary(appSpreadsheet(), { force: true });
@@ -165,5 +173,6 @@ export function menuWeeklySummary() {
 }
 
 /** Same as the menu items, callable from the Apps Script editor's Run button. */
+export function updatePrices() { return refreshPrices(appSpreadsheet(), { maxAgeMs: 0 }); }
 export function setup() { return runSetup(appSpreadsheet(), SEED); }
 export function selfTest() { return runSelfTest(appSpreadsheet(), SEED); }
