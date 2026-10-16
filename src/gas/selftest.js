@@ -7,6 +7,7 @@ import { TABS, TRANSACTION_HEADERS, CF, FIXED_CATEGORIES } from '../core/schema.
 import { expectedReport } from '../core/expected.js';
 import { buildCategorySlots } from '../core/categories.js';
 import { nextPayday } from '../core/payday.js';
+import { HOLIDAYS_UNTIL } from '../core/holidays.js';
 import { SAMPLE_YEAR, SAMPLE_CATEGORIES, SAMPLE_ACCOUNTS, sampleTransactions } from '../core/sample.js';
 import { configValue, runSetup, setConfigValue, writeAccounts, writeCategories } from './setup.js';
 
@@ -149,6 +150,11 @@ export function runSelfTest(ss, seed) {
     if (!(got instanceof Date) || got.toDateString() !== want.toDateString()) {
       failures.push(`CASHFLOW ${CF.payday.payday} next payday: expected ${want.toDateString()}, got ${got}`);
     }
+
+    // 3a. Paydays move before national holidays: the list must cover next year by October.
+    checks += 1;
+    const nowD = new Date();
+    if (nowD.getMonth() >= 9 && nowD.getFullYear() >= HOLIDAYS_UNTIL) failures.push(`core/holidays.js: add the ${HOLIDAYS_UNTIL + 1} national holidays (SKB 3 Menteri) so paydays keep moving before them`);
 
     // 3b. No merged cells in the ledger area: a merge hides the transaction that lands on it.
     const merges = copy.getSheetByName(CF.sheet).getRange(`B${CF.firstDataRow}:H${copy.getSheetByName(CF.sheet).getMaxRows()}`).getMergedRanges();

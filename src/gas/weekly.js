@@ -1,6 +1,7 @@
 // The emails the app sends by itself, and the time triggers behind them:
 //   Mondays 07:00   weekly summary, then the self-test (an email only when it finds a problem)
-//   every day 07:00 the monthly report on the 1st, the balance-check reminder on payday, bills due tomorrow
+//   every day 07:00 the monthly report on the 1st, the balance-check reminder on payday, bills due tomorrow,
+//                   the Cashflow calendar (when on), and once the look a year back for yearly plans
 //   every day 21:00 a nudge when nothing was logged by hand today (only when switched on)
 //   after a sync    an alert when the sync failed or a new bank email couldn't be read
 // plus the self-test that runs by itself after an upgrade. All go to the owner's own Gmail.
@@ -13,6 +14,8 @@ import { isPayday } from '../core/payday.js';
 import { sheetStore } from './sheetstore.js';
 import { configValue } from './setup.js';
 import { myAddress } from './gmail.js';
+import { syncCalendar } from './calendar.js';
+import { scanYearly } from './yearly.js';
 
 export const WEEKLY_HANDLER = 'weeklySummaryTrigger';
 export const DAILY_HANDLER = 'dailyTrigger';
@@ -53,6 +56,8 @@ export function runDaily(ss, today = new Date()) {
     send(ss, paydayEmail(api.dashboard({}).balances, { appUrl: appUrl(ss), lang: langOf(ss) }));
     done.push('payday');
   }
+  if (!configValue(ss, 'yearly_scan')) try { scanYearly(ss, { today }); done.push('yearly'); } catch (e) { /* tried again tomorrow */ }
+  try { if (!syncCalendar(ss, today).skipped) done.push('calendar'); } catch (e) { /* the status is in Config calendar_status */ }
   const tomorrow = (api.dashboard({}).bills || []).filter((b) => b.daysLeft === 1);
   if (tomorrow.length && isOn(ss, 'bill_email')) {
     send(ss, billsEmail(tomorrow, { appUrl: appUrl(ss), lang: langOf(ss) }));

@@ -11,6 +11,7 @@ import { buildCategorySlots } from '../core/categories.js';
 import { compileRule } from '../core/rules.js';
 import { parseStatement, matchStatement } from '../core/statement.js';
 import { parseQuick, evalAmount } from '../core/quick.js';
+import { interestCompare } from '../core/wealth.js';
 
 const state = {
   boot: null, tab: 'review', month: '', review: null, dashByMonth: {}, all: null, allStale: true,
@@ -312,7 +313,7 @@ function viewReview() {
   const cards = r.pending.map((x) => `
     <article class="card txcard" data-id="${esc(x.id)}">
       <div class="top"><div class="name">${esc(x.description || x.details || '—')}</div><div class="amt ${esc(x.direction)}">${signed(x)}</div></div>
-      <div class="meta">${esc(when(x))} · ${esc(x.stream || T.noAccount)}${x.details && x.description ? ` · ${esc(x.details)}` : ''}</div>
+      <div class="meta">${esc(when(x))} · ${esc(x.stream || T.noAccount)}${x.details && x.description ? ` · ${esc(x.details)}` : ''}${firstBadge(x)}</div>
       ${x.stream ? '' : field(T.account, `<select data-field="stream">${accountOptions('')}</select>`)}
       ${field(T.category, `<select data-field="category">${categoryOptions(x.category, x.direction)}</select>`)}
       ${x.description && x.source !== 'summary' ? `<label class="check"><input type="checkbox" data-field="always" checked> ${esc(T.alwaysFor(x.description))}</label>` : ''}
@@ -514,7 +515,7 @@ const EYE_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18
 
 /** One transaction as a list line: icon, name, when · category · account, amount. */
 const lineRow = (x) => `<button class="lrow" data-action="edit" data-id="${esc(x.id)}">${icon(x.category)}
-  <span class="what"><b>${esc(x.description || x.details || '—')}</b><span class="meta">${esc([`${dateLabel(x.date, { weekday: false })}${x.time ? `, ${timeLabel(x.time)}` : ''}`, x.category || T.noCategory, x.stream].filter(Boolean).join(' · '))}</span></span>
+  <span class="what"><b>${esc(x.description || x.details || '—')}</b><span class="meta">${esc([`${dateLabel(x.date, { weekday: false })}${x.time ? `, ${timeLabel(x.time)}` : ''}`, x.category || T.noCategory, x.stream].filter(Boolean).join(' · '))}${firstBadge(x)}</span></span>
   <span class="amt ${esc(x.direction)}">${signed(x)}</span></button>`;
 
 function overviewHtml(d) {
@@ -614,6 +615,8 @@ function overviewHtml(d) {
         ${goalsCard(d.goals)}
         ${recurringCard(d.recurring)}
         ${eventsCard(d.events)}
+        ${cardsCard(d.cards)}
+        ${healthCard(d.health)}
         ${wealthCard(d.wealth)}
         <section class="card"><h2>${esc(T.accounts)}</h2>${walletLine(d)}<p class="lead">${esc(T.accountsHint)}</p><div class="rows">${group('Spending', T.spendingGroup)}${group('Saving', T.savingGroup)}</div></section>
       </div>
@@ -778,6 +781,7 @@ function yearlyHtml(y) {
       ${tagsCard(y.tags)}
       ${placesCard(y.places)}
       ${biggestCard(y.biggest)}
+      ${sptCard(y.year)}
     </div>
   </div>`;
 }
@@ -863,17 +867,9 @@ function importChosen(form) {
 // ---------------------------------------------------------------- Transactions: export, select several
 function exportCsv() {
   const list = filterTransactions(state.all || [], { ...state.filters, limit: 1e9 }).rows;
-  const cell = (v) => { const s = String(v ?? ''); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   const head = [T.date, T.time, T.description, T.notes, T.category, T.account, T.kind, T.amount, T.status];
-  const lines = list.map((r) => [String(r.date).slice(0, 10), String(r.time || '').slice(0, 5), r.description, r.details, r.category, r.stream,
-    r.direction === 'in' ? T.kindIn : T.kindOut, (r.direction === 'in' ? 1 : -1) * (Number(r.amount) || 0), T[`status${r.status[0].toUpperCase()}${r.status.slice(1)}`] || r.status].map(cell).join(','));
-  const blob = new Blob([`﻿${[head.map(cell).join(','), ...lines].join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `cashflow-${state.boot.today}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  downloadCsv(`cashflow-${state.boot.today}.csv`, head, list.map((r) => [String(r.date).slice(0, 10), String(r.time || '').slice(0, 5), r.description, r.details, r.category, r.stream,
+    r.direction === 'in' ? T.kindIn : T.kindOut, (r.direction === 'in' ? 1 : -1) * (Number(r.amount) || 0), T[`status${r.status[0].toUpperCase()}${r.status.slice(1)}`] || r.status]));
   toast(T.exported(list.length));
 }
 
@@ -1002,22 +998,24 @@ function openSubs() {
   const d = state.dashByMonth[state.month] || {};
   const items = (d.recurring && d.recurring.items) || [];
   const marks = d.recurringMarks || {};
-  const monthly = items.reduce((t, i) => t + i.amount, 0);
-  const stopping = items.filter((i) => marks[i.key] === 'stop').reduce((t, i) => t + i.amount, 0);
+  const perMonth = (i) => (i.cycle === 'year' ? i.amount / 12 : i.amount);
+  const monthly = items.reduce((t, i) => t + perMonth(i), 0);
+  const stopping = items.filter((i) => marks[i.key] === 'stop').reduce((t, i) => t + perMonth(i), 0);
   const sorted = [...items].sort((a, b) => b.amount - a.amount);
   $('#modal').innerHTML = `<div class="sheet"><h2>${esc(T.subsTitle)}</h2>
     <p class="lead">${esc(T.subsTotals(rp(monthly), rp(monthly * 12)))}${stopping ? ` <b class="in">${esc(T.subsSave(rp(stopping), rp(stopping * 12)))}</b>` : ''}</p>
     <div class="rows">${sorted.map((i) => {
       const link = (STOP_LINKS.find(([re]) => re.test(i.name)) || [])[1];
       const m = marks[i.key] || '';
-      return `<div class="sub-row"><div class="sub-top">${icon(i.category)}<span class="what"><b>${esc(i.name)}</b><span class="meta">${esc(T.recurringNext(dateLabel(i.nextDate, { weekday: false }), Math.max(0, i.daysLeft)))} · ${esc(T.perYear(rp(i.amount * 12)))}</span></span><span class="amt">${rp(i.amount)}</span></div>
+      return `<div class="sub-row"><div class="sub-top">${icon(i.category)}<span class="what"><b>${esc(i.name)}</b><span class="meta">${esc(T.recurringNext(dateLabel(i.nextDate, { weekday: false }), Math.max(0, i.daysLeft)))} · ${esc(T.perYear(rp(perMonth(i) * 12)))}</span></span><span class="amt">${rp(i.amount)}${i.cycle === 'year' ? `<small>/${esc(T.yearShort)}</small>` : ''}</span></div>
         <div class="sub-acts">
           <button type="button" class="chip-btn ${m === 'keep' ? 'on' : ''}" aria-pressed="${m === 'keep'}" data-action="submark" data-name="${esc(i.name)}" data-mark="${m === 'keep' ? '' : 'keep'}">${esc(T.subKeep)}</button>
           <button type="button" class="chip-btn ${m === 'stop' ? 'on stop' : ''}" aria-pressed="${m === 'stop'}" data-action="submark" data-name="${esc(i.name)}" data-mark="${m === 'stop' ? '' : 'stop'}">${esc(T.subStop)}</button>
           ${link ? `<a class="btn plain small" target="_blank" rel="noopener" href="${esc(link)}">${esc(T.subHowStop)} ↗</a>` : ''}
         </div></div>`;
     }).join('') || `<p class="hint">${esc(T.nothingYet)}</p>`}</div>
-    <div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.close)}</button></div></div>`;
+    <p class="hint">${esc(T.yearlyScanHint)}</p>
+    <div class="actions"><button class="btn secondary left" type="button" data-action="scanyearly">${esc(T.yearlyScan)}</button><button class="btn primary" type="button" data-action="close">${esc(T.close)}</button></div></div>`;
   $('#modal').classList.add('open');
 }
 
@@ -1094,7 +1092,7 @@ function openBills() {
   const d = state.dashByMonth[state.month] || {};
   const bills = d.bills || [];
   $('#modal').innerHTML = `<div class="sheet"><h2>${esc(T.billsTitle)}</h2><p class="lead">${esc(T.billsTotal(rp(bills.reduce((t, b) => t + b.amount, 0))))}</p>
-    <div class="rows">${bills.map((b) => `<div class="rowi"><span class="what"><b>${esc(b.name)}</b><span class="meta">${esc(b.daysLeft === 0 ? T.recurringToday : T.recurringNext(dateLabel(b.date, { weekday: false }), b.daysLeft))} · ${esc(b.kind === 'plan' ? T.billPlan : T.billSub)}</span></span><span class="amt">${rp(b.amount)}</span></div>`).join('') || `<p class="hint">${esc(T.nothingYet)}</p>`}</div>
+    <div class="rows">${bills.map((b) => `<div class="rowi"><span class="what"><b>${esc(b.name)}</b><span class="meta">${esc(b.daysLeft === 0 ? T.recurringToday : T.recurringNext(dateLabel(b.date, { weekday: false }), b.daysLeft))} · ${esc(b.kind === 'plan' ? T.billPlan : b.kind === 'card' ? T.billCard : T.billSub)}</span></span><span class="amt">${rp(b.amount)}</span></div>`).join('') || `<p class="hint">${esc(T.nothingYet)}</p>`}</div>
     <div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.close)}</button></div></div>`;
   $('#modal').classList.add('open');
 }
@@ -1127,6 +1125,7 @@ function openTagBudget(tag, budget) {
 function dayCard(day) {
   if (!day) return '';
   return `<section class="card day-card"><div class="row-top"><h2>${esc(T.dayTitle)}</h2>${day.streak ? `<span class="streak" title="${esc(T.streakHint)}">🔥 ${esc(T.streak(day.streak))}</span>` : ''}</div>
+    ${day.yesterday ? `<div class="yesterday"><p>${esc(T.dayYesterdayOpen)}</p><button class="btn secondary small" data-action="closeday" data-date="${esc(day.yesterday)}">${esc(T.dayCloseYesterday)}</button></div>` : ''}
     ${day.closed ? `<p class="lead">✓ ${esc(T.dayClosed)}</p><div class="actions" style="justify-content:flex-start"><button class="btn plain small" data-action="reopenday">${esc(T.dayReopen)}</button></div>`
     : `<p class="lead">${esc(day.byHand ? T.dayLogged(day.byHand) : T.dayAsk)}</p>
       ${field(T.quickLabel, `<input id="quickDay" autocomplete="off" enterkeyhint="done" placeholder="${esc(T.quickPlaceholder)}">`, { help: T.dayQuickHelp })}
@@ -1187,14 +1186,123 @@ function categoryDetail(category) {
   </section>`;
 }
 
+// ---------------------------------------------------------------- Round 17 pieces
+/** "Pertama kali": the first payment to a place (from an email or a statement). */
+const firstBadge = (x) => (x.first ? ` <span class="badge new" title="${esc(T.firstHint)}">✦ ${esc(T.firstTime)}</span>` : '');
+
+/** Three plain checks: emergency fund in months, what was kept this month, debts against what you own. */
+function healthCard(h) {
+  if (!h) return '';
+  const n1 = (v) => Number(v).toLocaleString(locale(), { maximumFractionDigits: 1 });
+  const rows = [
+    [T.healthFund, h.months == null ? T.healthFundNone : T.healthFundMonths(n1(h.months)), h.months == null ? T.healthFundNoneHint : T.healthFundHint(rp(h.fund), rp(h.monthly)), h.monthsLevel],
+    [T.healthSaving, h.saving == null ? '—' : `${Math.round(h.saving * 100)}%`, h.saving == null ? T.healthNoIncome : T.healthSavingHint, h.savingLevel],
+    [T.healthDebt, `${Math.round(h.debt * 100)}%`, h.debts ? T.healthDebtHint(rp(h.debts)) : T.healthNoDebt, h.debtLevel],
+  ];
+  return `<section class="card health"><h2 class="row-title">${esc(T.healthTitle)}<button class="link" data-action="interest">${esc(T.interestOpen)}</button></h2><p class="lead">${esc(T.healthHint)}</p>
+    <div class="rows">${rows.map(([label, value, hint, lvl]) => `<div class="rowi"><span class="lvl ${lvl || 'none'}" aria-hidden="true"></span><span class="what"><b>${esc(label)}</b><span class="meta">${esc(hint)}</span></span>
+      <span class="amt">${esc(value)}${lvl ? `<small class="lvl-word ${lvl}">${esc(T[`health_${lvl}`])}</small>` : ''}</span></div>`).join('')}</div></section>`;
+}
+
+/** Deposito or SBN: what an amount earns after tax (rates typed by the owner, kept on this device). */
+function readInterest() { try { return JSON.parse(localStorage.getItem('cf.interest') || '{}') || {}; } catch (e) { return {}; } }
+function openInterest() {
+  const h = (state.dashByMonth[state.month] || {}).health || {};
+  const saved = readInterest();
+  const months = Number(saved.months) || 12;
+  $('#modal').innerHTML = `<div class="sheet"><form data-form="interest" novalidate><h2>${esc(T.interestTitle)}</h2><p class="lead">${esc(T.interestHint)}</p>
+    <div class="fields2">
+      ${field(T.interestAmount, `<input name="amount" class="calc-input" inputmode="decimal" autocomplete="off" value="${esc(h.fund > 0 ? Math.round(h.fund) : '')}"><em class="calc-out"></em>`)}
+      ${field(T.interestMonths, `<select name="months">${[1, 3, 6, 12].map((m) => `<option value="${m}" ${m === months ? 'selected' : ''}>${esc(T.nMonths(m))}</option>`).join('')}</select>`)}
+      ${field(T.interestDeposit, `<input name="dep" inputmode="decimal" autocomplete="off" placeholder="${esc(T.interestDepositHelp)}" value="${esc(saved.dep || '')}">`)}
+      ${field(T.interestSbn, `<input name="sbn" inputmode="decimal" autocomplete="off" placeholder="${esc(T.interestSbnHelp)}" value="${esc(saved.sbn || '')}">`)}
+    </div><div id="interestOut" role="status"></div><p class="hint">${esc(T.interestTax)}</p>
+    <div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.close)}</button></div></form></div>`;
+  $('#modal').classList.add('open');
+  updateInterest($('#modal form'));
+}
+function updateInterest(form) {
+  const rate = (n) => Number(String(form.querySelector(`[name=${n}]`).value).replace(',', '.')) || 0;
+  const v = { amount: amountValue(form.querySelector('[name=amount]').value || '0'), months: Number(form.querySelector('[name=months]').value), depositRate: rate('dep'), sbnRate: rate('sbn') };
+  try { localStorage.setItem('cf.interest', JSON.stringify({ dep: form.querySelector('[name=dep]').value, sbn: form.querySelector('[name=sbn]').value, months: v.months })); } catch (e) { /* kept for this visit only */ }
+  const r = interestCompare(v);
+  const line = (label, x) => (x ? `<div class="rowi"><span class="what"><b>${esc(label)}</b><span class="meta">${esc(T.interestLine(rp(x.gross), rp(x.tax), rp(x.perMonth)))}</span></span><span class="amt in">+${rp(x.net)}</span></div>` : '');
+  const both = r.deposit && r.sbn && Math.abs(r.deposit.net - r.sbn.net) >= 1;
+  const better = both ? `<p class="lead"><b>${esc(T.interestBetter(r.sbn.net > r.deposit.net ? T.interestSbnName : T.interestDepositName, rp(Math.abs(r.sbn.net - r.deposit.net))))}</b></p>` : '';
+  $('#interestOut').innerHTML = r.deposit || r.sbn ? `<div class="rows">${line(T.interestDepositName, r.deposit)}${line(T.interestSbnName, r.sbn)}</div>${better}` : `<p class="hint">${esc(T.interestFill)}</p>`;
+}
+
+/** Credit cards and paylater on the overview: the last bill, and what is building up since. */
+function cardsCard(cards) {
+  if (!cards || !cards.length) return '';
+  const rows = cards.map((c) => {
+    const status = c.left > 0 ? (c.daysLeft < 0 ? T.cardOverdue(rp(c.left), dateLabel(c.dueDate, { weekday: false })) : T.cardBill(rp(c.left), dateLabel(c.dueDate, { weekday: false }), c.daysLeft)) : T.cardPaid;
+    return `<button class="lrow" data-action="drill" data-stream="${esc(c.stream)}">${acctIcon(c.stream, 'Spending')}<span class="what"><b>${esc(c.stream)}</b><span class="meta">${esc(status)} · ${esc(T.cardCurrent(rp(c.current)))}</span></span>
+      <span class="amt ${c.left > 0 && c.daysLeft < 0 ? 'bad' : ''}">${rp(c.left)}</span></button>`;
+  }).join('');
+  return `<section class="card"><h2 class="row-title">${esc(T.cardsTitle)}<button class="link" data-action="go" data-tab="settings" data-section="cards">${esc(T.eventEdit)}</button></h2><div class="rows">${rows}</div></section>`;
+}
+function cardsForm(s) {
+  const rows = (s.cards || []).map((c, i) => `<fieldset class="acct-row card-row" data-i="${i}"><legend>${esc(c.stream || T.newCard)}</legend>
+    <div class="fields2">
+      ${field(T.account, `<select data-c="stream">${accountOptions(c.stream)}</select>`)}
+      ${field(T.cardStatement, `<input data-c="statement" type="number" min="1" max="31" inputmode="numeric" value="${esc(c.statement || '')}">`, { help: T.cardDayHelp })}
+      ${field(T.cardDue, `<input data-c="due" type="number" min="1" max="31" inputmode="numeric" value="${esc(c.due || '')}">`, { help: T.cardDayHelp })}
+    </div>
+    <div class="actions"><button class="btn danger small" type="button" data-action="delcard" data-i="${i}">${esc(T.cardDelete)}</button></div></fieldset>`).join('');
+  return `<form class="card" data-form="cards" novalidate><h2>${esc(T.cardsTitle)}</h2><p class="lead">${esc(T.cardsHint)}</p>${rows || `<p class="hint">${esc(T.noCards)}</p>`}
+    <div class="actions"><button class="btn secondary left" type="button" data-action="addcard">＋ ${esc(T.addCard)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveCards)}</button></div></form>`;
+}
+const readCards = (form) => $$('.card-row', form).map((row) => Object.fromEntries($$('[data-c]', row).map((el) => [el.dataset.c, el.value])));
+
+/** A CSV file the browser saves (Excel reads the BOM as UTF-8). */
+function downloadCsv(name, head, rows) {
+  const cell = (v) => { const s = String(v ?? ''); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const blob = new Blob([`\uFEFF${[head, ...rows].map((r) => r.map(cell).join(',')).join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+/** The SPT list: assets and debts with their SPT codes, to copy into the yearly tax return. */
+const sptCard = (year) => `<section class="card"><h2>${esc(T.sptTitle)}</h2><p class="lead">${esc(T.sptHint(year))}</p>
+  <div class="actions" style="justify-content:flex-start"><button class="btn secondary" data-action="spt" data-year="${esc(year)}">${esc(T.sptOpen)}</button></div></section>`;
+async function openSpt(year) {
+  $('#modal').innerHTML = `<div class="sheet"><h2>${esc(T.sptTitle)}</h2><p class="hint">${esc(T.loading)}</p></div>`;
+  $('#modal').classList.add('open');
+  try {
+    const s = await call('spt', { year });
+    state.spt = s;
+    const row = (x, debt) => `<div class="rowi"><span class="what"><b>${esc(x.code)} · ${esc(x.name)}</b><span class="meta">${esc(x.label)}${debt ? '' : ` · ${esc(x.cost != null ? T.sptCost(rp(x.cost)) : T.sptNoCost)}`}</span></span><span class="amt ${debt ? 'bad' : ''}">${rp(x.value)}</span></div>`;
+    $('#modal').innerHTML = `<div class="sheet"><h2>${esc(T.sptTitle)} ${esc(s.year)}</h2>
+      <p class="lead">${esc(T.sptTotal(rp(s.totalHarta), rp(s.totalUtang)))}</p>
+      ${s.asOf < `${s.year}-12-31` ? `<p class="hint">${esc(T.sptRunning)}</p>` : ''}
+      <h3 class="sub-title">${esc(T.sptHarta)}</h3><div class="rows">${s.harta.map((x) => row(x, false)).join('') || `<p class="hint">${esc(T.nothingYet)}</p>`}</div>
+      ${s.utang.length ? `<h3 class="sub-title">${esc(T.sptUtang)}</h3><div class="rows">${s.utang.map((x) => row(x, true)).join('')}</div>` : ''}
+      <p class="hint">${esc(T.sptNote)}</p>
+      <div class="actions"><button class="btn secondary left" type="button" data-action="sptcsv">${esc(T.sptDownload)}</button><button class="btn primary" type="button" data-action="close">${esc(T.close)}</button></div></div>`;
+  } catch (e) {
+    $('#modal').innerHTML = `<div class="sheet"><h2>${esc(T.sptTitle)}</h2><p class="hint bad">${esc(e.message)}</p><div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.close)}</button></div></div>`;
+  }
+}
+function sptCsv() {
+  const s = state.spt;
+  if (!s) return;
+  const rows = [...s.harta.map((x) => [T.sptHarta, x.code, x.label, x.name, x.cost ?? '', x.value]), ...s.utang.map((x) => [T.sptUtang, x.code, x.label, x.name, '', x.value])];
+  downloadCsv(`spt-${s.year}.csv`, T.sptColumns, rows);
+}
+
 function recurringCard(r) {
   if (!r || !r.items || !r.items.length) return '';
   const when = (i) => (i.daysLeft < 0 ? T.recurringLate(dateLabel(i.nextDate, { weekday: false }), -i.daysLeft)
     : i.daysLeft === 0 ? T.recurringToday : T.recurringNext(dateLabel(i.nextDate, { weekday: false }), i.daysLeft));
   const rows = r.items.map((i) => `<div class="rec-row">
     <button class="rowi" data-action="drill" data-q="${esc(i.name)}"><span class="what"><b>${esc(i.name)}</b>
-      <span class="meta">${esc(when(i))}${i.stream ? ` · ${esc(i.stream)}` : ''}${i.basis === 'category' ? ` · <span class="badge neutral">${esc(T.recurringGuess)}</span>` : ''}${i.daysLeft < 0 ? ` <span class="badge warn">${esc(T.recurringLateBadge)}</span>` : ''}</span></span>
-      <span class="amt">${rp(i.amount)}</span></button>
+      <span class="meta">${esc(when(i))}${i.stream ? ` · ${esc(i.stream)}` : ''}${['category', 'yearly-guess'].includes(i.basis) ? ` · <span class="badge neutral">${esc(T.recurringGuess)}</span>` : ''}${i.change === 'up' ? ` <span class="badge warn">↑ ${esc(T.subUp(rp(i.was)))}</span>` : ''}${i.change === 'new' ? ` <span class="badge new">${esc(T.subNew)}</span>` : ''}${i.daysLeft < 0 ? ` <span class="badge warn">${esc(T.recurringLateBadge)}</span>` : ''}</span></span>
+      <span class="amt">${rp(i.amount)}${i.cycle === 'year' ? `<small>/${esc(T.yearShort)}</small>` : ''}</span></button>
     <button class="btn plain small rec-hide" data-action="hiderec" data-name="${esc(i.name)}" aria-label="${esc(T.notSubscriptionFor(i.name))}">${esc(T.notSubscription)}</button></div>`).join('');
   return `<section class="card"><h2 class="row-title">${esc(T.recurringTitle)}<button class="link" data-action="subs">${esc(T.subsManage)}</button></h2><p class="lead">${esc(T.recurringHint(rp(r.monthlyTotal)))}</p><div class="rows">${rows}</div></section>`;
 }
@@ -1331,7 +1439,7 @@ function showResults() {
       <span class="c-date">${state.selecting ? `<span class="pick-box" aria-hidden="true">${state.picked.has(String(x.id)) ? '✓' : ''}</span>` : ''}${esc(timeLabel(x.time) || '—')}</span>
       <span class="c-desc">${icon(x.category)}<span>${esc(x.description || '—')}${x.details ? `<small>${esc(x.details)}</small>` : ''}</span></span>
       <span class="c-mobile-meta">${esc([timeLabel(x.time), x.stream || T.noAccount].filter(Boolean).join(' · '))}</span>
-      <span class="c-cat">${tag(x.category)}${statusBadge(x.status)}</span>
+      <span class="c-cat">${tag(x.category)}${statusBadge(x.status)}${firstBadge(x)}</span>
       <span class="c-acct">${esc(x.stream || '—')}</span>
       <span class="c-amt amt ${esc(x.direction)}">${signed(x)}</span>
     </button>`).join('');
@@ -1614,6 +1722,7 @@ async function viewSettings(local) {
     import: importForm(s),
     plans: plansForm(s),
     assets: assetsForm(s),
+    cards: cardsForm(s),
     sync: `
       <section class="card"><h2>${esc(T.settingsSync)}</h2><p class="lead">${esc(T.settingsSyncHint)}</p><div class="rows">${conns}</div>
         <div class="actions"><button class="btn primary" type="button" data-action="sync">↻ ${esc(T.syncNow)}</button></div></section>`,
@@ -1639,6 +1748,8 @@ async function viewSettings(local) {
         <label class="check"><input type="checkbox" name="payday_email" ${cfg.payday_email !== 'off' ? 'checked' : ''}> ${esc(T.paydayOn)}</label>
         <label class="check"><input type="checkbox" name="bill_email" ${cfg.bill_email !== 'off' ? 'checked' : ''}> ${esc(T.billEmailOn)}</label>
         <label class="check"><input type="checkbox" name="close_email" ${cfg.close_email === 'on' ? 'checked' : ''}> ${esc(T.closeEmailOn)}</label>
+        <label class="check"><input type="checkbox" name="calendar_sync" ${cfg.calendar_sync === 'on' ? 'checked' : ''}> ${esc(T.calendarOn)}</label>
+        ${cfg.calendar_status ? `<p class="hint">${esc(T.calendarStatus(cfg.calendar_status))}</p>` : ''}
         <p class="hint">${esc(T.noteEmailHint)}</p>
         <p class="hint">${esc(T.alertsAlways)}</p>
         <div class="actions"><button class="btn secondary left" type="button" data-action="sendsummary">${esc(T.weeklySendNow)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div></form>`,
@@ -1667,7 +1778,7 @@ async function viewSettings(local) {
   const lang = cfg.language === 'en' ? 'English' : cfg.language === 'id' ? 'Bahasa Indonesia' : T.languageAuto;
   const groups = [
     [T.setGroupRoutine, [['monthend', T.monthEnd, T.monthEndShort], ['import', T.importTitle, (s.imports || []).length ? T.importLast(new Date(s.imports[0].at).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })) : T.importNever], ['sync', T.settingsSync, syncNote]]],
-    [T.setGroupMoney, [['accounts', T.accountsTitle, T.nAccounts(s.accounts.length)], ['budgets', T.budgetsTitle, T.nBudgets(s.budgets.length)], ['goals', T.goalsTitle, T.nGoals((s.goals || []).length)], ['assets', T.assetsTitle, T.nAssets((s.assets || []).length)]]],
+    [T.setGroupMoney, [['accounts', T.accountsTitle, T.nAccounts(s.accounts.length)], ['budgets', T.budgetsTitle, T.nBudgets(s.budgets.length)], ['goals', T.goalsTitle, T.nGoals((s.goals || []).length)], ['assets', T.assetsTitle, T.nAssets((s.assets || []).length)], ['cards', T.cardsTitle, T.nCards((s.cards || []).length)]]],
     [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['plans', T.plansTitle, T.nPlans((s.plans || []).length)], ['emails', T.emailsTitle, T.nEmailsOn(emailsOn, 5)]]],
     [T.setGroupApp, [['prefs', T.preferences, T.prefSummary(lang, Number(cfg.payday_day) || 28)], ['more', T.more, T.moreSummary]]],
   ];
@@ -1910,9 +2021,10 @@ function onClick(e) {
   if (a === 'tagbudget') return openTagBudget(el.dataset.tag || '', el.dataset.budget || '');
   if (a === 'closeday' || a === 'reopenday') {
     const r = state.review;
-    if (r && r.day) { r.day.closed = a === 'closeday'; if (r.day.closed) r.day.streak += 1; else r.day.streak = Math.max(0, r.day.streak - 1); keepInputs(viewReview); }
-    if (a === 'closeday') toast(T.dayClosedToast);
-    return save(a === 'closeday' ? 'closeDay' : 'reopenDay', { date: state.boot.today })
+    const date = el.dataset.date || state.boot.today;
+    if (r && r.day && date !== state.boot.today) { delete r.day.yesterday; r.day.streak += 1; keepInputs(viewReview); } else if (r && r.day) { r.day.closed = a === 'closeday'; if (r.day.closed) r.day.streak += 1; else r.day.streak = Math.max(0, r.day.streak - 1); keepInputs(viewReview); }
+    if (a === 'closeday') toast(date === state.boot.today ? T.dayClosedToast : T.dayYesterdayClosed);
+    return save(a === 'closeday' ? 'closeDay' : 'reopenDay', { date })
       .then((res) => { if (state.review) { state.review.day = { ...state.review.day, ...res }; if (state.tab === 'review') keepInputs(viewReview); } })
       .catch((err) => toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }));
   }
@@ -1941,6 +2053,22 @@ function onClick(e) {
     viewSettings(state.settings);
     if (a === 'addplan') { const n = $$('.plan-row [data-p=name]'); if (n.length) n[n.length - 1].focus(); }
     return null;
+  }
+  if (a === 'addcard' || a === 'delcard') {
+    state.settings.cards = readCards(el.closest('form'));
+    if (a === 'addcard') state.settings.cards.push({ stream: '', statement: '', due: '' });
+    else state.settings.cards.splice(Number(el.dataset.i), 1);
+    viewSettings(state.settings);
+    return null;
+  }
+  if (a === 'interest') return openInterest();
+  if (a === 'spt') return openSpt(Number(el.dataset.year));
+  if (a === 'sptcsv') return sptCsv();
+  if (a === 'scanyearly') {
+    el.disabled = true;
+    el.textContent = T.yearlyScanning;
+    return call('scanYearly').then((r) => { toast(T.yearlyFound(r.found)); state.dashByMonth = {}; closeModal(); if (state.tab === 'dashboard') viewDashboard(); })
+      .catch((err) => { el.disabled = false; el.textContent = T.yearlyScan; toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }); });
   }
   if (a === 'addasset' || a === 'delasset') {
     state.settings.assets = readAssets(el.closest('form'));
@@ -2202,6 +2330,10 @@ function onSubmit(e) {
     const plans = readPlans(form).map((x) => ({ ...x, amount: amountValue(x.amount), day: Number(x.day) }));
     return saveForm(form, 'savePlans', { plans }, async () => { viewSettings(await call('settings')); });
   }
+  if (kind === 'cards') {
+    const cards = readCards(form).map((c) => ({ stream: c.stream, statement: Number(c.statement), due: Number(c.due) }));
+    return saveForm(form, 'saveCards', { cards }, async () => { state.dashByMonth = {}; viewSettings(await call('settings')); });
+  }
   if (kind === 'assets') {
     const assets = readAssets(form).map((x) => ({ ...x, unit_value: amountValue(x.unit_value) || 0, paid: amountValue(x.paid) || '', qty: x.qty === '' ? 1 : Number(x.qty) }));
     return saveForm(form, 'saveAssets', { assets }, async () => { state.dashByMonth = {}; viewSettings(await call('settings')); });
@@ -2298,7 +2430,9 @@ function onSubmit(e) {
   }
   if (kind === 'weekly') {
     const v = (n) => (form.querySelector(`[name=${n}]`).checked ? 'on' : 'off');
-    return saveForm(form, 'saveConfig', { weekly_email: v('weekly_email'), monthly_email: v('monthly_email'), payday_email: v('payday_email'), bill_email: v('bill_email'), close_email: v('close_email') });
+    return saveForm(form, 'saveConfig', { weekly_email: v('weekly_email'), monthly_email: v('monthly_email'), payday_email: v('payday_email'), bill_email: v('bill_email'), close_email: v('close_email'), calendar_sync: v('calendar_sync') }, (r) => {
+      if (r && r.calendar) form.querySelector('.state').textContent = r.calendar.error ? `⚠ ${T.calendarFailed}` : `✓ ${T.calendarDone(r.calendar.events)}`;
+    });
   }
   return null;
 }
@@ -2361,6 +2495,7 @@ export async function start() {
   let searchTimer;
   document.addEventListener('input', (e) => {
     if (e.target.closest('form[data-form=split]')) updateSplitLeft();
+    if (e.target.closest('form[data-form=interest]')) updateInterest(e.target.closest('form'));
     if (e.target.id === 'quickIn') applyQuick(e.target.value);
     if (e.target.matches && e.target.matches('.amount-input, .calc-input')) showCalc(e.target);
     const tg = e.target.closest('form[data-form=tagih]');

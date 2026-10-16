@@ -21,8 +21,11 @@ import {
 import { compileRule } from './rules.js';
 import { recurringCharges, payee } from './recurring.js';
 import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth } from './salary.js';
-import { topPlaces, biggestExpenses, moneyFlow, spendingPattern, tagTotals } from './insights.js';
-import { netWorth, assetProblems, ASSET_KINDS, duePlans, owedSummary, upcomingBills } from './wealth.js';
+import { topPlaces, biggestExpenses, moneyFlow, spendingPattern, tagTotals, newPlaceIds } from './insights.js';
+import { netWorth, assetProblems, ASSET_KINDS, duePlans, owedSummary, upcomingBills, financialHealth } from './wealth.js';
+import { cardBills, cardProblems } from './cards.js';
+import { sptList } from './spt.js';
+import { yearlyItems } from './yearly.js';
 import { parseQuick, usualEntries } from './quick.js';
 import { weeklySummary } from './summary.js';
 import { monthlyReport } from './notices.js';
@@ -58,7 +61,23 @@ export function createApi(store, env) {
   /** The month the Summary opens on: the calendar month, or the payday period holding today. */
   const currentMonth = () => (byPayday() ? currentPaydayMonth(now(), payday()) : isoDate(now()).slice(0, 7));
   const rangeOf = (m) => (byPayday() ? paydayPeriod(m, payday()) : null);
-  const recurring = (all) => recurringCharges(all, { today: now(), skipCategories: fixedNames(), hidden: lines('recurring_hidden') });
+  const list = (key) => { try { const v = JSON.parse(String(store.config(key) || '[]')); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+  /** Subscriptions seen in the app's rows, plus yearly plans found further back in Gmail (Config yearly_subs). */
+  const recurring = (all) => {
+    const r = recurringCharges(all, { today: now(), skipCategories: fixedNames(), hidden: lines('recurring_hidden'), start: start() });
+    const known = new Set(r.items.map((i) => i.key));
+    const yearly = yearlyItems(list('yearly_subs'), all, { today: now(), hidden: lines('recurring_hidden') }).filter((i) => !known.has(i.key));
+    if (!yearly.length) return r;
+    return {
+      items: [...r.items, ...yearly].sort((a, b) => a.nextDate.localeCompare(b.nextDate) || b.amount - a.amount),
+      monthlyTotal: Math.round((r.monthlyTotal + yearly.reduce((t, i) => t + i.amount / 12, 0)) * 100) / 100,
+    };
+  };
+  /** Credit cards and paylater (Config cards): the last bill, what is paid, when it's due. */
+  const cards = (all) => cardBills(list('cards'), all, now(), fixedNames()[1]);
+  /** "Pertama kali": rows paying a place for the first time get first: true. */
+  const firstIds = (all) => newPlaceIds(all, { start: start(), today: now(), skipCategories: fixedNames() });
+  const withFirst = (rs, ids) => rs.map((r) => (ids.has(String(r.id)) ? { ...r, first: true } : r));
   const salaryStream = () => String(store.config('salary_stream') || '');
   const salaries = (all) => missingSalaries(all, {
     start: start(), today: now(), payday: payday(), category: salaryCategory(cats().income),
@@ -103,7 +122,10 @@ export function createApi(store, env) {
     if (!days.has(t)) d.setDate(d.getDate() - 1); // an open today doesn't break yesterday's streak
     while (days.has(isoDate(d))) { streak += 1; d.setDate(d.getDate() - 1); }
     const byHand = all.filter((r) => String(r.date).slice(0, 10) === t && ['manual', 'note'].includes(r.source) && r.status !== 'ignored').length;
-    return { date: t, closed: days.has(t), streak, byHand };
+    // Until 12:00 a streak can still be kept by closing yesterday.
+    const day = (k) => isoDate(new Date(now().getFullYear(), now().getMonth(), now().getDate() - k));
+    const late = now().getHours() < 12 && !days.has(day(1)) && days.has(day(2));
+    return { date: t, closed: days.has(t), streak, byHand, ...(late ? { yesterday: day(1) } : {}) };
   };
   /** Open and paid "Tagih" entries, each with the name of the payment it belongs to. */
   const owedView = (all) => {
@@ -133,7 +155,8 @@ export function createApi(store, env) {
 
     review() {
       const all = rows();
-      return { ...reviewItems(all, store.read(TABS.inboxLog), { today: now() }), salary: salaries(all), day: dayState(all) };
+      const r = reviewItems(all, store.read(TABS.inboxLog), { today: now() });
+      return { ...r, pending: withFirst(r.pending, firstIds(all)), salary: salaries(all), day: dayState(all) };
     },
 
     /**
@@ -227,7 +250,9 @@ export function createApi(store, env) {
     },
 
     list(filter = {}) {
-      return filterTransactions(rows(), filter);
+      const all = rows();
+      const res = filterTransactions(all, filter);
+      return { ...res, rows: withFirst(res.rows, firstIds(all)) };
     },
 
     update({ id, fields }) {
@@ -317,6 +342,11 @@ export function createApi(store, env) {
       const first = start().slice(0, 7);
       const trend = [-5, -4, -3, -2, -1, 0].map((k) => monthAdd(m, k)).filter((x) => !first || x >= first)
         .map((x) => { const t = x === m ? summary : summarizeMonth(all, c, x, who || '', rangeOf(x)); return { month: x, income: t.income, expense: t.expense }; });
+      const rec = recurring(all);
+      const cardList = cards(all);
+      const wealth = store.read(TABS.assets).length ? netWorth(balances, store.read(TABS.assets)) : null;
+      const goals = goalProgress(store.read(TABS.goals), balances, today);
+      const ids = firstIds(all);
       return {
         month: m, summary, balances, trend,
         perDay: budgetPerDay(balances, today, payday()),
@@ -327,24 +357,52 @@ export function createApi(store, env) {
         daily: dailySpending(all, c, spanOf(m)),
         prevDaily: dailySpending(all, c, spanOf(monthAdd(m, -1))),
         // Today's payments (also the ones still waiting for a category) and the latest rows.
-        today: all.filter((r) => String(r.date).slice(0, 10) === isoDate(today) && r.direction === 'out' && r.status !== 'ignored' && !fixedNames().includes(r.category))
-          .sort(newestFirst).map(rowView),
-        recent: all.filter((r) => r.status === 'approved').sort(newestFirst).slice(0, 8).map(rowView),
+        today: withFirst(all.filter((r) => String(r.date).slice(0, 10) === isoDate(today) && r.direction === 'out' && r.status !== 'ignored' && !fixedNames().includes(r.category))
+          .sort(newestFirst).map(rowView), ids),
+        recent: withFirst(all.filter((r) => r.status === 'approved').sort(newestFirst).slice(0, 8).map(rowView), ids),
         places: topPlaces(all, c, spanOf(m)),
         biggest: biggestExpenses(all, c, spanOf(m)),
         flow: moneyFlow(all, c, spanOf(m), fixedNames()[1]),
         pattern: spendingPattern(all, c, spanOf(m)),
         tags: tagTotals(all, spanOf(m)),
         owed: owedView(all),
-        bills: upcomingBills(store.read(TABS.plans), recurring(all).items, today),
+        bills: upcomingBills(store.read(TABS.plans), rec.items, today, 7, cardList),
         events: eventBudgets(all),
-        wealth: store.read(TABS.assets).length ? netWorth(balances, store.read(TABS.assets)) : null,
+        cards: cardList,
+        health: financialHealth({ balances, goals, trend, month: m, summary, wealth }),
+        wealth,
         recurringMarks: json('recurring_marks'),
         bigAmount: bigAmount(),
         big: bigSpends(all, { from: summary.from || `${m}-01`, to: summary.to || `${m}-31`, threshold: bigAmount(), skipCategories: fixedNames() }),
-        recurring: recurring(all),
-        goals: goalProgress(store.read(TABS.goals), streamBalances(all, accounts(), { year: year(), asOf: isoDate(today) }), today),
+        recurring: rec,
+        goals,
       };
+    },
+
+    /**
+     * The SPT asset and debt list for a year: accounts on 31 December (today while the year runs)
+     * and the Aset tab as it is now.
+     */
+    spt({ year: y } = {}) {
+      const yy = Number(y) || now().getFullYear();
+      const asOf = isoDate(now()) < `${yy}-12-31` ? isoDate(now()) : `${yy}-12-31`;
+      const balances = streamBalances(rows(), accounts(), { year: year(), asOf });
+      return sptList({ balances, assets: store.read(TABS.assets), year: yy, asOf });
+    },
+
+    /** Credit cards and paylater: which account, its statement day and due day. */
+    saveCards({ cards: input }) {
+      const clean = (input || []).map((c) => ({ stream: String(c.stream || ''), statement: Number(c.statement), due: Number(c.due) }));
+      const problems = cardProblems(clean, accounts());
+      if (problems.length) throw new Error(problems.join('; '));
+      store.setConfig('cards', JSON.stringify(clean));
+      return { ok: true };
+    },
+
+    /** Reads receipts a year back in Gmail for yearly plans (gas/yearly.js). */
+    scanYearly() {
+      if (!env.scanYearly) throw new Error('reading Gmail is not available here');
+      return env.scanYearly();
     },
 
     /** A year month by month (each month as the summary counts it), with the year's places and biggest payments. */
@@ -601,11 +659,13 @@ export function createApi(store, env) {
           owner_bank_names: store.config('owner_bank_names'), start_date: store.config('start_date'),
           weekly_email: onOff('weekly_email'), monthly_email: onOff('monthly_email'), payday_email: onOff('payday_email'),
           bill_email: onOff('bill_email'), close_email: String(store.config('close_email') || 'off') === 'on' ? 'on' : 'off',
+          calendar_sync: String(store.config('calendar_sync') || 'off') === 'on' ? 'on' : 'off', calendar_status: String(store.config('calendar_status') || ''),
           summary_period: byPayday() ? 'payday' : 'month', salary_stream: salaryStream(), salary_amount: Number(store.config('salary_amount')) || '',
           big_amount: bigAmount(),
         },
         balances: streamBalances(rows(), accounts(), { year: year(), asOf: isoDate(now()) }), lastChecks: lastChecks(rows()),
-        imports: importHistory(), salaryStream: salaryStream(), plans: store.read(TABS.plans), assets: store.read(TABS.assets), assetKinds: ASSET_KINDS,
+        imports: importHistory(), salaryStream: salaryStream(), plans: store.read(TABS.plans), assets: store.read(TABS.assets), assetKinds: ASSET_KINDS, cards: list('cards'),
+        yearly: { found: list('yearly_subs').length, at: String(store.config('yearly_scan') || '') },
         budgetSuggestions: suggestBudgets(rows(), cats(), { start: start(), today: now() }),
         archives: String(store.config('archives') || '').split('\n').filter(Boolean)
           .map((line) => { const [year, url] = line.split(' '); return { year, url }; }),
@@ -686,7 +746,11 @@ export function createApi(store, env) {
         store.setConfig('language', values.language);
       }
       if ('owner_bank_names' in values) store.setConfig('owner_bank_names', String(values.owner_bank_names || ''));
-      for (const key of ['weekly_email', 'monthly_email', 'payday_email', 'bill_email', 'close_email']) if (key in values) store.setConfig(key, values[key] === 'off' ? 'off' : 'on');
+      for (const key of ['weekly_email', 'monthly_email', 'payday_email', 'bill_email', 'close_email', 'calendar_sync']) if (key in values) store.setConfig(key, values[key] === 'off' ? 'off' : 'on');
+      // Switching the calendar on fills it straight away (gas/calendar.js); its result is shown in Settings.
+      if (values.calendar_sync === 'on' && env.syncCalendar) {
+        try { return { ok: true, calendar: env.syncCalendar() }; } catch (e) { return { ok: true, calendar: { error: e.message } }; }
+      }
       if ('summary_period' in values) store.setConfig('summary_period', values.summary_period === 'payday' ? 'payday' : 'month');
       if ('salary_stream' in values) {
         if (values.salary_stream && !accounts().some((a) => a.stream === values.salary_stream)) throw new Error('unknown account');
@@ -803,5 +867,5 @@ export const API_METHODS = [
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
   'yearly', 'importStatement', 'undoImport', 'updateMany', 'tagih', 'owedSet', 'owedRemove', 'savePlans', 'saveAssets', 'markRecurring',
-  'setTagBudget', 'closeDay', 'reopenDay',
+  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly',
 ];

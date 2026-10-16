@@ -175,6 +175,15 @@ describe('web app', () => {
     expect(doc.querySelector('[data-stream=Cash] .cat-ic').textContent).toBe('💵');
     logo.dispatchEvent(new dom.window.Event('error'));
     expect(doc.querySelector('[data-stream=BCA] .cat-ic').textContent).toBe('🏦');
+    // Money health, and deposit vs SBN worked out as the rates are typed.
+    expect(view()).toContain('Cek kesehatan keuangan');
+    click(doc.querySelector('[data-action=interest]'));
+    const form = doc.querySelector('form[data-form=interest]');
+    form.querySelector('[name=amount]').value = '60jt';
+    form.querySelector('[name=dep]').value = '4,5';
+    form.querySelector('[name=dep]').dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    expect(doc.querySelector('#interestOut').textContent).toContain('+Rp2.160.000');
+    click(doc.querySelector('#modal [data-action=close]'));
     // Reports: the six-month chart, a calendar cell per day, the donut.
     click(doc.querySelector('[data-action=dashview][data-view=report]'));
     await until(() => doc.querySelector('.hm-grid'), 'report view');
@@ -432,7 +441,7 @@ describe('web app', () => {
     expect(doc.querySelectorAll('.set-detail > form, .set-detail > section').length).toBe(1);
     click(doc.querySelector('.set-back'));
     await until(() => !doc.querySelector('.settings').classList.contains('show-detail'), 'back to the list');
-    expect(doc.querySelectorAll('.set-row').length).toBe(13);
+    expect(doc.querySelectorAll('.set-row').length).toBe(14);
     expect(doc.querySelector('[data-section=accounts]').textContent).toContain('3 rekening');
   });
 

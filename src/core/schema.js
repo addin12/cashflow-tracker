@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 20; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at · 19: price_status · 20: notes by email, tag budgets, close the day, bill reminders
+export const SETUP_VERSION = 21; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at · 19: price_status · 20: notes by email, tag budgets, close the day, bill reminders · 21: paydays before weekends/holidays, cards, yearly plans, calendar
 
 export const TABS = {
   transactions: 'Transactions',
@@ -88,6 +88,13 @@ export const CONFIG_KEYS = [
   { key: 'closed_days', name: 'CFG_CLOSED_DAYS', note: 'Days closed with "Tutup hari" (YYYY-MM-DD, newest first)' },
   { key: 'bill_email', name: 'CFG_BILL_EMAIL', note: 'Email the morning before a bill is due: on / off' },
   { key: 'close_email', name: 'CFG_CLOSE_EMAIL', note: 'Email at 21:00 when nothing was logged by hand today: on / off (default off)' },
+  // Added in setup version 21.
+  { key: 'cards', name: 'CFG_CARDS', note: 'Credit cards and paylater (JSON: account, statement day, due day)' },
+  { key: 'yearly_subs', name: 'CFG_YEARLY_SUBS', note: 'Yearly plans found in older Gmail receipts (JSON, written by the app)' },
+  { key: 'yearly_scan', name: 'CFG_YEARLY_SCAN', note: 'When Gmail was last read for yearly plans' },
+  { key: 'calendar_sync', name: 'CFG_CALENDAR_SYNC', note: 'Bills, payday and renewals in a "Cashflow" Google Calendar: on / off (default off)' },
+  { key: 'calendar_id', name: 'CFG_CALENDAR_ID', note: 'The Cashflow calendar (written by the app)' },
+  { key: 'calendar_status', name: 'CFG_CALENDAR_STATUS', note: 'Last calendar update: events, or why it failed' },
 ];
 
 export const STATUS = ['pending', 'approved', 'ignored'];

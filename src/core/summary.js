@@ -41,6 +41,8 @@ export function weeklySummary({ rows, cats, budgets, recurring, today, bigAmount
     pending: rows.filter((r) => r.status === 'pending').length,
     budgetAlerts,
     upcoming: (recurring.items || []).filter((i) => i.daysLeft >= 0 && i.daysLeft <= 7),
+    // Subscriptions that went up, look stopped, or are new.
+    changes: (recurring.items || []).filter((i) => i.change),
   };
 }
 
@@ -50,6 +52,7 @@ const T = {
     title: 'Ringkasan minggu lalu', spent: 'Pengeluaran', income: 'Pemasukan', tx: (n) => `${n} transaksi`,
     top: 'Kategori terbesar', biggest: 'Transaksi terbesar', big: (v) => `Pengeluaran besar (${v} ke atas)`, pending: (n) => `${n} transaksi menunggu dicek di aplikasi.`,
     budgets: 'Budget bulan ini', over: (p) => `${p}% terpakai`, upcoming: 'Tagihan rutin 7 hari ke depan', open: 'Buka aplikasi',
+    changes: 'Langganan yang berubah', up: (was) => `Naik dari ${was}`, late: (d) => `Belum ditagih sejak ${d}: sudah berhenti?`, fresh: 'Langganan baru',
     none: 'Tidak ada pengeluaran minggu lalu.', footer: 'Email ini dikirim setiap Senin. Matikan di Pengaturan → Ringkasan mingguan.',
   },
   en: {
@@ -57,6 +60,7 @@ const T = {
     title: 'Last week', spent: 'Spent', income: 'Income', tx: (n) => `${n} transaction(s)`,
     top: 'Biggest categories', biggest: 'Biggest transactions', big: (v) => `Big spending (${v} and up)`, pending: (n) => `${n} transaction(s) waiting for review in the app.`,
     budgets: 'Budgets this month', over: (p) => `${p}% used`, upcoming: 'Repeating charges in the next 7 days', open: 'Open the app',
+    changes: 'Subscriptions that changed', up: (was) => `Up from ${was}`, late: (d) => `Not charged since ${d}: stopped?`, fresh: 'New subscription',
     none: 'No spending last week.', footer: 'Sent every Monday. Turn it off in Settings → Weekly summary.',
   },
 };
@@ -81,6 +85,7 @@ export function summaryEmail(s, { appUrl = '', lang = 'id' } = {}) {
   if ((s.big || []).length) parts.push(section(t.big(rp(s.bigAmount)), s.big.map((b) => row(b.description, `<b>${rp(b.amount)}</b>`, `${b.date} · ${b.category}`)).join('')));
   if (s.biggest.length) parts.push(section(t.biggest, s.biggest.map((b) => row(b.description, rp(b.amount), `${b.date} · ${b.category}`)).join('')));
   if (s.budgetAlerts.length) parts.push(section(t.budgets, s.budgetAlerts.map((b) => row(b.category, `${rp(b.spent)} / ${rp(b.budget)}`, t.over(Math.round(b.ratio * 100)))).join('')));
+  if ((s.changes || []).length) parts.push(section(t.changes, s.changes.map((c) => row(c.name, rp(c.amount), c.change === 'up' ? t.up(rp(c.was)) : c.change === 'late' ? t.late(c.nextDate) : t.fresh)).join('')));
   if (s.upcoming.length) parts.push(section(t.upcoming, s.upcoming.map((u) => row(u.name, rp(u.amount), `${u.nextDate} · ${u.category}`)).join('')));
   if (appUrl) parts.push(`<p style="margin:28px 0"><a href="${esc(appUrl)}" style="background:#0066cc;color:#fff;text-decoration:none;padding:12px 22px;border-radius:999px;font-size:16px;display:inline-block">${esc(t.open)}</a></p>`);
   parts.push(`<p style="color:#6e6e73;font-size:14px;margin-top:28px">${esc(t.footer)}</p>`);

@@ -11,20 +11,28 @@ const iso = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0
 
 describe('nextPayday (payday on the 28th)', () => {
   it('is this month while the 28th is ahead', () => expect(iso(nextPayday(d('2026-10-05'), 28))).toBe('2026-10-28'));
-  it('moves to next month on payday itself', () => expect(iso(nextPayday(d('2026-10-28'), 28))).toBe('2026-11-28'));
-  it('moves to next month after payday', () => expect(iso(nextPayday(d('2026-10-30'), 28))).toBe('2026-11-28'));
+  // 28 Nov 2026 is a Saturday: the salary comes on Friday the 27th.
+  it('moves to next month on payday itself', () => expect(iso(nextPayday(d('2026-10-28'), 28))).toBe('2026-11-27'));
+  it('moves to next month after payday', () => expect(iso(nextPayday(d('2026-10-30'), 28))).toBe('2026-11-27'));
   it('rolls over the year', () => expect(iso(nextPayday(d('2026-12-29'), 28))).toBe('2027-01-28'));
   it('uses the last day when the month is short', () => {
-    expect(iso(nextPayday(d('2026-02-10'), 31))).toBe('2026-02-28');
-    expect(iso(nextPayday(d('2026-01-31'), 31))).toBe('2026-02-28');
+    expect(iso(nextPayday(d('2026-02-10'), 31))).toBe('2026-02-27'); // the 28th is a Saturday
+    expect(iso(nextPayday(d('2026-01-31'), 31))).toBe('2026-02-27');
   });
   it('counts days left (never 0)', () => {
     expect(daysUntilPayday(d('2026-10-05'), 28)).toBe(23);
-    expect(daysUntilPayday(d('2026-10-28'), 28)).toBe(31);
+    expect(daysUntilPayday(d('2026-10-28'), 28)).toBe(30);
   });
   it('rejects bad days', () => expect(() => nextPayday(d('2026-10-05'), 0)).toThrow());
-  it('builds the matching sheet formula', () => {
-    expect(nextPaydayFormula('CFG_PAYDAY')).toBe('=LET(t,TODAY(),p,CFG_PAYDAY,IF(t<DATE(YEAR(t),MONTH(t),MIN(p,DAY(EOMONTH(t,0)))),DATE(YEAR(t),MONTH(t),MIN(p,DAY(EOMONTH(t,0)))),DATE(YEAR(t),MONTH(t)+1,MIN(p,DAY(EOMONTH(t,1))))))');
+  it('moves before weekends and national holidays (cuti bersama too)', () => {
+    expect(iso(nextPayday(d('2026-03-01'), 20))).toBe('2026-03-17'); // 20 Mar cuti, 19 Nyepi, 18 cuti
+    expect(iso(nextPayday(d('2026-08-01'), 17))).toBe('2026-08-14'); // 17 Agustus is a Monday
+    expect(iso(nextPayday(d('2026-11-28'), 28))).toBe('2026-12-28'); // a Monday: stays
+  });
+  it('builds the matching sheet formula (WORKDAY with the holiday list)', () => {
+    const f = nextPaydayFormula('CFG_PAYDAY');
+    expect(f.startsWith('=LET(t,TODAY(),p,CFG_PAYDAY,h,{DATE(2026,1,1);')).toBe(true);
+    expect(f).toContain(',a,WORKDAY(DATE(YEAR(t),MONTH(t),MIN(p,DAY(EOMONTH(t,0))))+1,-1,h),IF(t<a,a,WORKDAY(DATE(YEAR(t),MONTH(t)+1,MIN(p,DAY(EOMONTH(t,1))))+1,-1,h)))');
   });
 });
 

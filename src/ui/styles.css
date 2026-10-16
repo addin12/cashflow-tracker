@@ -666,3 +666,17 @@ button.rowi:hover { background: var(--zebra); }
 .cat-chart { height: 150px; margin-top: 12px; }
 .cat-chart .bars i { width: 60%; max-width: 30px; }
 .cat-chart .bars i.out { background: var(--accent); }
+
+/* ---------------------------------------------------------------- Round 17
+   "Pertama kali", money health, closing yesterday, yearly plans. */
+.badge.new { background: var(--accent-soft); color: var(--accent); }
+.meta .badge, .c-cat .badge { margin-left: 4px; }
+.health .rowi { align-items: center; }
+.lvl { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--line); }
+.lvl.good { background: var(--success); } .lvl.ok { background: var(--warning); } .lvl.low { background: var(--critical); }
+.lvl-word { display: block; font-size: 14px; font-weight: 600; text-align: right; }
+.lvl-word.good { color: var(--success); } .lvl-word.ok { color: var(--warning); } .lvl-word.low { color: var(--critical); }
+.day-card .yesterday { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px; background: var(--warning-soft); color: var(--warning); }
+.day-card .yesterday p { margin: 0; flex: 1 1 200px; }
+.rec-row .amt small, .sub-row .amt small { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 2px; }
+.health .what { flex: 1; min-width: 0; text-align: left; }

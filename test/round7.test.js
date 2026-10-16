@@ -47,8 +47,8 @@ describe('salary that no email reports', () => {
     expect(missingSalaries(early, { ...base, today: new Date(2026, 9, 28) })).toEqual([{ month: '2026-10', date: '2026-10-28', amount: 8500000 }]);
     expect(missingSalaries(early, { ...base, today: new Date(2026, 9, 28), skipped: ['2026-10'] })).toEqual([]);
     expect(missingSalaries([{ ...early[0], status: 'ignored' }], { ...base, today: new Date(2026, 9, 7) })).toHaveLength(1);
-    // February has no 30th: payday falls on its last day.
-    expect(missingSalaries([], { ...base, payday: 30, start: '2027-02-01', today: new Date(2027, 1, 28) })).toEqual([{ month: '2027-02', date: '2027-02-28', amount: 0 }]);
+    // February has no 30th: payday falls on its last day, a Sunday in 2027, so Friday the 26th.
+    expect(missingSalaries([], { ...base, payday: 30, start: '2027-02-01', today: new Date(2027, 1, 28) })).toEqual([{ month: '2027-02', date: '2027-02-26', amount: 0 }]);
   });
 
   it('the salary category is "Gaji" whatever its case', () => {
@@ -99,7 +99,7 @@ describe('salary that no email reports', () => {
 describe('summary from payday to payday', () => {
   it('"October" is 28 Sep to 27 Oct, and the current one follows payday', () => {
     expect(paydayPeriod('2026-10', 28)).toEqual({ from: '2026-09-28', to: '2026-10-27' });
-    expect(paydayPeriod('2027-03', 30)).toEqual({ from: '2027-02-28', to: '2027-03-29' });
+    expect(paydayPeriod('2027-03', 30)).toEqual({ from: '2027-02-26', to: '2027-03-29' });
     expect(currentPaydayMonth(new Date(2026, 9, 7), 28)).toBe('2026-10');
     expect(currentPaydayMonth(new Date(2026, 9, 28), 28)).toBe('2026-11');
     expect(currentPaydayMonth(new Date(2026, 11, 30), 28)).toBe('2027-01');

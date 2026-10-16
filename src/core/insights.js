@@ -8,6 +8,29 @@ const isSpending = (r, exp) => r.status === 'approved' && r.direction === 'out' 
 /** "CIRCLEKA INDONESIA UTAMA" and "Circleka Indonesia Utama 2" are the same place. */
 const placeKey = (s) => String(s || '').toLowerCase().replace(/\d+/g, ' ').replace(/[^a-z& ]+/g, ' ').replace(/\s+/g, ' ').trim();
 
+/**
+ * Payments to a place never paid before ("Pertama kali"): the first money-out row of each payee
+ * from an email or statement, in the last `days` days. Nothing counts in the app's first 30 days,
+ * when every place is new to it.
+ * @returns {Set<string>} row ids
+ */
+export function newPlaceIds(rows, { start = '', today, days = 60, skipCategories = [] }) {
+  const skip = new Set(skipCategories);
+  const t = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const dayMs = (iso) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+  const from = Math.max(t - days * 86400000, start ? dayMs(String(start).slice(0, 10)) + 30 * 86400000 : 0);
+  const firsts = new Map();
+  for (const r of rows) {
+    if (r.direction !== 'out' || r.status === 'ignored' || skip.has(r.category) || String(r.ref_no || '').startsWith('split:')) continue;
+    const k = placeKey(r.description);
+    if (!k) continue;
+    const d = String(r.date).slice(0, 10);
+    const f = firsts.get(k);
+    if (!f || d < f.d || (d === f.d && String(r.time || '') < f.time)) firsts.set(k, { d, time: String(r.time || ''), r });
+  }
+  return new Set([...firsts.values()].filter((f) => ['email', 'import'].includes(f.r.source) && dayMs(f.d) >= from).map((f) => String(f.r.id)));
+}
+
 /** Where the money went, by place (transaction name): times and total, biggest first. */
 export function topPlaces(rows, cats, range, limit = 8) {
   const exp = new Set(cats.expense);

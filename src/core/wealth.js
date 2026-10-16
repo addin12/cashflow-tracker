@@ -103,10 +103,10 @@ export function duePlans(plans, rows, today) {
 }
 
 /**
- * Bills in the next `days` days: planned transactions (money out) and expected subscriptions,
- * soonest first, one per name.
+ * Bills in the next `days` days: planned transactions (money out), expected subscriptions and card
+ * bills still to pay (`cards`, from cards.js), soonest first, one per name.
  */
-export function upcomingBills(plans, recurringItems, today, days = 7) {
+export function upcomingBills(plans, recurringItems, today, days = 7, cards = []) {
   const t = isoOf(today);
   const dayNo = (iso) => Math.round((Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) - Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
   const month = t.slice(0, 7);
@@ -120,8 +120,55 @@ export function upcomingBills(plans, recurringItems, today, days = 7) {
   for (const i of recurringItems) {
     if (i.daysLeft >= 0 && i.daysLeft <= days) out.push({ name: i.name, amount: num(i.amount), date: i.nextDate, daysLeft: i.daysLeft, kind: 'sub' });
   }
+  for (const c of cards) {
+    if (c.left > 0 && c.daysLeft >= 0 && c.daysLeft <= days) out.push({ name: c.stream, amount: num(c.left), date: c.dueDate, daysLeft: c.daysLeft, kind: 'card' });
+  }
   const seen = new Set();
   return out.sort((a, b) => a.daysLeft - b.daysLeft || b.amount - a.amount).filter((b) => { const k = b.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+}
+
+const EMERGENCY = /darurat|emergency/i;
+/**
+ * Three plain checks, each 'good' | 'ok' | 'low' (null when there's not enough to say):
+ *   months   how long the emergency fund (an account or savings goal named "Dana Darurat") lasts
+ *            at the average spending of the last three months
+ *   saving   the share of this month's income not spent
+ *   debt     debts (and accounts below zero, e.g. a credit card) against everything owned
+ * @param {{balances: {stream, balance}[], goals?: {name, saved}[], trend: {month, expense}[], month: string,
+ *   summary: {income, expense}, wealth?: {owned, collectibles, debts} | null}} input
+ */
+export function financialHealth({ balances, goals = [], trend, month, summary, wealth = null }) {
+  const level = (v, good, ok) => (v == null ? null : v >= good ? 'good' : v >= ok ? 'ok' : 'low');
+  const fundAccounts = balances.filter((b) => EMERGENCY.test(b.stream));
+  const fundGoal = goals.find((g) => EMERGENCY.test(g.name));
+  const fund = fundAccounts.length ? fundAccounts.reduce((t, b) => t + num(b.balance), 0) : fundGoal ? num(fundGoal.saved) : null;
+  const past = trend.filter((t) => t.month < month && num(t.expense) > 0).slice(-3);
+  const monthly = past.length ? past.reduce((t, x) => t + num(x.expense), 0) / past.length : 0;
+  const months = fund != null && monthly > 0 ? Math.round((fund / monthly) * 10) / 10 : null;
+  const saving = num(summary.income) > 0 ? Math.round(((num(summary.income) - num(summary.expense)) / num(summary.income)) * 100) / 100 : null;
+  const negative = balances.reduce((t, b) => t + Math.max(0, -num(b.balance)), 0);
+  const debts = (wealth ? num(wealth.debts) : 0) + negative;
+  const owned = balances.reduce((t, b) => t + Math.max(0, num(b.balance)), 0) + (wealth ? num(wealth.owned) + num(wealth.collectibles) : 0);
+  const debt = owned > 0 ? Math.round((debts / owned) * 100) / 100 : debts > 0 ? 1 : 0;
+  return {
+    fund, monthly: round2(monthly), months, monthsLevel: level(months, 6, 3),
+    saving, savingLevel: level(saving, 0.2, 0), debts: round2(debts), debt, debtLevel: debt <= 0.3 ? 'good' : debt <= 0.5 ? 'ok' : 'low',
+  };
+}
+
+/**
+ * What an amount earns over `months`: a time deposit (interest taxed 20%, none when the amount is
+ * Rp7,5 jt or less) against government bonds, SBN (coupon taxed 10%). Rates are yearly percentages;
+ * a missing rate gives null for that side.
+ */
+export function interestCompare({ amount, months = 1, depositRate, sbnRate }) {
+  const a = num(amount);
+  const one = (rate, tax) => {
+    if (!(num(rate) > 0) || !(a > 0)) return null;
+    const gross = a * (num(rate) / 100) * (num(months) / 12);
+    return { gross: round2(gross), tax: round2(gross * tax), net: round2(gross * (1 - tax)), perMonth: round2((gross * (1 - tax)) / Math.max(1, num(months))) };
+  };
+  return { deposit: one(depositRate, a > 7500000 ? 0.2 : 0), sbn: one(sbnRate, 0.1) };
 }
 
 /** Money owed to you, open ones first, with the total still open. */

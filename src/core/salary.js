@@ -1,15 +1,18 @@
 // Salary that no email reports. BCA only emails money going out, so the salary landing there is
 // never seen by the sync: on each payday since the start date the app asks for it in Review
 // (a "salary card"), until it is recorded or the owner says there was none that month.
-// The payday period ("Oktober" = 28 Sep - 27 Oct for payday 28) is also here.
+// The payday period ("Oktober" = 28 Sep - 27 Oct for payday 28) is also here. A payday on a weekend
+// or national holiday moves to the working day before it, and the period with it.
+
+import { workdayOnOrBefore } from './holidays.js';
 
 const pad = (n) => String(n).padStart(2, '0');
 const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const lastDay = (y, m) => new Date(y, m + 1, 0).getDate();
-/** Payday in month 'YYYY-MM' as YYYY-MM-DD (a day the month lacks becomes its last day). */
+/** Payday in month 'YYYY-MM' as YYYY-MM-DD (a day the month lacks becomes its last day; weekends and holidays move it earlier). */
 export function paydayOf(month, day) {
   const [y, m] = month.split('-').map(Number);
-  return iso(new Date(y, m - 1, Math.min(day, lastDay(y, m - 1))));
+  return iso(workdayOnOrBefore(new Date(y, m - 1, Math.min(day, lastDay(y, m - 1)))));
 }
 const monthAdd = (ym, k) => {
   const [y, m] = ym.split('-').map(Number);

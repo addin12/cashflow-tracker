@@ -2,13 +2,15 @@
 // SEED (first-run data) and SYNC_DEFAULT ('preview' | 'live') are injected by scripts/build.mjs.
 /* global SpreadsheetApp, HtmlService, LockService, SEED, SYNC_DEFAULT */
 
-import { runSetup, configValue } from './gas/setup.js';
+import { runSetup, configValue, setConfigValue } from './gas/setup.js';
 import { runSelfTest } from './gas/selftest.js';
 import { runSync, connect, appSpreadsheet, syncStamp, addRuntime, installTrigger } from './gas/sync.js';
 import { recordStartup } from './gas/perf.js';
 import { cachedInit, storeInit } from './gas/initcache.js';
 import { sheetStore } from './gas/sheetstore.js';
 import { createApi, API_METHODS } from './core/api.js';
+import { scanYearly } from './gas/yearly.js';
+import { syncCalendar } from './gas/calendar.js';
 import { sendWeeklySummary, clearSelfTestTrigger, runDaily, scheduleSelfTest, sendSyncAlert, installMailTriggers, runEvening } from './gas/weekly.js';
 import { refreshPrices } from './gas/prices.js';
 
@@ -100,6 +102,8 @@ export function api(name, payloadJson) {
       sync: () => runSync({ seed: SEED, defaultMode: SYNC_DEFAULT }),
       sheetUrl: ss.getUrl(),
       sendSummary: () => sendWeeklySummary(ss, { force: true }),
+      scanYearly: () => scanYearly(ss),
+      syncCalendar: () => syncCalendar(ss),
     });
     const lock = READ_ONLY.has(name) || name === 'syncNow' ? null : LockService.getScriptLock();
     if (lock && !lock.tryLock(20000)) {
@@ -183,6 +187,14 @@ export function updatePrices() {
   installTrigger();
   installMailTriggers();
   return refreshPrices(appSpreadsheet(), { maxAgeMs: 0 });
+}
+/** Editor, once: asks Google for Calendar access, switches the Cashflow calendar on and fills it. */
+export function connectCalendar() {
+  installTrigger();
+  installMailTriggers();
+  const ss = appSpreadsheet();
+  setConfigValue(ss, 'calendar_sync', 'on');
+  return syncCalendar(ss);
 }
 export function setup() { return runSetup(appSpreadsheet(), SEED); }
 export function selfTest() { return runSelfTest(appSpreadsheet(), SEED); }

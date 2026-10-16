@@ -26,8 +26,8 @@ describe('payday', () => {
   it('is the configured day, or the last day of a shorter month', () => {
     expect(isPayday(new Date(2026, 9, 28), 28)).toBe(true);
     expect(isPayday(new Date(2026, 9, 27), 28)).toBe(false);
-    expect(isPayday(new Date(2027, 1, 28), 31)).toBe(true); // February has no 31st
-    expect(isPayday(new Date(2027, 1, 27), 31)).toBe(false);
+    expect(isPayday(new Date(2027, 1, 26), 31)).toBe(true); // no 31st in February, and the 28th is a Sunday
+    expect(isPayday(new Date(2027, 1, 28), 31)).toBe(false);
   });
 });
 
