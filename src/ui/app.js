@@ -65,6 +65,15 @@ function icon(category) {
   const found = category && ICONS.find(([re]) => re.test(category));
   return `<span class="cat-ic ${category ? `c${hashOf(category)}` : 'none'}" aria-hidden="true">${found ? found[1] : '•'}</span>`;
 }
+// A picture per account, from words in its name, else from its type (Saving or Spending). Order matters: "Dana Darurat" is not the DANA wallet.
+const ACCT_ICONS = [
+  [/darurat|emergency/i, '🛟'], [/saham|sekuritas|stock|reksa|invest|crypto|kripto/i, '📈'], [/cash|tunai|dompet/i, '💵'],
+  [/gopay|ovo|\bdana\b|shopeepay|linkaja|e-?wallet|flip/i, '📱'], [/kredit|credit|paylater/i, '💳'],
+];
+function acctIcon(stream, type) {
+  const found = ACCT_ICONS.find(([re]) => re.test(stream));
+  return `<span class="cat-ic c${hashOf(stream)}" aria-hidden="true">${found ? found[1] : type === 'Saving' ? '🐷' : '🏦'}</span>`;
+}
 const statusBadge = (s) => (s === 'pending' ? `<span class="badge warn">● ${esc(T.statusPending)}</span>`
   : s === 'ignored' ? `<span class="badge neutral">${esc(T.statusIgnored)}</span>` : '');
 
@@ -559,7 +568,7 @@ function overviewHtml(d) {
     if (!list.length) return '';
     const total = list.reduce((a, b) => a + b.balance, 0);
     return `<div class="rowi total-row"><span>${esc(title)}</span><span class="amt">${rp(total)}</span></div>${list.map((b) => `
-      <button class="lrow" data-action="drill" data-stream="${esc(b.stream)}"><span class="cat-ic acct" aria-hidden="true">${esc(b.stream.slice(0, 1).toUpperCase())}</span><span class="what"><b>${esc(b.stream)}</b></span><span class="amt">${rp(b.balance)}</span></button>`).join('')}`;
+      <button class="lrow" data-action="drill" data-stream="${esc(b.stream)}">${acctIcon(b.stream, b.type)}<span class="what"><b>${esc(b.stream)}</b></span><span class="amt">${rp(b.balance)}</span></button>`).join('')}`;
   };
   const todayCard = isNow ? `<section class="card today-card">
       <p class="eyebrow">${esc(T.todayIs(dateLabel(state.boot.today)))}</p>
@@ -701,7 +710,7 @@ function flowCard(flow, d) {
       spent.get(stream) ? `<li><span class="flow-tag spend">${esc(T.flowSpend)}</span><button class="link" data-action="drill" data-stream="${esc(stream)}">${esc(T.flowSpentFrom(stream))}</button><b class="amt">${rp(spent.get(stream))}</b></li>` : '',
     ].filter(Boolean);
     const got = [income.get(stream) ? T.flowIncome(rp(income.get(stream))) : '', inFrom.get(stream) ? T.flowFrom(rp(inFrom.get(stream))) : ''].filter(Boolean).join(' · ');
-    return `<div class="flow-node"><div class="flow-acct"><span class="cat-ic acct" aria-hidden="true">${esc(stream.slice(0, 1).toUpperCase())}</span><b>${esc(stream)}</b>${got ? `<small>${esc(got)}</small>` : ''}</div>${kids.length ? `<ul>${kids.join('')}</ul>` : ''}</div>`;
+    return `<div class="flow-node"><div class="flow-acct">${acctIcon(stream)}<b>${esc(stream)}</b>${got ? `<small>${esc(got)}</small>` : ''}</div>${kids.length ? `<ul>${kids.join('')}</ul>` : ''}</div>`;
   };
   return `<section class="card"><h2>${esc(T.flowTitle)}</h2><p class="lead">${esc(T.flowHint)}</p>
     <div class="flow"><div class="flow-root"><span class="flow-in" aria-hidden="true">↓</span><b>${esc(T.flowMoneyIn)}</b><span class="amt in">+${rp(totalIn)}</span></div>

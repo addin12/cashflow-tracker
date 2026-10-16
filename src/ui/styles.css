@@ -494,7 +494,6 @@ button.rowi:hover { background: var(--zebra); }
 .cat-ic.c0 { background: var(--t0); } .cat-ic.c1 { background: var(--t1); } .cat-ic.c2 { background: var(--t2); } .cat-ic.c3 { background: var(--t3); }
 .cat-ic.c4 { background: var(--t4); } .cat-ic.c5 { background: var(--t5); } .cat-ic.c6 { background: var(--t6); } .cat-ic.c7 { background: var(--t7); }
 .cat-ic.none { background: transparent; border: 1px dashed var(--field-line); color: var(--muted); }
-.cat-ic.acct { font-size: 16px; font-weight: 700; background: var(--line-soft); color: var(--ink-2); }
 .cat-row, .lrow { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 0; border: 0; border-bottom: 1px solid var(--line-soft); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; min-height: 56px; }
 .cat-row:last-of-type, .lrow:last-child { border-bottom: 0; }
 .lrow .what { flex: 1; min-width: 0; }
