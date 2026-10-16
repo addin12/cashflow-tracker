@@ -493,6 +493,7 @@ button.rowi:hover { background: var(--zebra); }
 .cat-ic { width: 40px; height: 40px; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; flex: none; background: var(--t6); color: var(--t6i); }
 .cat-ic.c0 { background: var(--t0); } .cat-ic.c1 { background: var(--t1); } .cat-ic.c2 { background: var(--t2); } .cat-ic.c3 { background: var(--t3); }
 .cat-ic.c4 { background: var(--t4); } .cat-ic.c5 { background: var(--t5); } .cat-ic.c6 { background: var(--t6); } .cat-ic.c7 { background: var(--t7); }
+.logo svg { width: 60%; height: 60%; }
 .cat-ic.logo { background: #fff; overflow: hidden; }
 .cat-ic.logo img { width: 100%; height: 100%; padding: 4px; box-sizing: border-box; object-fit: contain; display: block; }
 .cat-ic.none { background: transparent; border: 1px dashed var(--field-line); color: var(--muted); }

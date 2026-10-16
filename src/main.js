@@ -77,7 +77,7 @@ export function doGet() {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
 }
 
-/** The tab icon: a plain "Rp" logo kept in the public repo (docs/icon-192.png). */
+/** The tab icon: a wallet drawn for this app (docs/icon.svg → docs/icon-192.png), kept in the public repo. */
 const ICON_URL = 'https://raw.githubusercontent.com/addin12/cashflow-tracker/main/docs/icon-192.png';
 
 const READ_ONLY = new Set(['init', 'bootstrap', 'review', 'list', 'dashboard', 'settings', 'yearly']);
