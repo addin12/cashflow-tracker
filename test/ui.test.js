@@ -169,6 +169,12 @@ describe('web app', () => {
     expect(view()).toContain('Lebih Rp100.000 dari budget Rp200.000'); // said in words, not only red
     expect(view()).toContain('Belum ada pembayaran hari ini');
     expect(view()).toContain('Terbaru');
+    // Accounts: a bank gets its logo, cash an emoji; a logo that fails to load falls back to the emoji.
+    const logo = doc.querySelector('[data-stream=BCA] .cat-ic.logo img');
+    expect(logo.getAttribute('src')).toContain('url=https://mybca.bca.co.id');
+    expect(doc.querySelector('[data-stream=Cash] .cat-ic').textContent).toBe('💵');
+    logo.dispatchEvent(new dom.window.Event('error'));
+    expect(doc.querySelector('[data-stream=BCA] .cat-ic').textContent).toBe('🏦');
     // Reports: the six-month chart, a calendar cell per day, the donut.
     click(doc.querySelector('[data-action=dashview][data-view=report]'));
     await until(() => doc.querySelector('.hm-grid'), 'report view');

@@ -70,9 +70,22 @@ const ACCT_ICONS = [
   [/darurat|emergency/i, '🛟'], [/saham|sekuritas|stock|reksa|invest|crypto|kripto/i, '📈'], [/cash|tunai|dompet/i, '💵'],
   [/gopay|ovo|\bdana\b|shopeepay|linkaja|e-?wallet|flip/i, '📱'], [/kredit|credit|paylater/i, '💳'],
 ];
+// Bank and wallet logos, loaded from Google's favicon service so no logo artwork lives in the repo.
+// 'pad' = a wordmark that would touch the edges. Order matters: "Mandiri Sekuritas" before Mandiri, "Jago Dana Darurat" before DANA.
+const ACCT_LOGOS = [
+  [/sekuritas/i, 'mandirisekuritas.co.id'], [/\bbca\b|klikbca/i, 'mybca.bca.co.id'], [/\bblu\b/i, 'blubybcadigital.id', 'pad'], [/jago/i, 'jago.com'],
+  [/mandiri|livin/i, 'bankmandiri.co.id', 'pad'], [/\bbni\b/i, 'bni.co.id'], [/\bbri\b|brimo/i, 'bri.co.id'], [/seabank/i, 'seabank.co.id'],
+  [/jenius/i, 'jenius.com'], [/gopay/i, 'gopay.co.id'], [/\bovo\b/i, 'ovo.id'], [/(?<!reksa\s)\bdana\b(?!\s*darurat)/i, 'dana.id'],
+  [/shopee/i, 'shopee.co.id'], [/bibit/i, 'bibit.id'], [/ajaib/i, 'ajaib.co.id'], [/stockbit/i, 'stockbit.com'],
+];
+const logoUrl = (domain) => `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
 function acctIcon(stream, type) {
   const found = ACCT_ICONS.find(([re]) => re.test(stream));
-  return `<span class="cat-ic c${hashOf(stream)}" aria-hidden="true">${found ? found[1] : type === 'Saving' ? '🐷' : '🏦'}</span>`;
+  const emoji = found ? found[1] : type === 'Saving' ? '🐷' : '🏦';
+  const logo = ACCT_LOGOS.find(([re]) => re.test(stream));
+  // A logo that fails to load is swapped back to the emoji (see the 'error' listener in start()).
+  if (logo) return `<span class="cat-ic logo ${logo[2] || ''}" aria-hidden="true" data-fallback="${emoji}"><img src="${logoUrl(logo[1])}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`;
+  return `<span class="cat-ic c${hashOf(stream)}" aria-hidden="true">${emoji}</span>`;
 }
 const statusBadge = (s) => (s === 'pending' ? `<span class="badge warn">● ${esc(T.statusPending)}</span>`
   : s === 'ignored' ? `<span class="badge neutral">${esc(T.statusIgnored)}</span>` : '');
@@ -2332,6 +2345,10 @@ function applyLanguage(configured) {
 export async function start() {
   applyTheme(readTheme());
   document.addEventListener('click', onClick);
+  document.addEventListener('error', (e) => { // load errors don't bubble, so this listens while capturing
+    const box = e.target?.parentElement;
+    if (e.target?.tagName === 'IMG' && box?.classList.contains('logo')) { box.classList.remove('logo'); box.textContent = box.dataset.fallback; }
+  }, true);
   document.addEventListener('submit', onSubmit);
   document.addEventListener('change', onChange);
   document.addEventListener('keydown', (e) => {
