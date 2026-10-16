@@ -4,12 +4,12 @@
 
 import { runSetup, configValue } from './gas/setup.js';
 import { runSelfTest } from './gas/selftest.js';
-import { runSync, connect, appSpreadsheet, syncStamp, addRuntime } from './gas/sync.js';
+import { runSync, connect, appSpreadsheet, syncStamp, addRuntime, installTrigger } from './gas/sync.js';
 import { recordStartup } from './gas/perf.js';
 import { cachedInit, storeInit } from './gas/initcache.js';
 import { sheetStore } from './gas/sheetstore.js';
 import { createApi, API_METHODS } from './core/api.js';
-import { sendWeeklySummary, clearSelfTestTrigger, runDaily, scheduleSelfTest, sendSyncAlert } from './gas/weekly.js';
+import { sendWeeklySummary, clearSelfTestTrigger, runDaily, scheduleSelfTest, sendSyncAlert, installMailTriggers } from './gas/weekly.js';
 import { refreshPrices } from './gas/prices.js';
 
 const MENU = 'Cashflow Tracker';
@@ -173,6 +173,11 @@ export function menuWeeklySummary() {
 }
 
 /** Same as the menu items, callable from the Apps Script editor's Run button. */
-export function updatePrices() { return refreshPrices(appSpreadsheet(), { maxAgeMs: 0 }); }
+/** Editor: fetch prices now, and make sure the background triggers exist (they go when access is removed and given again). */
+export function updatePrices() {
+  installTrigger();
+  installMailTriggers();
+  return refreshPrices(appSpreadsheet(), { maxAgeMs: 0 });
+}
 export function setup() { return runSetup(appSpreadsheet(), SEED); }
 export function selfTest() { return runSelfTest(appSpreadsheet(), SEED); }
