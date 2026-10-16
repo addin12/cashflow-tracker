@@ -70,6 +70,7 @@ const shots = [
   ['trend', "document.querySelector('.nav [data-tab=dashboard]').click(); setTimeout(function(){ document.querySelector('[data-action=drill][data-category]').click(); }, 300);"],
   ['rules', "document.querySelector('.nav [data-tab=settings]').click(); setTimeout(function(){ document.querySelector('[data-section=rules]').click(); }, 300);"],
   ['balcheck', "document.querySelector('.nav [data-tab=settings]').click(); setTimeout(function(){ var r = document.querySelector('.bal-row[data-stream=\"Bank A\"]'); var i = r.querySelector('[data-k=actual]'); i.value = String(Number(r.dataset.app) + 750000); i.dispatchEvent(new Event('input', { bubbles: true })); r.querySelector('[data-k=category]').value = 'Pemasukan Lainnya'; var w = document.querySelector('.bal-row[data-stream=\"E-Wallet\"] [data-k=actual]'); w.value = '0'; w.dispatchEvent(new Event('input', { bubbles: true })); }, 500);"],
+  ['report', "document.querySelector('.nav [data-tab=dashboard]').click(); setTimeout(function(){ document.querySelector('[data-action=dashview][data-view=report]').click(); }, 400);"],
   ['setbudgets', "document.querySelector('.nav [data-tab=settings]').click(); setTimeout(function(){ document.querySelector('[data-section=budgets]').click(); }, 300);"],
   ['bell', "document.querySelector('.nav [data-tab=dashboard]').click(); setTimeout(function(){ document.querySelector('#bellBtn').click(); }, 300);"],
   ['darkmode', "document.querySelector('#themeBtn').click(); document.querySelector('.nav [data-tab=dashboard]').click();"],

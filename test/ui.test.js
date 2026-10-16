@@ -166,13 +166,46 @@ describe('web app', () => {
     expect(view()).toContain('Belanja Online');
     expect(doc.querySelector('.bar i.over')).not.toBeNull(); // 300k of a 200k budget
     expect(view()).toContain('Lebih Rp100.000 dari budget Rp200.000'); // said in words, not only red
+    expect(view()).toContain('Belum ada pembayaran hari ini');
+    expect(view()).toContain('Terbaru');
+    // Reports: the six-month chart, a calendar cell per day, the donut.
+    click(doc.querySelector('[data-action=dashview][data-view=report]'));
+    await until(() => doc.querySelector('.hm-grid'), 'report view');
     expect(doc.querySelectorAll('.chart .m')).toHaveLength(2); // Sep and Oct (starts 1 Sep)
+    expect(doc.querySelectorAll('.hm-grid .hm-cell:not(.blank)')).toHaveLength(31);
+    expect(doc.querySelector('.donut')).not.toBeNull();
+    click(doc.querySelector('[data-action=dashview][data-view=overview]'));
+    await until(() => doc.querySelector('.cat-row'), 'overview again');
+  });
+
+  it('the eye hides every amount and shows them again', async () => {
+    click(doc.querySelector('[data-action=hide]'));
+    await until(() => view().includes('Rp •••'), 'hidden');
+    expect(view()).not.toContain('Rp300.000');
+    click(doc.querySelector('[data-action=hide]'));
+    await until(() => view().includes('Rp300.000'), 'shown');
   });
 
   it('tapping a category opens its transactions, filtered', async () => {
     click(doc.querySelector('[data-action=drill][data-category="Belanja Online"]'));
     await until(() => view().includes('Tokopedia') && !view().includes('WARUNG'), 'drill-down');
     expect([...doc.querySelectorAll('.chip')].map((c) => c.textContent.trim())).toEqual(['Oktober 2026 ✕', 'Belanja Online ✕']);
+  });
+
+  it('transactions are grouped by day, and the kind chips filter', async () => {
+    await tab('transactions', 'Transaksi');
+    const reset = doc.querySelector('[data-action=resetfilters]'); // filters left by earlier tests
+    if (reset) click(reset);
+    click(doc.querySelector('[data-action=preset][data-p=all]'));
+    await until(() => doc.querySelector('.day-head'), 'day headings');
+    expect(doc.querySelectorAll('.day-head').length).toBeGreaterThan(1);
+    expect(doc.querySelector('.day-head').textContent).toMatch(/^(Hari ini|Kemarin|.*Okt).*−Rp/); // the day, and what went out that day
+    click(doc.querySelector('[data-action=kindchip][data-k=in]'));
+    await until(() => !view().includes('WARUNG'), 'income only');
+    expect(doc.querySelector('[data-action=kindchip][data-k=in]').getAttribute('aria-pressed')).toBe('true');
+    click(doc.querySelector('[data-action=kindchip][data-k=all]'));
+    click(doc.querySelector('[data-action=preset][data-p=period]'));
+    await until(() => doc.querySelector('[data-action=preset][data-p=period]').getAttribute('aria-pressed') === 'true', 'this period');
   });
 
   it('transactions list filters by search', async () => {

@@ -23,7 +23,10 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const locale = () => (state.boot?.lang === 'en' ? 'en-GB' : 'id-ID');
 const fmt = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }); // whole rupiah on screen; the sheet keeps cents
-const rp = (n) => `${Number(n) < 0 ? '−' : ''}Rp${fmt.format(Math.abs(Number(n) || 0))}`;
+// "Hide amounts" (the eye on the summary): kept in this browser, for looking at the app in public.
+const HIDE_KEY = 'cashflow.hide.v1';
+let hideAmounts = (() => { try { return window.localStorage.getItem(HIDE_KEY) === '1'; } catch (e) { return false; } })();
+const rp = (n) => (hideAmounts ? 'Rp •••' : `${Number(n) < 0 ? '−' : ''}Rp${fmt.format(Math.abs(Number(n) || 0))}`);
 const signed = (x) => `${x.direction === 'in' ? '+' : '−'}${rp(x.amount)}`;
 const monthAdd = (ym, k) => { const [y, m] = ym.split('-').map(Number); const d = new Date(y, m - 1 + k, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; };
 const monthDate = (ym) => { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1); };
@@ -41,11 +44,24 @@ const timeLabel = (t) => (t ? String(t).slice(0, 5).replace(':', state.boot?.lan
 const when = (x) => [dateLabel(x.date), timeLabel(x.time)].filter(Boolean).join(' · ');
 
 // Notion-style tags: a category always gets the same calm tint.
+const hashOf = (name) => { let h = 0; for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) % 997; return h % 8; };
 function tag(name) {
   if (!name) return `<span class="tag none">${esc(T.noCategory)}</span>`;
-  let h = 0;
-  for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) % 997;
-  return `<span class="tag c${h % 8}">${esc(name)}</span>`;
+  return `<span class="tag c${hashOf(name)}">${esc(name)}</span>`;
+}
+// A picture per category, found from words in its name (the owner can rename categories freely).
+const ICONS = [
+  [/pemasukan|income/i, '💰'], [/food|makan|minum|kopi|coffee|resto|jajan/i, '🍜'], [/harian|grocer|sembako/i, '🛒'], [/online|shop/i, '🛍️'],
+  [/servis|cuci|kendaraan|bengkel/i, '🔧'], [/transport|bensin|parkir|ojek/i, '🛵'], [/langganan|subscription|digital/i, '📺'],
+  [/hobi|game|board/i, '🎲'], [/buku|book/i, '📚'], [/kesehatan|optik|health|obat/i, '💊'], [/skincare|kecantikan|beauty/i, '🧴'],
+  [/barber|cukur|salon/i, '💈'], [/tagihan|utilitas|listrik|bill/i, '🧾'], [/pulsa|internet/i, '📱'], [/rumah|house|home/i, '🏠'],
+  [/pakaian|baju|cloth/i, '👕'], [/nongkrong|hiburan|entertain/i, '🎬'], [/hadiah|sosial|gift/i, '🎁'], [/iuran|patungan/i, '🤝'],
+  [/pendidikan|kursus|educ/i, '🎓'], [/admin|biaya|fee/i, '🏦'], [/gaji|salary/i, '💼'], [/proyek|freelance/i, '💻'],
+  [/dividen|bunga|invest|saham/i, '📈'], [/cashback|refund/i, '↩️'], [/penyesuaian|adjust/i, '⚖️'], [/transfer/i, '🔁'], [/lainnya|other/i, '📦'],
+];
+function icon(category) {
+  const found = category && ICONS.find(([re]) => re.test(category));
+  return `<span class="cat-ic ${category ? `c${hashOf(category)}` : 'none'}" aria-hidden="true">${found ? found[1] : '•'}</span>`;
 }
 const statusBadge = (s) => (s === 'pending' ? `<span class="badge warn">● ${esc(T.statusPending)}</span>`
   : s === 'ignored' ? `<span class="badge neutral">${esc(T.statusIgnored)}</span>` : '');
@@ -419,6 +435,8 @@ function fillBudgets(form) {
 }
 
 // ---------------------------------------------------------------- Dashboard
+// Two views of one month: the overview (today, where the money went, the latest rows) and the
+// report (money out, a calendar of daily spending, the running total against last month, a donut).
 async function viewDashboard() {
   let d = state.dashByMonth[state.month];
   if (!d) {
@@ -427,64 +445,200 @@ async function viewDashboard() {
     state.dashByMonth[d.month] = d;
     if (state.tab !== 'dashboard' || d.month !== state.month) return;
   }
+  remember([...(d.today || []), ...(d.recent || [])]);
   const s = d.summary;
   const current = currentMonth();
   const prev = monthAdd(d.month, -1);
   const next = monthAdd(d.month, 1);
+  const report = state.dashView === 'report';
+  const viewBtn = (v, label) => `<button type="button" class="${(v === 'report') === report ? 'on' : ''}" aria-pressed="${(v === 'report') === report}" data-action="dashview" data-view="${v}">${esc(label)}</button>`;
+  setView(`
+    <header class="page-head"><div><h1>${esc(T.tabDashboard)}</h1><p class="sub">${esc(monthLabel(d.month))}${s.from ? ` · ${esc(rangeLabel(s.from, s.to))}` : ''}</p></div>
+      <div class="tools">
+        <div class="seg">${viewBtn('overview', T.viewOverview)}${viewBtn('report', T.viewReport)}</div>
+        <div class="monthnav">
+          <button class="btn secondary small" data-action="setmonth" data-month="${prev}" aria-label="${esc(monthLabel(prev))}">‹ ${esc(monthShort(prev))}</button>
+          <button class="btn secondary small" data-action="setmonth" data-month="${next}" aria-label="${esc(monthLabel(next))}" ${next > current ? 'disabled' : ''}>${esc(monthShort(next))} ›</button>
+        </div></div></header>
+    ${report ? reportHtml(d) : overviewHtml(d)}`);
+}
+
+/** Day number of today inside the month's dates (the whole month for a past one). */
+function dayOfPeriod(d) {
+  const days = d.daily || [];
+  const i = days.findIndex((x) => x.date === state.boot.today);
+  return i >= 0 ? i + 1 : days.length;
+}
+const monthName = (ym) => monthDate(ym).toLocaleDateString(locale(), { month: 'long' });
+const bigRp = (n, cls = '') => `<span class="big-num ${cls}"><span class="cur">Rp</span>${hideAmounts ? '•••' : fmt.format(Math.round(Number(n) || 0))}</span>`;
+const EYE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.2M6.6 6.6C3.9 8.4 2 12 2 12s3.5 7 10 7c1.7 0 3.2-.5 4.5-1.1M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+
+/** One transaction as a list line: icon, name, when · category · account, amount. */
+const lineRow = (x) => `<button class="lrow" data-action="edit" data-id="${esc(x.id)}">${icon(x.category)}
+  <span class="what"><b>${esc(x.description || x.details || '—')}</b><span class="meta">${esc([`${dateLabel(x.date, { weekday: false })}${x.time ? `, ${timeLabel(x.time)}` : ''}`, x.category || T.noCategory, x.stream].filter(Boolean).join(' · '))}</span></span>
+  <span class="amt ${esc(x.direction)}">${signed(x)}</span></button>`;
+
+function overviewHtml(d) {
+  const s = d.summary;
+  const isNow = d.month === currentMonth();
+  const today = d.today || [];
+  const todayTotal = today.reduce((a, x) => a + x.amount, 0);
+  const days = d.daily || [];
+  const idx = dayOfPeriod(d);
+  const elapsed = isNow && days.length ? idx / days.length : 1;
+  const prevName = monthName(monthAdd(d.month, -1));
+  // Last month up to the same day, for "Rp… more than September".
+  const prevSame = (d.prevDaily || []).slice(0, idx).reduce((a, x) => a + x.amount, 0);
+  const diff = s.expense - prevSame;
+  const bills = ((d.recurring && d.recurring.items) || []).filter((i) => i.daysLeft >= 0 && i.daysLeft <= 7);
+  const hour = new Date().getHours();
+  const greet = hour < 11 ? T.greetMorning : hour < 15 ? T.greetNoon : hour < 18 ? T.greetAfternoon : T.greetEvening;
+  const chips = [
+    d.pendingCount ? `<button class="hchip warn" data-action="go" data-tab="review">⚠ ${esc(T.pendingNote(d.pendingCount))}</button>` : '',
+    (d.salaryMissing || []).length ? `<button class="hchip warn" data-action="go" data-tab="review">💼 ${esc(T.salaryNotice(dateLabel(d.salaryMissing[0].date, { weekday: false })))}</button>` : '',
+    bills.length ? `<button class="hchip" data-action="drill" data-q="${esc(bills[0].name)}">📅 ${esc(T.billsThisWeek(bills.length))}</button>` : '',
+  ].join('');
+  const todayLong = new Date(`${state.boot.today}T00:00:00`).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
+  const hero = isNow ? `<section class="hero">
+      <div class="hero-top"><h2>${esc(greet)}</h2>
+        <button class="icon-btn" data-action="hide" aria-pressed="${hideAmounts}" aria-label="${esc(hideAmounts ? T.showAmounts : T.hideAmounts)}" title="${esc(hideAmounts ? T.showAmounts : T.hideAmounts)}">${hideAmounts ? EYE_OFF : EYE}</button></div>
+      <p class="hero-date">${esc(T.todayIs(todayLong))}</p>
+      <button class="hero-num" data-action="drillday" data-date="${esc(state.boot.today)}" aria-label="${esc(T.paymentsToday(today.length))}">${bigRp(todayTotal, 'xl')}</button>
+      <p class="hero-sub">${esc(T.paymentsToday(today.length))}</p>
+      ${chips ? `<div class="hchips">${chips}</div>` : ''}
+    </section>` : '';
+
+  // Where it went: every spending category, against its budget (with a "how far into the month" marker).
   const budgets = new Map(d.budgets.map((b) => [b.category, b]));
   const spent = s.byCategory.filter((c) => c.kind !== 'income');
   for (const b of d.budgets) if (!spent.some((c) => c.category === b.category)) spent.push({ category: b.category, kind: 'expense', amount: 0 });
   spent.sort((a, b) => b.amount - a.amount);
-  const expenseRows = spent.map((c) => {
+  const top = Math.max(1, ...spent.map((c) => c.amount));
+  const catRows = spent.map((c) => {
     const b = budgets.get(c.category);
-    const pct = b ? Math.min(100, Math.round(b.ratio * 100)) : 0;
     const over = b && b.ratio > 1;
-    return `<button class="rowi" data-action="drill" data-category="${esc(c.category)}">
-      <span class="what" style="flex:1">${tag(c.category)}${b ? `<span class="bar" role="img" aria-label="${esc(T.budgetUse(Math.round(b.ratio * 100)))}"><i class="${over ? 'over' : ''}" style="width:${pct}%"></i></span>
-        <span class="budget-note ${over ? 'over' : ''}">${esc(over ? T.overBudget(rp(b.spent - b.budget), rp(b.budget)) : T.ofBudget(rp(b.budget), rp(b.budget - b.spent)))}</span>` : ''}</span>
-      <span class="amt">${rp(c.amount)}</span></button>`;
+    const ahead = b && !over && isNow && b.ratio > elapsed + 0.05;
+    const pct = Math.min(100, Math.round((b ? b.ratio : c.amount / top) * 100));
+    return `<button class="cat-row" data-action="drill" data-category="${esc(c.category)}">${icon(c.category)}
+      <span class="cat-main"><span class="cat-top"><b>${esc(c.category)}</b><span class="amt ${over ? 'bad' : ''}">${rp(c.amount)}</span></span>
+        <span class="bar ${b ? '' : 'plain'}" ${b ? `role="img" aria-label="${esc(T.budgetUse(Math.round(b.ratio * 100)))}"` : ''}><i class="${over ? 'over' : ahead ? 'ahead' : ''}" style="width:${pct}%"></i>${b && isNow ? `<em style="left:${Math.round(elapsed * 100)}%"></em>` : ''}</span>
+        ${b ? `<span class="budget-note ${over ? 'over' : ahead ? 'ahead' : ''}">${esc(over ? T.overBudget(rp(b.spent - b.budget), rp(b.budget)) : T.ofBudget(rp(b.budget), rp(b.budget - b.spent)))}${ahead ? ` · ${esc(T.aheadOfPace)}` : ''}</span>` : ''}
+      </span></button>`;
   }).join('');
+  const totalBudget = d.budgets.reduce((a, b) => a + b.budget, 0);
+  const inBudgets = d.budgets.reduce((a, b) => a + b.spent, 0);
+  const daysLeft = Math.max(1, days.length - idx + 1);
+  const foot = totalBudget ? `<div class="budget-foot">
+      <span class="bar total"><i class="${inBudgets > totalBudget ? 'over' : ''}" style="width:${Math.min(100, Math.round((inBudgets / totalBudget) * 100))}%"></i>${isNow ? `<em style="left:${Math.round(elapsed * 100)}%"></em>` : ''}</span>
+      <p><b>${esc(inBudgets > totalBudget ? T.budgetOverLine(rp(inBudgets - totalBudget)) : isNow ? T.budgetLeftLine(rp(totalBudget - inBudgets), rp((totalBudget - inBudgets) / daysLeft), daysLeft) : T.budgetLeftEnd(rp(totalBudget - inBudgets)))}</b></p>
+      ${s.expense - inBudgets > 0 ? `<p class="muted">${esc(T.outsideBudgets(rp(s.expense - inBudgets)))}</p>` : ''}
+      ${isNow && idx > 2 ? `<p class="muted">${esc(T.onPace(rp((s.expense / idx) * days.length)))}</p>` : ''}
+    </div>` : `<p class="hint"><button class="link" data-action="go" data-tab="settings" data-section="budgets">${esc(T.noBudgetsSet)}</button></p>`;
+
   const incomeRows = s.byCategory.filter((c) => c.kind === 'income').sort((a, b) => b.amount - a.amount).map((c) => `
-    <button class="rowi" data-action="drill" data-category="${esc(c.category)}"><span class="what">${tag(c.category)}</span><span class="amt in">+${rp(c.amount)}</span></button>`).join('');
+    <button class="lrow" data-action="drill" data-category="${esc(c.category)}">${icon(c.category)}<span class="what"><b>${esc(c.category)}</b></span><span class="amt in">+${rp(c.amount)}</span></button>`).join('');
   const group = (type, title) => {
     const list = d.balances.filter((b) => b.type === type);
     if (!list.length) return '';
     const total = list.reduce((a, b) => a + b.balance, 0);
     return `<div class="rowi total-row"><span>${esc(title)}</span><span class="amt">${rp(total)}</span></div>${list.map((b) => `
-      <button class="rowi" data-action="drill" data-stream="${esc(b.stream)}"><span class="what"><b>${esc(b.stream)}</b></span><span class="amt">${rp(b.balance)}</span></button>`).join('')}`;
+      <button class="lrow" data-action="drill" data-stream="${esc(b.stream)}"><span class="cat-ic acct" aria-hidden="true">${esc(b.stream.slice(0, 1).toUpperCase())}</span><span class="what"><b>${esc(b.stream)}</b></span><span class="amt">${rp(b.balance)}</span></button>`).join('')}`;
   };
-  const trend = d.trend || [];
-  const top = Math.max(1, ...trend.map((t) => Math.max(t.income, t.expense)));
-  const chart = trend.map((t) => `
-    <button class="m ${t.month === d.month ? 'on' : ''}" data-action="setmonth" data-month="${t.month}" aria-label="${esc(`${monthLabel(t.month)}: ${T.income} ${rp(t.income)}, ${T.expense} ${rp(t.expense)}`)}">
-      <span class="bars"><i class="in" style="height:${Math.round((t.income / top) * 100)}%"></i><i class="out" style="height:${Math.round((t.expense / top) * 100)}%"></i></span>
-      <span>${esc(monthShort(t.month))}</span></button>`).join('');
-  setView(`
-    <header class="page-head"><div><h1>${esc(T.tabDashboard)}</h1><p class="sub">${esc(monthLabel(d.month))}${s.from ? ` · ${esc(rangeLabel(s.from, s.to))}` : ''}</p></div>
-      <div class="tools monthnav">
-        <button class="btn secondary small" data-action="setmonth" data-month="${prev}" aria-label="${esc(monthLabel(prev))}">‹ ${esc(monthShort(prev))}</button>
-        <button class="btn secondary small" data-action="setmonth" data-month="${next}" aria-label="${esc(monthLabel(next))}" ${next > current ? 'disabled' : ''}>${esc(monthShort(next))} ›</button>
-      </div></header>
-    ${d.pendingCount ? `<button class="notice" data-action="go" data-tab="review"><span aria-hidden="true">⚠</span><span><b>${esc(T.pendingNote(d.pendingCount))}</b><br>${esc(T.pendingNoteSub)}</span><span class="go">${esc(T.reviewNow)} ›</span></button>` : ''}
-    ${(d.salaryMissing || []).length ? `<button class="notice" data-action="go" data-tab="review"><span aria-hidden="true">⚠</span><span><b>${esc(T.salaryNotice(dateLabel(d.salaryMissing[0].date, { weekday: false })))}</b><br>${esc(T.salaryNoticeSub)}</span><span class="go">${esc(T.salaryRecord)} ›</span></button>` : ''}
-    <div class="kpis" style="margin-top:16px">
-      <button class="card kpi main" data-action="drill"><div class="k">${esc(T.netThisMonth)}</div><div class="v ${s.balance < 0 ? 'bad' : ''}">${s.balance < 0 ? '' : '+'}${rp(s.balance)}</div><div class="meta">${esc(T.netHint)}</div></button>
-      <button class="card kpi" data-action="drill" data-direction="in"><div class="k">${esc(T.income)}</div><div class="v in">+${rp(s.income)}</div><div class="meta">${esc(T.seeList)} ›</div></button>
-      <button class="card kpi" data-action="drill" data-direction="out"><div class="k">${esc(T.expense)}</div><div class="v">${rp(s.expense)}</div><div class="meta">${esc(T.seeList)} ›</div></button>
-      <div class="card kpi"><div class="k">${esc(T.perDay)}</div><div class="v">${rp(d.perDay.perDay)}</div><div class="meta">${esc(T.daysToPayday(d.perDay.daysLeft, dateLabel(d.perDay.nextPayday, { weekday: false })))}</div>${d.perDay.spending < 0 ? `<div class="meta"><button class="link" data-action="go" data-tab="settings" data-section="accounts">⚠ ${esc(T.negativeSpending)}</button></div>` : ''}</div>
-    </div>
-    ${trend.length ? `<h2 class="section-title">${esc(T.trendTitle)}<small>${esc(T.trendHint)}</small></h2>
-    <div class="card"><div class="chart">${chart}</div>
-      <div class="legend"><span><i class="in"></i>${esc(T.income)} ${rp(s.income)}</span><span><i class="out"></i>${esc(T.expense)} ${rp(s.expense)}</span><span class="muted">${esc(monthLabel(d.month))}</span></div></div>` : ''}
-    <div class="grid2" style="margin-top:16px">
-      <section class="card"><h2>${esc(T.expenseByCategory)}</h2><p class="lead">${esc(d.budgets.length ? T.expenseByCategoryHint : T.noBudgets)}</p><div class="rows">${expenseRows || `<p class="hint">${esc(T.nothingYet)}</p>`}</div></section>
+  const todayCard = isNow ? `<section class="card today-card">
+      <p class="eyebrow">${esc(T.todayIs(dateLabel(state.boot.today)))}</p>
+      <h2>${esc(today.length ? T.todayLine(today.length, rp(todayTotal)) : T.noPaymentsToday)}</h2>
+      ${today.length ? `<div class="rows">${today.slice(0, 3).map(lineRow).join('')}</div>${today.length > 3 ? `<button class="link" data-action="drillday" data-date="${esc(state.boot.today)}">${esc(T.moreN(today.length - 3))}</button>` : ''}` : ''}
+    </section>` : '';
+  return `${hero}
+    <div class="ov-grid">
       <div class="stack">
-        <section class="card"><h2>${esc(T.incomeByCategory)}</h2><div class="rows">${incomeRows || `<p class="hint">${esc(T.nothingYet)}</p>`}</div></section>
+        <section class="spend">
+          <p class="k">${esc(T.monthSpending(monthName(d.month), isNow ? idx : 0))}</p>
+          <button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
+          ${prevSame > 0 ? `<p class="cmp ${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '↑' : '↓'} ${esc(diff > 0 ? T.moreThan(rp(diff), prevName) : T.lessThan(rp(-diff), prevName))}</p>` : ''}
+          <div class="mini-stats">
+            <button data-action="drill" data-direction="in"><span>${esc(T.income)}</span><b class="amt in">+${rp(s.income)}</b></button>
+            <button data-action="drill"><span>${esc(T.netThisMonth)}</span><b class="amt ${s.balance < 0 ? 'bad' : ''}">${s.balance < 0 ? '' : '+'}${rp(s.balance)}</b></button>
+            ${isNow ? `<div><span>${esc(T.perDay)}</span><b class="amt">${rp(d.perDay.perDay)}</b><small>${esc(T.daysToPayday(d.perDay.daysLeft, dateLabel(d.perDay.nextPayday, { weekday: false })))}</small></div>` : ''}
+          </div>
+          ${isNow && d.perDay.spending < 0 ? `<p><button class="link" data-action="go" data-tab="settings" data-section="accounts">⚠ ${esc(T.negativeSpending)}</button></p>` : ''}
+        </section>
+        <section><h2 class="section-title">${esc(T.whereItWent)}<small>${esc(T.expenseByCategoryHint)}</small></h2>
+          <div class="card list-card">${catRows || `<p class="hint">${esc(T.nothingYet)}</p>`}${foot}</div></section>
+        ${(d.recent || []).length ? `<section><h2 class="section-title row-title">${esc(T.latestTitle)}<button class="link" data-action="go" data-tab="transactions">${esc(T.seeAll)}</button></h2>
+          <div class="card list-card">${d.recent.map(lineRow).join('')}</div></section>` : ''}
+      </div>
+      <div class="stack">
+        ${todayCard}
+        ${incomeRows ? `<section class="card"><h2>${esc(T.incomeByCategory)}</h2><div class="rows">${incomeRows}</div></section>` : ''}
         ${goalsCard(d.goals)}
         ${recurringCard(d.recurring)}
         <section class="card"><h2>${esc(T.accounts)}</h2><p class="lead">${esc(T.accountsHint)}</p><div class="rows">${group('Spending', T.spendingGroup)}${group('Saving', T.savingGroup)}</div></section>
       </div>
-    </div>`);
+    </div>`;
+}
+
+function reportHtml(d) {
+  const s = d.summary;
+  const days = d.daily || [];
+  const prevDays = d.prevDaily || [];
+  const idx = Math.max(1, dayOfPeriod(d));
+  const today = state.boot.today;
+  // Calendar: Monday first, one cell per day, darker = more spent.
+  const max = Math.max(1, ...days.map((x) => x.amount));
+  const lead = days.length ? (new Date(`${days[0].date}T00:00:00`).getDay() + 6) % 7 : 0;
+  const weekdays = [...Array(7)].map((_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale(), { weekday: 'short' }));
+  const cells = `${'<span class="hm-cell blank" aria-hidden="true"></span>'.repeat(lead)}${days.map((x) => {
+    const future = x.date > today;
+    const lvl = x.amount > 0 ? Math.min(4, 1 + Math.floor((x.amount / max) * 3.999)) : 0;
+    return `<button class="hm-cell l${lvl}${future ? ' future' : ''}${x.date === today ? ' today' : ''}" data-action="drillday" data-date="${x.date}" ${future ? 'disabled' : ''} aria-label="${esc(`${dateLabel(x.date)}: ${rp(x.amount)}`)}" title="${esc(`${dateLabel(x.date)}: ${rp(x.amount)}`)}">${Number(x.date.slice(8))}</button>`;
+  }).join('')}`;
+  // Running total this month against last month.
+  const run = (list) => { let t = 0; return list.map((x) => { t += x.amount; return t; }); };
+  const a = run(days).slice(0, d.month === currentMonth() ? idx : days.length);
+  const b = run(prevDays);
+  const n = Math.max(days.length, prevDays.length, 2);
+  const top = Math.max(1, ...a, ...b);
+  const W = 600; const H = 180;
+  const path = (list) => list.map((v, i) => `${i ? 'L' : 'M'}${((i / (n - 1)) * W).toFixed(1)},${(H - (v / top) * (H - 10)).toFixed(1)}`).join(' ');
+  const lastA = a.length ? a[a.length - 1] : 0;
+  const lastB = b.length ? b[b.length - 1] : 0;
+  const prevName = monthName(monthAdd(d.month, -1));
+  const line = `<svg class="line-chart" viewBox="0 0 ${W} ${H + 4}" preserveAspectRatio="none" role="img" aria-label="${esc(`${monthName(d.month)} ${rp(lastA)}, ${prevName} ${rp(lastB)}`)}">
+      ${b.length ? `<path class="prev" d="${path(b)}"/>` : ''}${a.length ? `<path class="now-fill" d="${path(a)} L${(((a.length - 1) / (n - 1)) * W).toFixed(1)},${H} L0,${H} Z"/><path class="now" d="${path(a)}"/>` : ''}
+    </svg>`;
+  // Donut of the spending categories, in the same order and colours as the list under it.
+  const cats = s.byCategory.filter((c) => c.kind !== 'income').sort((x, y) => y.amount - x.amount);
+  const total = cats.reduce((t, c) => t + c.amount, 0);
+  let at = 0;
+  const stops = cats.map((c, i) => { const from = at; at += total ? (c.amount / total) * 100 : 0; return `var(--ch${i % 8}) ${from.toFixed(2)}% ${at.toFixed(2)}%`; }).join(', ');
+  const catList = cats.map((c, i) => `<button class="lrow" data-action="drill" data-category="${esc(c.category)}">${icon(c.category)}
+      <span class="what"><b><i class="dot" style="background:var(--ch${i % 8})"></i>${esc(c.category)}</b><span class="meta">${esc(`${total ? Math.round((c.amount / total) * 100) : 0}% · ${T.perDayShort(rp(c.amount / idx))}`)}</span></span>
+      <span class="amt">${rp(c.amount)}</span></button>`).join('');
+  const trend = d.trend || [];
+  const tTop = Math.max(1, ...trend.map((t) => Math.max(t.income, t.expense)));
+  const chart = trend.map((t) => `
+    <button class="m ${t.month === d.month ? 'on' : ''}" data-action="setmonth" data-month="${t.month}" aria-label="${esc(`${monthLabel(t.month)}: ${T.income} ${rp(t.income)}, ${T.expense} ${rp(t.expense)}`)}">
+      <span class="bars"><i class="in" style="height:${Math.round((t.income / tTop) * 100)}%"></i><i class="out" style="height:${Math.round((t.expense / tTop) * 100)}%"></i></span>
+      <span>${esc(monthShort(t.month))}</span></button>`).join('');
+  return `<div class="ov-grid">
+    <div class="stack">
+      <section class="spend"><p class="k">${esc(T.moneyOut)}</p><button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
+        <p class="muted">${esc(T.ofIncome(rp(s.income), rp(s.balance)))}</p></section>
+      <section class="card"><h2>${esc(T.dailyTrend)}</h2><p class="lead">${esc(T.avgPerDay(rp(s.expense / idx)))}</p>
+        <div class="hm-grid">${weekdays.map((w) => `<span class="hm-wd">${esc(w)}</span>`).join('')}${cells}</div>
+        <div class="hm-legend"><span>${esc(T.heatLess)}</span><i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span>${esc(T.heatMore)}</span></div></section>
+      <section class="card"><h2>${esc(T.spendTrend)}</h2><p class="lead">${esc(T.spendTrendHint)}</p>${line}
+        <div class="legend"><span><i class="out-now"></i>${esc(monthName(d.month))} ${rp(lastA)}</span>${b.length ? `<span><i class="out-prev"></i>${esc(prevName)} ${rp(lastB)}</span>` : ''}</div></section>
+    </div>
+    <div class="stack">
+      <section class="card"><h2>${esc(T.whereItWent)}</h2><p class="lead">${esc(T.donutHint)}</p>
+        ${total ? `<div class="donut" style="background:conic-gradient(${stops})" role="img" aria-label="${esc(`${T.moneyOut} ${rp(total)}`)}"><div><span>${esc(T.moneyOut)}</span><b>${rp(total)}</b><small>${esc(T.nCats(cats.length))}</small></div></div>
+        <div class="rows">${catList}</div>` : `<p class="hint">${esc(T.nothingYet)}</p>`}</section>
+      ${trend.length ? `<section class="card"><h2>${esc(T.trendTitle)}</h2><p class="lead">${esc(T.trendHint)}</p><div class="chart">${chart}</div></section>` : ''}
+    </div>
+  </div>`;
 }
 
 function recurringCard(r) {
@@ -530,6 +684,10 @@ async function viewTransactions() {
   setView(`
     <header class="page-head"><div><h1>${esc(T.tabTransactions)}</h1><p class="sub">${esc(T.transactionsSub)}</p></div>
       <div class="tools"><button class="btn primary small" data-action="go" data-tab="add">＋ ${esc(T.addTransaction)}</button></div></header>
+    <div class="pchips" role="group" aria-label="${esc(T.period)}">${[['period', T.presetPeriod], ['30', T.presetThirty], ['90', T.presetNinety], ['year', T.presetYear], ['all', T.presetAll]]
+      .map(([v, l]) => `<button type="button" class="${presetOf(f) === v ? 'on' : ''}" aria-pressed="${presetOf(f) === v}" data-action="preset" data-p="${v}">${esc(l)}</button>`).join('')}</div>
+    <div class="pchips" role="group" aria-label="${esc(T.kind)}">${[['all', T.allKinds], ['out', T.kindOut], ['in', T.kindIn], ['transfer', T.kindTransfer], ['adjust', T.kindAdjust]]
+      .map(([v, l]) => `<button type="button" class="${kindOf(f) === v ? 'on' : ''}" aria-pressed="${kindOf(f) === v}" data-action="kindchip" data-k="${v}">${esc(l)}</button>`).join('')}</div>
     <div class="filters ${state.filtersOpen ? 'open' : ''}">
       <div class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         <input type="search" data-filter="q" aria-label="${esc(T.search)}" placeholder="${esc(T.searchPlaceholder)}" value="${esc(f.q)}"></div>
@@ -547,6 +705,43 @@ async function viewTransactions() {
   showResults();
 }
 
+/** Which period chip the filters match ('' = none). */
+function presetOf(f) {
+  const cur = state.dashByMonth[currentMonth()];
+  const r = cur && cur.summary && cur.summary.from ? cur.summary : null;
+  if (r ? f.from === r.from && f.to === r.to && !f.month : f.month === currentMonth() && !f.from) return 'period';
+  if (!f.month && !f.from && !f.to) return 'all';
+  if (f.month || f.to) return '';
+  const ago = (n) => { const t = new Date(`${state.boot.today}T00:00:00`); t.setDate(t.getDate() - n + 1); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; };
+  if (f.from === ago(30)) return '30';
+  if (f.from === ago(90)) return '90';
+  return f.from === `${state.boot.today.slice(0, 4)}-01-01` ? 'year' : '';
+}
+function setPreset(v) {
+  const f = state.filters;
+  const cur = state.dashByMonth[currentMonth()];
+  const r = cur && cur.summary && cur.summary.from ? cur.summary : null;
+  const ago = (n) => { const t = new Date(`${state.boot.today}T00:00:00`); t.setDate(t.getDate() - n + 1); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; };
+  Object.assign(f, { month: '', from: '', to: '' });
+  if (v === 'period') Object.assign(f, r ? { from: r.from, to: r.to } : { month: currentMonth() });
+  else if (v === '30' || v === '90') f.from = ago(Number(v));
+  else if (v === 'year') f.from = `${state.boot.today.slice(0, 4)}-01-01`;
+}
+const fixedCats = () => state.boot.categories.fixed; // [Penyesuaian, transfer]
+function kindOf(f) {
+  if (f.category === fixedCats()[1]) return 'transfer';
+  if (f.category === fixedCats()[0]) return 'adjust';
+  if (f.category) return '';
+  return f.direction || 'all';
+}
+function setKind(v) {
+  const f = state.filters;
+  if (fixedCats().includes(f.category)) f.category = '';
+  f.direction = v === 'out' || v === 'in' ? v : '';
+  if (v === 'transfer') f.category = fixedCats()[1];
+  if (v === 'adjust') f.category = fixedCats()[0];
+}
+
 /** Filter chips and the table only, so typing in the search box keeps its place. */
 function showResults() {
   const box = $('#txResults');
@@ -558,18 +753,36 @@ function showResults() {
   const counted = all.rows.filter((r) => r.status !== 'ignored');
   const sum = (dir) => counted.filter((r) => r.direction === dir).reduce((a, r) => a + (Number(r.amount) || 0), 0);
   const chips = [
-    f.q && ['q', `“${f.q}”`], f.month && ['month', monthLabel(f.month)], (f.from || f.to) && ['period', rangeLabel(f.from, f.to)], f.stream && ['stream', f.stream], f.category && ['category', f.category],
+    f.q && ['q', `“${f.q}”`], f.month && ['month', monthLabel(f.month)], (f.from || f.to) && ['period', f.to ? (f.from === f.to ? dateLabel(f.from) : rangeLabel(f.from, f.to)) : T.since(dateLabel(f.from, { weekday: false }))], f.stream && ['stream', f.stream], f.category && ['category', f.category],
     f.direction && ['direction', f.direction === 'in' ? T.kindIn : T.kindOut], f.status && ['status', T[`status${f.status[0].toUpperCase()}${f.status.slice(1)}`]],
   ].filter(Boolean);
   const fc = $('#filterCount');
   if (fc) fc.textContent = chips.length ? ` (${T.activeN(chips.length)})` : '';
   $('#txChips').innerHTML = chips.length ? `${chips.map(([k, label]) => `<button class="chip" data-action="unfilter" data-key="${k}" aria-label="${esc(T.removeFilter(label))}">${esc(label)} <span class="x" aria-hidden="true">✕</span></button>`).join('')}
     <button class="btn plain small" data-action="resetfilters">${esc(T.resetFilters)}</button>` : '';
-  const items = rows.map((x) => `
+  // One heading per day with that day's total (of everything filtered, not only the rows shown).
+  const dayTotal = new Map();
+  for (const r of counted) {
+    const k = String(r.date).slice(0, 10);
+    const t = dayTotal.get(k) || { out: 0, in: 0 };
+    t[r.direction === 'in' ? 'in' : 'out'] += Number(r.amount) || 0;
+    dayTotal.set(k, t);
+  }
+  const yesterday = (() => { const t = new Date(`${state.boot.today}T00:00:00`); t.setDate(t.getDate() - 1); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; })();
+  let lastDay = '';
+  const dayHead = (x) => {
+    const k = String(x.date).slice(0, 10);
+    if (k === lastDay) return '';
+    lastDay = k;
+    const t = dayTotal.get(k) || { out: 0, in: 0 };
+    const label = k === state.boot.today ? T.today : k === yesterday ? T.yesterday : dateLabel(k);
+    return `<div class="day-head" role="row"><span>${esc(label)}</span><span class="amt">${t.out ? `−${rp(t.out)}` : ''}${t.in ? ` <span class="in">+${rp(t.in)}</span>` : ''}</span></div>`;
+  };
+  const items = rows.map((x) => `${dayHead(x)}
     <button class="trow" data-action="edit" data-id="${esc(x.id)}">
-      <span class="c-date">${esc(dateLabel(x.date))}<br><small class="muted">${esc(timeLabel(x.time))}</small></span>
-      <span class="c-desc">${esc(x.description || '—')}${x.details ? `<small>${esc(x.details)}</small>` : ''}</span>
-      <span class="c-mobile-meta">${esc(when(x))} · ${esc(x.stream || T.noAccount)}</span>
+      <span class="c-date">${esc(timeLabel(x.time) || '—')}</span>
+      <span class="c-desc">${icon(x.category)}<span>${esc(x.description || '—')}${x.details ? `<small>${esc(x.details)}</small>` : ''}</span></span>
+      <span class="c-mobile-meta">${esc([timeLabel(x.time), x.stream || T.noAccount].filter(Boolean).join(' · '))}</span>
       <span class="c-cat">${tag(x.category)}${statusBadge(x.status)}</span>
       <span class="c-acct">${esc(x.stream || '—')}</span>
       <span class="c-amt amt ${esc(x.direction)}">${signed(x)}</span>
@@ -577,7 +790,7 @@ function showResults() {
   box.innerHTML = `${f.category ? categoryTrend(f.category) : ''}
     <div class="summary-bar"><span><b>${esc(T.countTransactions(all.total))}</b></span>
       <span>${esc(T.kindIn)} <b class="amt in">+${rp(sum('in'))}</b> · ${esc(T.kindOut)} <b class="amt">${rp(sum('out'))}</b></span></div>
-    ${rows.length ? `<div class="table" role="table"><div class="thead" role="row"><span>${esc(T.date)}</span><span>${esc(T.description)}</span><span>${esc(T.category)}</span><span>${esc(T.account)}</span><span class="r">${esc(T.amount)}</span></div>${items}</div>`
+    ${rows.length ? `<div class="table" role="table"><div class="thead" role="row"><span>${esc(T.time)}</span><span>${esc(T.description)}</span><span>${esc(T.category)}</span><span>${esc(T.account)}</span><span class="r">${esc(T.amount)}</span></div>${items}</div>`
     : `<div class="card empty"><b>${esc(T.noTransactions)}</b>${esc(chips.length ? T.noTransactionsFiltered : '')}</div>`}
     ${all.total > rows.length ? `<div class="more"><span>${esc(T.showing(rows.length, all.total))}</span><button class="btn secondary" data-action="more">${esc(T.showMore)}</button></div>` : ''}`;
 }
@@ -1125,6 +1338,20 @@ function onClick(e) {
     return viewTransactions();
   }
   if (a === 'resetfilters') { state.filters = { q: '', month: '', from: '', to: '', stream: '', category: '', status: '', direction: '' }; state.limit = 50; return viewTransactions(); }
+  if (a === 'preset') { setPreset(el.dataset.p); state.limit = 50; return viewTransactions(); }
+  if (a === 'kindchip') { setKind(el.dataset.k); state.limit = 50; return viewTransactions(); }
+  if (a === 'dashview') { state.dashView = el.dataset.view; return viewDashboard(); }
+  if (a === 'hide') {
+    hideAmounts = !hideAmounts;
+    try { window.localStorage.setItem(HIDE_KEY, hideAmounts ? '1' : '0'); } catch (err) { /* this visit only */ }
+    toast(hideAmounts ? T.amountsHidden : T.amountsShown);
+    return show(state.tab);
+  }
+  if (a === 'drillday') {
+    state.filters = { q: '', month: '', from: el.dataset.date, to: el.dataset.date, stream: '', category: '', status: '', direction: '' };
+    state.limit = 50;
+    return show('transactions');
+  }
   if (a === 'edit') return openEditor(el.dataset.id);
   if (a === 'splitopen') return openSplit(el.dataset.id);
   if (a === 'splitcancel') { $('#splitBox').innerHTML = splitSummary(state.rowsById.get(String(el.dataset.id))); return null; }

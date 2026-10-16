@@ -16,7 +16,7 @@ import { TABS, FIXED_CATEGORIES } from './schema.js';
 import { buildCategorySlots, validateAccounts } from './categories.js';
 import {
   categoryLists, summarizeMonth, streamBalances, budgetPerDay, reviewItems, ruleFromApproval, pendingMatching,
-  manualRows, balanceCorrection, renamedCategories, budgetUsage, filterTransactions, isoDate, newId, suggestBudgets, bigSpends, newestFromEmail,
+  manualRows, balanceCorrection, renamedCategories, budgetUsage, filterTransactions, isoDate, newId, suggestBudgets, bigSpends, newestFromEmail, dailySpending, rowView,
 } from './app.js';
 import { compileRule } from './rules.js';
 import { recurringCharges, payee } from './recurring.js';
@@ -61,6 +61,10 @@ export function createApi(store, env) {
     start: start(), today: now(), payday: payday(), category: salaryCategory(cats().income),
     skipped: lines('salary_skipped', ','), expected: Number(store.config('salary_amount')) || 0,
   }).map((s) => ({ ...s, stream: salaryStream() }));
+  const lastDayIso = (ym) => { const [y, mo] = ym.split('-').map(Number); return isoDate(new Date(y, mo, 0)); };
+  /** The dates a month stands for: the calendar month, or its payday period. */
+  const spanOf = (ym) => rangeOf(ym) || { from: `${ym}-01`, to: lastDayIso(ym) };
+  const newestFirst = (a, b) => `${String(b.date).slice(0, 10)}${b.time}`.localeCompare(`${String(a.date).slice(0, 10)}${a.time}`);
   /** Spending from this amount up is flagged (Config big_amount; empty = Rp1.000.000, 0 = off). */
   const bigAmount = () => { const v = String(store.config('big_amount') ?? '').trim(); return v === '' ? 1000000 : Math.max(0, Number(v) || 0); };
   const json = (key) => { try { return JSON.parse(String(store.config(key) || '{}')) || {}; } catch (e) { return {}; } };
@@ -285,6 +289,13 @@ export function createApi(store, env) {
         budgets: budgetUsage(summary, store.read(TABS.budgets)),
         pendingCount: all.filter((r) => r.status === 'pending').length,
         salaryMissing: salaries(all),
+        // Day by day this month and last month: the calendar and the "compared with last month" line.
+        daily: dailySpending(all, c, spanOf(m)),
+        prevDaily: dailySpending(all, c, spanOf(monthAdd(m, -1))),
+        // Today's payments (also the ones still waiting for a category) and the latest rows.
+        today: all.filter((r) => String(r.date).slice(0, 10) === isoDate(today) && r.direction === 'out' && r.status !== 'ignored' && !fixedNames().includes(r.category))
+          .sort(newestFirst).map(rowView),
+        recent: all.filter((r) => r.status === 'approved').sort(newestFirst).slice(0, 8).map(rowView),
         bigAmount: bigAmount(),
         big: bigSpends(all, { from: summary.from || `${m}-01`, to: summary.to || `${m}-31`, threshold: bigAmount(), skipCategories: fixedNames() }),
         recurring: recurring(all),

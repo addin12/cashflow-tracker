@@ -208,6 +208,25 @@ export function bigSpends(rows, { from, to, threshold, skipCategories = [] }) {
     .sort((a, b) => b.amount - a.amount);
 }
 
+/** Spending (approved money out in expense categories) per day from `from` to `to`, every day listed. */
+export function dailySpending(rows, cats, { from, to }) {
+  const exp = new Set(cats.expense);
+  const by = new Map();
+  for (const r of rows) {
+    const d = String(r.date).slice(0, 10);
+    if (approved(r) && r.direction === 'out' && exp.has(r.category) && d >= from && d <= to) by.set(d, (by.get(d) || 0) + num(r.amount));
+  }
+  const out = [];
+  for (let d = new Date(`${from}T00:00:00`); isoDate(d) <= to; d.setDate(d.getDate() + 1)) out.push({ date: isoDate(d), amount: round2(by.get(isoDate(d)) || 0) });
+  return out;
+}
+
+/** A row as the screens show it (lists outside the Transactions tab). */
+export const rowView = (r) => ({
+  id: r.id, date: String(r.date).slice(0, 10), time: r.time || '', description: r.description || '', details: r.details || '',
+  amount: round2(num(r.amount)), direction: r.direction, category: r.category || '', stream: r.stream || '', status: r.status,
+});
+
 /** The newest rows the sync brought in (for the app's "new transactions" notice). */
 export function newestFromEmail(rows, limit = 20) {
   return rows.filter((r) => r.gmail_id && !String(r.id).endsWith('_fee') && r.status !== 'ignored')
