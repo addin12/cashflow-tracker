@@ -10,6 +10,7 @@ import { cachedInit, storeInit } from './gas/initcache.js';
 import { sheetStore } from './gas/sheetstore.js';
 import { createApi, API_METHODS } from './core/api.js';
 import { sendWeeklySummary, clearSelfTestTrigger, runDaily, scheduleSelfTest, sendSyncAlert } from './gas/weekly.js';
+import { refreshPrices } from './gas/prices.js';
 
 const MENU = 'Cashflow Tracker';
 
@@ -108,6 +109,8 @@ export function api(name, payloadJson) {
     }
     try {
       const data = impl[name](payload);
+      // New tickers get their market price now, so Settings shows it at once.
+      if (name === 'saveAssets' && data.fetch) try { refreshPrices(ss); } catch (e) { /* the sync fetches it later */ }
       const json = JSON.stringify({ data });
       if (name === 'init') {
         storeInit(JSON.stringify(data));

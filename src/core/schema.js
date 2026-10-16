@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 17; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs
+export const SETUP_VERSION = 18; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at
 
 export const TABS = {
   transactions: 'Transactions',
@@ -28,7 +28,8 @@ export const OWED_HEADERS = ['id', 'tx_id', 'who', 'amount', 'note', 'date', 'st
 // Transactions you plan (rent, cash bills): put in Review (or saved) on their day each month.
 export const PLAN_HEADERS = ['id', 'name', 'amount', 'direction', 'stream', 'category', 'day', 'auto', 'last', 'active'];
 // What you own and owe beyond the accounts; price is a GOOGLEFINANCE formula when a ticker is set.
-export const ASSET_HEADERS = ['id', 'name', 'kind', 'qty', 'unit_value', 'ticker', 'price', 'paid', 'notes'];
+// price and price_at (epoch ms) are written by the script from Yahoo / Google Finance (gas/prices.js).
+export const ASSET_HEADERS = ['id', 'name', 'kind', 'qty', 'unit_value', 'ticker', 'price', 'paid', 'notes', 'price_at'];
 
 export const INBOX_LOG_HEADERS = ['gmail_id', 'received', 'from', 'subject', 'status', 'parser', 'reason', 'rows', 'gmail'];
 

@@ -1029,7 +1029,7 @@ function assetsForm(s) {
       ${field(T.assetName, `<input data-a2="name" value="${esc(a.name)}" placeholder="${esc(T.assetNamePh)}">`)}
       ${field(T.assetKind, `<select data-a2="kind">${kinds.map((k) => `<option value="${k}" ${k === a.kind ? 'selected' : ''}>${esc(T[`kind_${k}`])}</option>`).join('')}</select>`)}
       ${field(T.assetQty, `<input data-a2="qty" inputmode="decimal" value="${esc(a.qty === '' || a.qty == null ? 1 : a.qty)}">`, { help: T.assetQtyHelp })}
-      ${field(T.assetValue, `<input data-a2="unit_value" class="calc-input" inputmode="decimal" value="${esc(a.unit_value || '')}"><em class="calc-out"></em>`, { help: price > 0 ? T.assetMarket(rp(price)) : T.assetValueHelp })}
+      ${field(T.assetValue, `<input data-a2="unit_value" class="calc-input" inputmode="decimal" value="${esc(a.unit_value || '')}"><em class="calc-out"></em>`, { help: price > 0 ? T.assetMarket(rp(price), Number(a.price_at) ? new Date(Number(a.price_at)).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '') : a.ticker ? T.assetPriceSoon : T.assetValueHelp })}
       ${field(T.assetTicker, `<input data-a2="ticker" value="${esc(a.ticker || '')}" placeholder="IDX:BBCA" autocapitalize="characters" spellcheck="false">`, { help: T.assetTickerHelp })}
       ${field(T.assetPaid, `<input data-a2="paid" class="calc-input" inputmode="decimal" value="${esc(a.paid || '')}"><em class="calc-out"></em>`, { help: T.optional })}
     </div>

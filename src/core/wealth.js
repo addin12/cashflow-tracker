@@ -2,8 +2,32 @@
 // debts), planned recurring transactions, and money friends owe you ("Tagih"). Pure functions.
 
 export const ASSET_KINDS = ['property', 'vehicle', 'gold', 'stock', 'crypto', 'collectible', 'other', 'debt'];
-// Google Finance tickers such as IDX:BBCA or NASDAQ:AAPL; anything else is never put in a formula.
-export const TICKER = /^[A-Z]{2,10}:[A-Z0-9.]{1,15}$/;
+// Stock codes: IDX:BBCA, or just BBCA (an IDX stock), or EXCHANGE:CODE elsewhere (NASDAQ:AAPL).
+export const TICKER = /^(?:[A-Z]{2,10}:)?[A-Z0-9.-]{1,15}$/;
+
+/**
+ * Where to look a ticker up. Google Sheets' GOOGLEFINANCE() doesn't know IDX stocks, so the script
+ * asks Yahoo Finance (BBCA.JK) and, failing that, reads Google Finance's quote page (BBCA:IDX).
+ */
+export function priceSymbols(ticker) {
+  const t = String(ticker || '').trim().toUpperCase();
+  if (!TICKER.test(t)) return null;
+  const [ex, sym] = t.includes(':') ? t.split(':') : ['IDX', t];
+  return ex === 'IDX' ? { yahoo: `${sym}.JK`, google: `${sym}:IDX` } : { yahoo: sym, google: `${sym}:${ex}` };
+}
+
+/** Yahoo Finance chart JSON -> the latest price (NaN when missing). */
+export function priceFromYahoo(json) {
+  const v = Number(json && json.chart && json.chart.result && json.chart.result[0] && json.chart.result[0].meta && json.chart.result[0].meta.regularMarketPrice);
+  return v > 0 ? v : NaN;
+}
+
+/** Google Finance quote page -> its price ("Rp5,275" or "$227.50"; the first one on the page). NaN when none. */
+export function priceFromGooglePage(html) {
+  const m = String(html || '').match(/(?:Rp|\$)\s?(\d{1,3}(?:,\d{3})*(?:\.\d+)?)/);
+  const v = m ? Number(m[1].replace(/,/g, '')) : NaN;
+  return v > 0 ? v : NaN;
+}
 
 const num = (v) => Number(v) || 0;
 const round2 = (v) => Math.round(v * 100) / 100;
@@ -33,7 +57,7 @@ export function assetProblems(list) {
     const n = `item ${i + 1}`;
     if (!String(a.name || '').trim()) out.push(`${n}: name is required`);
     if (!ASSET_KINDS.includes(a.kind)) out.push(`${n}: unknown kind ${a.kind}`);
-    if (a.ticker && !TICKER.test(a.ticker)) out.push(`${n}: ticker must look like IDX:BBCA`);
+    if (a.ticker && !TICKER.test(a.ticker)) out.push(`${n}: ticker must look like BBCA or IDX:BBCA`);
     if (!(num(a.unit_value) > 0) && !(a.ticker && TICKER.test(a.ticker))) out.push(`${n}: enter a value`);
     if (a.qty !== '' && a.qty != null && !(Number(a.qty) > 0)) out.push(`${n}: quantity must be above 0`);
   });

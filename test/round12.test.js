@@ -60,7 +60,7 @@ describe('wealth', () => {
   });
   it('asset checks, and tickers only in the Google Finance form', () => {
     expect(assetProblems([{ name: '', kind: 'car', unit_value: 0, ticker: 'BBCA";=1' }])).toEqual([
-      'item 1: name is required', 'item 1: unknown kind car', 'item 1: ticker must look like IDX:BBCA', 'item 1: enter a value',
+      'item 1: name is required', 'item 1: unknown kind car', 'item 1: ticker must look like BBCA or IDX:BBCA', 'item 1: enter a value',
     ]);
     expect(assetProblems([{ name: 'BBCA', kind: 'stock', qty: 100, ticker: 'IDX:BBCA' }])).toEqual([]);
   });
@@ -134,13 +134,20 @@ describe('planned transactions', () => {
 });
 
 describe('assets and subscriptions', () => {
-  it('a ticker becomes a Google Finance formula; net worth shows on the summary', () => {
+  it('a ticker is kept (upper case) for the script to price; net worth shows on the summary', () => {
     const store = memoryStore();
     const api = createApi(store, { now: oct16 });
     api.saveAssets({ assets: [{ name: 'BBCA', kind: 'stock', qty: 100, unit_value: 9000, ticker: 'idx:bbca' }, { name: 'Motor', kind: 'vehicle', unit_value: 15000000 }] });
-    expect(store.t[TABS.assets][0]).toMatchObject({ ticker: 'IDX:BBCA', price: '=IFERROR(GOOGLEFINANCE("IDX:BBCA"),"")' });
+    expect(store.t[TABS.assets][0]).toMatchObject({ ticker: 'IDX:BBCA', price: '', price_at: '' });
     expect(store.t[TABS.assets][1]).toMatchObject({ qty: 1, price: '' });
     expect(api.dashboard({}).wealth.owned).toBe(15900000);
+    // a fetched price stays while the ticker is the same, and goes when it changes
+    store.t[TABS.assets][0].price = 9500; store.t[TABS.assets][0].price_at = 1;
+    const [bbca, motor] = store.read(TABS.assets);
+    api.saveAssets({ assets: [bbca, motor] });
+    expect(store.t[TABS.assets][0]).toMatchObject({ price: 9500, price_at: 1 });
+    api.saveAssets({ assets: [{ ...bbca, ticker: 'BBRI' }, motor] });
+    expect(store.t[TABS.assets][0]).toMatchObject({ price: '', price_at: '' });
     expect(() => api.saveAssets({ assets: [{ name: 'X', kind: 'stock', ticker: 'A:B")&HYPERLINK("x' }] })).toThrow(/ticker/);
   });
   it('keep / stop marks on subscriptions', () => {

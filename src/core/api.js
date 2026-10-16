@@ -22,7 +22,7 @@ import { compileRule } from './rules.js';
 import { recurringCharges, payee } from './recurring.js';
 import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth } from './salary.js';
 import { topPlaces, biggestExpenses, moneyFlow, spendingPattern, tagTotals } from './insights.js';
-import { netWorth, assetProblems, ASSET_KINDS, TICKER, duePlans, owedSummary } from './wealth.js';
+import { netWorth, assetProblems, ASSET_KINDS, duePlans, owedSummary } from './wealth.js';
 import { weeklySummary } from './summary.js';
 import { monthlyReport } from './notices.js';
 import { goalProgress, goalProblems } from './goals.js';
@@ -456,17 +456,22 @@ export function createApi(store, env) {
       return { created: added.length };
     },
 
-    /** What you own and owe beyond the accounts. A ticker gets its price from Google Finance in the sheet. */
+    /** What you own and owe beyond the accounts. A ticker's market price is fetched by the script (gas/prices.js). */
     saveAssets({ assets }) {
+      const before = new Map(store.read(TABS.assets).map((a) => [String(a.id), a]));
       const list = (assets || []).map((a) => ({
         id: a.id || newId('a'), name: String(a.name || '').trim(), kind: a.kind, qty: a.qty === '' || a.qty == null ? 1 : Number(a.qty),
         unit_value: Number(a.unit_value) || 0, ticker: String(a.ticker || '').trim().toUpperCase(), paid: Number(a.paid) || '', notes: String(a.notes || '').trim(),
       }));
       const problems = assetProblems(list);
       if (problems.length) throw new Error(problems.join('; '));
-      // The ticker is checked against TICKER, so the formula can't carry anything else.
-      store.replace(TABS.assets, list.map((a) => ({ ...a, price: a.ticker && TICKER.test(a.ticker) ? `=IFERROR(GOOGLEFINANCE("${a.ticker}"),"")` : '' })));
-      return { ok: true };
+      // A price already fetched stays while the ticker is the same; a new ticker is fetched after saving.
+      store.replace(TABS.assets, list.map((a) => {
+        const old = before.get(String(a.id));
+        const keep = old && a.ticker && String(old.ticker || '').toUpperCase() === a.ticker;
+        return { ...a, price: keep ? old.price : '', price_at: keep ? old.price_at : '' };
+      }));
+      return { ok: true, fetch: list.some((a) => a.ticker) };
     },
 
     /** "Keep" or "stop" on a subscription ('' clears it). */
