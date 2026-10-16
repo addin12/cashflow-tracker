@@ -5,6 +5,8 @@
 // Personal accounts get 90 minutes of trigger time a day: the quick look keeps us well under it.
 /* global SpreadsheetApp, LockService, ScriptApp, PropertiesService, Utilities */
 
+import { newRowsNotice, pushEventsOf } from '../core/push.js';
+import { sendPush, devices } from './push.js';
 import { TABS, TRANSACTION_HEADERS, CONNECTION_HEADERS, INBOX_LOG_HEADERS, RULE_HEADERS, SETUP_VERSION } from '../core/schema.js';
 import { parseEmail, SENDERS, backfillQuery } from '../core/parsers/index.js';
 import { planSync } from '../core/plan.js';
@@ -236,6 +238,7 @@ function syncOnce(opts) {
       updateRows(ss, TABS.transactions, TRANSACTION_HEADERS, plan.update);
       appendRows(ss, TABS.inboxLog, INBOX_LOG_HEADERS, logRows);
       bumpRuleHits(ss, rules, plan.ruleHits);
+      notifyNewRows(ss, plan.add.filter(Boolean));
     } else {
       appendRows(ss, TABS.preview, TRANSACTION_HEADERS, plan.add);
       updateRows(ss, TABS.preview, TRANSACTION_HEADERS, plan.update);
@@ -331,4 +334,17 @@ export function connect(seed, defaultMode) {
   const gmail = myAddress();
   upsertConnection(ss, gmail, { method: 'own trigger', connected_at: new Date() });
   return runSync({ seed, defaultMode });
+}
+
+/** A phone notification about new rows (when notifications are set up); a failure never stops the sync. */
+function notifyNewRows(ss, rows) {
+  if (!rows.length || !devices(ss).length) return;
+  try {
+    const big = String(configValue(ss, 'big_amount') ?? '').trim();
+    const notice = newRowsNotice(rows, {
+      bigAmount: big === '' ? 1000000 : Number(big) || 0, events: pushEventsOf(configValue(ss, 'push_events')),
+      lang: String(configValue(ss, 'language') || 'id') === 'en' ? 'en' : 'id',
+    });
+    if (notice) sendPush(ss, notice);
+  } catch (e) { /* the rows are saved; only the notification is lost */ }
 }

@@ -1,6 +1,6 @@
 // Apps Script entry points. The build turns every export below into a top-level function.
 // SEED (first-run data) and SYNC_DEFAULT ('preview' | 'live') are injected by scripts/build.mjs.
-/* global SpreadsheetApp, HtmlService, LockService, SEED, SYNC_DEFAULT */
+/* global SpreadsheetApp, HtmlService, LockService, Utilities, SEED, SYNC_DEFAULT */
 
 import { runSetup, configValue, setConfigValue } from './gas/setup.js';
 import { runSelfTest } from './gas/selftest.js';
@@ -11,6 +11,7 @@ import { sheetStore } from './gas/sheetstore.js';
 import { createApi, API_METHODS } from './core/api.js';
 import { scanYearly } from './gas/yearly.js';
 import { syncCalendar } from './gas/calendar.js';
+import { pushSite, sendPush, acceptDevice } from './gas/push.js';
 import { sendWeeklySummary, clearSelfTestTrigger, runDaily, scheduleSelfTest, sendSyncAlert, installMailTriggers, runEvening } from './gas/weekly.js';
 import { refreshPrices } from './gas/prices.js';
 
@@ -66,11 +67,17 @@ export function menuSelfTest() {
 }
 
 /** Web app page (deployed for the owner only: "execute as me, access: only myself"). */
-export function doGet() {
+const TABS_OPENABLE = ['review', 'dashboard', 'transactions', 'add', 'settings'];
+export function doGet(e) {
+  const p = (e && e.parameter) || {};
+  // ?tab= opens a screen (the site's short links /tambah, /cek ...); ?push= is a phone joining notifications.
+  const tab = TABS_OPENABLE.includes(p.tab) ? p.tab : '';
+  const push = p.push ? (acceptDevice(appSpreadsheet(), p.push, p.n, p.label) ? 'ok' : 'bad') : '';
   // The cached first-screen data goes into the page itself, so it paints without a round trip.
   const init = cachedInit();
+  const start = `window.__TAB__=${JSON.stringify(tab)};window.__PUSH__=${JSON.stringify(push)};`;
   const html = HtmlService.createHtmlOutputFromFile('index').getContent()
-    .replace('window.__INIT__=null;', () => (init ? `window.__INIT__=${init.replace(/</g, '\\u003c').replace(/\//g, '\\/')};` : 'window.__INIT__=null;'));
+    .replace('window.__INIT__=null;', () => start + (init ? `window.__INIT__=${init.replace(/</g, '\\u003c').replace(/\//g, '\\/')};` : 'window.__INIT__=null;'));
   return HtmlService.createHtmlOutput(html)
     .setTitle('Cashflow')
     .setFaviconUrl(ICON_URL)
@@ -104,6 +111,7 @@ export function api(name, payloadJson) {
       sendSummary: () => sendWeeklySummary(ss, { force: true }),
       scanYearly: () => scanYearly(ss),
       syncCalendar: () => syncCalendar(ss),
+      push: pushSite() ? { site: pushSite(), token: () => Utilities.getUuid().replace(/-/g, ''), send: (notice) => sendPush(ss, notice) } : null,
     });
     const lock = READ_ONLY.has(name) || name === 'syncNow' ? null : LockService.getScriptLock();
     if (lock && !lock.tryLock(20000)) {

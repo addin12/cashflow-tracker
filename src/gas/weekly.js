@@ -16,6 +16,8 @@ import { configValue } from './setup.js';
 import { myAddress } from './gmail.js';
 import { syncCalendar } from './calendar.js';
 import { scanYearly } from './yearly.js';
+import { sendPush, pushOn } from './push.js';
+import { billsNotice, paydayNotice, closeNotice } from '../core/push.js';
 
 export const WEEKLY_HANDLER = 'weeklySummaryTrigger';
 export const DAILY_HANDLER = 'dailyTrigger';
@@ -52,6 +54,7 @@ export function runDaily(ss, today = new Date()) {
     done.push('monthly');
   }
   const payday = Number(configValue(ss, 'payday_day')) || 28;
+  if (isPayday(today, payday) && pushOn(ss, 'payday')) try { sendPush(ss, paydayNotice(langOf(ss))); done.push('payday push'); } catch (e) { /* email still goes */ }
   if (isPayday(today, payday) && isOn(ss, 'payday_email')) {
     send(ss, paydayEmail(api.dashboard({}).balances, { appUrl: appUrl(ss), lang: langOf(ss) }));
     done.push('payday');
@@ -59,6 +62,7 @@ export function runDaily(ss, today = new Date()) {
   if (!configValue(ss, 'yearly_scan')) try { scanYearly(ss, { today }); done.push('yearly'); } catch (e) { /* tried again tomorrow */ }
   try { if (!syncCalendar(ss, today).skipped) done.push('calendar'); } catch (e) { /* the status is in Config calendar_status */ }
   const tomorrow = (api.dashboard({}).bills || []).filter((b) => b.daysLeft === 1);
+  if (tomorrow.length && pushOn(ss, 'bills')) try { sendPush(ss, billsNotice(tomorrow, langOf(ss))); done.push('bills push'); } catch (e) { /* email still goes */ }
   if (tomorrow.length && isOn(ss, 'bill_email')) {
     send(ss, billsEmail(tomorrow, { appUrl: appUrl(ss), lang: langOf(ss) }));
     done.push('bills');
@@ -68,10 +72,13 @@ export function runDaily(ss, today = new Date()) {
 
 /** 21:00: when switched on, and today isn't closed and nothing was logged by hand, one nudge. */
 export function runEvening(ss, today = new Date()) {
-  if (String(configValue(ss, 'close_email') || 'off') !== 'on') return 'off';
+  const email = String(configValue(ss, 'close_email') || 'off') === 'on';
+  const push = pushOn(ss, 'close');
+  if (!email && !push) return 'off';
   const day = createApi(sheetStore(ss), { now: () => today }).review().day;
   if (day.closed || day.byHand) return 'not needed';
-  send(ss, closeDayEmail({ appUrl: appUrl(ss), lang: langOf(ss) }));
+  if (email) send(ss, closeDayEmail({ appUrl: appUrl(ss), lang: langOf(ss) }));
+  if (push) try { sendPush(ss, closeNotice(langOf(ss))); } catch (e) { /* the email went */ }
   return 'sent';
 }
 

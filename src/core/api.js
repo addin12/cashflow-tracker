@@ -26,6 +26,7 @@ import { netWorth, assetProblems, ASSET_KINDS, duePlans, owedSummary, upcomingBi
 import { cardBills, cardProblems } from './cards.js';
 import { sptList } from './spt.js';
 import { yearlyItems } from './yearly.js';
+import { pushEventsOf, PUSH_EVENTS, testNotice } from './push.js';
 import { parseQuick, usualEntries } from './quick.js';
 import { weeklySummary } from './summary.js';
 import { monthlyReport } from './notices.js';
@@ -75,6 +76,14 @@ export function createApi(store, env) {
   };
   /** Credit cards and paylater (Config cards): the last bill, what is paid, when it's due. */
   const cards = (all) => cardBills(list('cards'), all, now(), fixedNames()[1]);
+  /** The one-time code a phone brings back from the site's /notifikasi page (valid 30 minutes, renewed after 20). */
+  const pushCode = () => {
+    const [code, at] = String(store.config('push_nonce') || '').split(' ');
+    if (code && now().getTime() - Number(at) < 20 * 60000) return code;
+    const fresh = env.push.token();
+    store.setConfig('push_nonce', `${fresh} ${now().getTime()}`);
+    return fresh;
+  };
   /** "Pertama kali": rows paying a place for the first time get first: true. */
   const firstIds = (all) => newPlaceIds(all, { start: start(), today: now(), skipCategories: fixedNames() });
   const withFirst = (rs, ids) => rs.map((r) => (ids.has(String(r.id)) ? { ...r, first: true } : r));
@@ -399,6 +408,18 @@ export function createApi(store, env) {
       return { ok: true };
     },
 
+    /** A test notification to every phone that joined. */
+    pushTest() {
+      if (!env.push) throw new Error('notifications are not set up');
+      return env.push.send(testNotice(String(store.config('language') || 'id') === 'en' ? 'en' : 'id'));
+    },
+
+    /** Forgets every phone (they stop getting notifications). */
+    pushForget() {
+      store.setConfig('push_devices', '[]');
+      return { ok: true };
+    },
+
     /** Reads receipts a year back in Gmail for yearly plans (gas/yearly.js). */
     scanYearly() {
       if (!env.scanYearly) throw new Error('reading Gmail is not available here');
@@ -666,6 +687,10 @@ export function createApi(store, env) {
         balances: streamBalances(rows(), accounts(), { year: year(), asOf: isoDate(now()) }), lastChecks: lastChecks(rows()),
         imports: importHistory(), salaryStream: salaryStream(), plans: store.read(TABS.plans), assets: store.read(TABS.assets), assetKinds: ASSET_KINDS, cards: list('cards'),
         yearly: { found: list('yearly_subs').length, at: String(store.config('yearly_scan') || '') },
+        push: env.push && env.push.site ? {
+          site: env.push.site, events: pushEventsOf(store.config('push_events')), link: `${env.push.site}/notifikasi?n=${pushCode()}`,
+          devices: list('push_devices').map((d) => ({ label: d.label || '', at: d.at || '' })),
+        } : null,
         budgetSuggestions: suggestBudgets(rows(), cats(), { start: start(), today: now() }),
         archives: String(store.config('archives') || '').split('\n').filter(Boolean)
           .map((line) => { const [year, url] = line.split(' '); return { year, url }; }),
@@ -752,6 +777,10 @@ export function createApi(store, env) {
         try { return { ok: true, calendar: env.syncCalendar() }; } catch (e) { return { ok: true, calendar: { error: e.message } }; }
       }
       if ('summary_period' in values) store.setConfig('summary_period', values.summary_period === 'payday' ? 'payday' : 'month');
+      if ('push_events' in values) {
+        const ev = (Array.isArray(values.push_events) ? values.push_events : String(values.push_events || '').split(',')).filter((x) => PUSH_EVENTS.includes(x));
+        store.setConfig('push_events', ev.length ? ev.join(',') : 'none');
+      }
       if ('salary_stream' in values) {
         if (values.salary_stream && !accounts().some((a) => a.stream === values.salary_stream)) throw new Error('unknown account');
         store.setConfig('salary_stream', String(values.salary_stream || ''));
@@ -867,5 +896,5 @@ export const API_METHODS = [
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
   'yearly', 'importStatement', 'undoImport', 'updateMany', 'tagih', 'owedSet', 'owedRemove', 'savePlans', 'saveAssets', 'markRecurring',
-  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly',
+  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget',
 ];

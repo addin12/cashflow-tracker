@@ -441,7 +441,7 @@ describe('web app', () => {
     expect(doc.querySelectorAll('.set-detail > form, .set-detail > section').length).toBe(1);
     click(doc.querySelector('.set-back'));
     await until(() => !doc.querySelector('.settings').classList.contains('show-detail'), 'back to the list');
-    expect(doc.querySelectorAll('.set-row').length).toBe(14);
+    expect(doc.querySelectorAll('.set-row').length).toBe(15);
     expect(doc.querySelector('[data-section=accounts]').textContent).toContain('3 rekening');
   });
 

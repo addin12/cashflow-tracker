@@ -1674,6 +1674,21 @@ function submitAdd(form) {
 }
 
 // ---------------------------------------------------------------- Settings
+/** Phone notifications: the phones that joined, which things notify, a test. */
+const NOTIF_EVENTS = ['new', 'big', 'bills', 'payday', 'close'];
+function notifSection(s) {
+  const p = s.push;
+  if (!p) return `<section class="card"><h2>${esc(T.notifTitle)}</h2><p class="lead">${esc(T.notifNotSetUp)}</p></section>`;
+  const devs = p.devices.map((d) => `<div class="rowi"><span class="what"><b>${esc(d.label || T.notifDevice)}</b><span class="meta">${esc(T.notifSince(d.at ? dateLabel(d.at.slice(0, 10), { weekday: false }) : '—'))}</span></span></div>`).join('');
+  return `<section class="card"><h2>${esc(T.notifTitle)}</h2><p class="lead">${esc(T.notifHint)}</p>
+      ${devs ? `<div class="rows">${devs}</div>` : `<p class="hint">${esc(T.notifNone)}</p>`}
+      <div class="actions" style="justify-content:flex-start"><a class="btn primary" target="_top" href="${esc(p.link)}">${esc(T.notifAdd)}</a>${devs ? `<button class="btn secondary" type="button" data-action="pushtest">${esc(T.notifTest)}</button>` : ''}</div>
+      <p class="hint">${esc(T.notifIphone)}</p></section>
+    <form class="card" data-form="notif" novalidate><h2>${esc(T.notifWhat)}</h2>
+      ${NOTIF_EVENTS.map((k) => `<label class="check"><input type="checkbox" name="push_${k}" ${p.events.includes(k) ? 'checked' : ''}> ${esc(T[`notif_${k}`])}</label>`).join('')}
+      <div class="actions">${devs ? `<button class="btn danger left" type="button" data-action="pushforget">${esc(T.notifForget)}</button>` : ''}<span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div></form>`;
+}
+
 async function viewSettings(local) {
   // `local`: re-render from unsaved local data (e.g. after "add account") without a server round trip.
   if (!local) skeleton(T.tabSettings);
@@ -1723,6 +1738,7 @@ async function viewSettings(local) {
     plans: plansForm(s),
     assets: assetsForm(s),
     cards: cardsForm(s),
+    notif: notifSection(s),
     sync: `
       <section class="card"><h2>${esc(T.settingsSync)}</h2><p class="lead">${esc(T.settingsSyncHint)}</p><div class="rows">${conns}</div>
         <div class="actions"><button class="btn primary" type="button" data-action="sync">↻ ${esc(T.syncNow)}</button></div></section>`,
@@ -1768,6 +1784,7 @@ async function viewSettings(local) {
     more: `
       <section class="card"><h2>${esc(T.more)}</h2>
         <div class="rows"><div class="rowi"><span class="what"><b>${esc(T.selftest)}</b><span class="meta">${esc(s.selftest || '—')}</span></span></div>
+          ${s.push ? `<a class="rowi" target="_top" href="${esc(s.push.site)}/pasang"><span class="what"><b>${esc(T.installTitle)}</b><span class="meta">${esc(T.installHint)}</span></span><span class="chev">↗</span></a>` : ''}
           ${(s.archives || []).map((a) => `<a class="rowi" target="_blank" rel="noopener" href="${esc(a.url)}"><span class="what"><b>${esc(T.archiveOf(a.year))}</b><span class="meta">${esc(T.archiveHint)}</span></span><span class="chev">↗</span></a>`).join('')}</div>
         <div class="actions"><a class="btn secondary" target="_blank" rel="noopener" href="${esc(state.boot.sheetUrl || '#')}">${esc(T.openSheet)} ↗</a></div></section>`,
     goals: goalsForm(s),
@@ -1779,7 +1796,7 @@ async function viewSettings(local) {
   const groups = [
     [T.setGroupRoutine, [['monthend', T.monthEnd, T.monthEndShort], ['import', T.importTitle, (s.imports || []).length ? T.importLast(new Date(s.imports[0].at).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })) : T.importNever], ['sync', T.settingsSync, syncNote]]],
     [T.setGroupMoney, [['accounts', T.accountsTitle, T.nAccounts(s.accounts.length)], ['budgets', T.budgetsTitle, T.nBudgets(s.budgets.length)], ['goals', T.goalsTitle, T.nGoals((s.goals || []).length)], ['assets', T.assetsTitle, T.nAssets((s.assets || []).length)], ['cards', T.cardsTitle, T.nCards((s.cards || []).length)]]],
-    [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['plans', T.plansTitle, T.nPlans((s.plans || []).length)], ['emails', T.emailsTitle, T.nEmailsOn(emailsOn, 5)]]],
+    [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['plans', T.plansTitle, T.nPlans((s.plans || []).length)], ['emails', T.emailsTitle, T.nEmailsOn(emailsOn, 5)], ['notif', T.notifTitle, s.push ? T.nDevices(s.push.devices.length) : T.notifOff]]],
     [T.setGroupApp, [['prefs', T.preferences, T.prefSummary(lang, Number(cfg.payday_day) || 28)], ['more', T.more, T.moreSummary]]],
   ];
   if (state.settingsSection && !sections[state.settingsSection]) state.settingsSection = null;
@@ -2062,6 +2079,11 @@ function onClick(e) {
     return null;
   }
   if (a === 'interest') return openInterest();
+  if (a === 'pushtest') {
+    el.disabled = true;
+    return call('pushTest').then((r) => toast(T.notifSent(r.sent))).catch((err) => toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' })).finally(() => { el.disabled = false; });
+  }
+  if (a === 'pushforget') return call('pushForget').then(async () => { toast(T.notifForgotten); viewSettings(await call('settings')); }).catch((err) => toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }));
   if (a === 'spt') return openSpt(Number(el.dataset.year));
   if (a === 'sptcsv') return sptCsv();
   if (a === 'scanyearly') {
@@ -2330,6 +2352,10 @@ function onSubmit(e) {
     const plans = readPlans(form).map((x) => ({ ...x, amount: amountValue(x.amount), day: Number(x.day) }));
     return saveForm(form, 'savePlans', { plans }, async () => { viewSettings(await call('settings')); });
   }
+  if (kind === 'notif') {
+    const events = NOTIF_EVENTS.filter((k) => form.querySelector(`[name=push_${k}]`).checked);
+    return saveForm(form, 'saveConfig', { push_events: events });
+  }
   if (kind === 'cards') {
     const cards = readCards(form).map((c) => ({ stream: c.stream, statement: Number(c.statement), due: Number(c.due) }));
     return saveForm(form, 'saveCards', { cards }, async () => { state.dashByMonth = {}; viewSettings(await call('settings')); });
@@ -2514,7 +2540,13 @@ export async function start() {
   const saved = readCache();
   const instant = [embedded, saved].filter(Boolean).sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))[0] || null;
   let waitTimer = null;
-  const firstTab = (data) => (data.review.pending.length || (data.review.salary || []).length ? 'review' : 'dashboard');
+  // A short link (/tambah, /cek ...) asks for a screen; otherwise Review when something waits.
+  const asked = window.__TAB__ || '';
+  const firstTab = (data) => asked || (data.review.pending.length || (data.review.salary || []).length ? 'review' : 'dashboard');
+  if (window.__PUSH__) {
+    state.settingsSection = 'notif';
+    setTimeout(() => toast(window.__PUSH__ === 'ok' ? T.notifAdded : T.notifBad, { kind: window.__PUSH__ === 'ok' ? 'ok' : 'bad' }), 600);
+  }
   if (instant) {
     absorb(instant);
     status('loading');
