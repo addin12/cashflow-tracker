@@ -71,6 +71,11 @@ function fillNewConfig(ss, seed) {
   fill('payday_email', 'on');
   fill('cat_dividend', seed.defaults.dividend);
   for (const [key, value] of Object.entries(seed.config || {})) fill(key, typeof value === 'object' ? JSON.stringify(value) : value);
+  // One partner may use several Google accounts: addresses in the seed join the sheet's list.
+  const list = (v) => String(v || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const have = list(configValue(ss, 'partner_email'));
+  const more = list((seed.config || {}).partner_email).filter((e) => !have.includes(e));
+  if (have.length && more.length) setConfigValue(ss, 'partner_email', [...have, ...more].join(', '));
 }
 
 // Hints written by setup version 1, which version 2 may replace with the better ones from the

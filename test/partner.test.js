@@ -94,6 +94,10 @@ describe('naming the partner', () => {
     owner.saveConfig({ partner_email: ' Dewi@Example.com ', partner_name: 'Dewi', partner_bank_names: 'DEWI LESTARI' });
     expect(store.cfg).toMatchObject({ partner_email: 'dewi@example.com', partner_name: 'Dewi', partner_bank_names: 'DEWI LESTARI' });
     expect(shared).toBe(1);
+    owner.saveConfig({ partner_email: 'dewi@example.com, Dewi.Work@Example.com, dewi@example.com' });
+    expect(store.cfg.partner_email).toBe('dewi@example.com, dewi.work@example.com'); // two accounts, one person
+    expect(owner.settings().household.partner.emails).toEqual(['dewi@example.com', 'dewi.work@example.com']);
+    expect(() => owner.saveConfig({ partner_email: 'dewi@example.com, nope' })).toThrow(/"nope" is not/);
     const partner = createApi(store, { now: oct16, isOwner: false, meName: 'Dewi' });
     expect(() => partner.saveConfig({ partner_email: 'someone@example.com' })).toThrow(/only the owner/);
     expect(partner.settings().household).toMatchObject({ me: 'Dewi', isOwner: false, ownerName: 'Me' });

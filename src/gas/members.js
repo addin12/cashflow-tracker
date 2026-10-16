@@ -9,8 +9,9 @@ const MEMBERS = 'MEMBERS';
 const norm = (e) => String(e || '').trim().toLowerCase();
 
 export const activeEmail = () => { try { return norm(Session.getActiveUser().getEmail()); } catch (e) { return ''; } };
-export const partnerEmail = (ss) => norm(configValue(ss, 'partner_email'));
-export const isPartner = (ss, email) => !!email && norm(email) === partnerEmail(ss);
+/** The partner's Google addresses (Config partner_email, comma-separated: one person may use two). */
+export const partnerEmails = (ss) => String(configValue(ss, 'partner_email') || '').split(',').map(norm).filter(Boolean);
+export const isPartner = (ss, email) => !!email && partnerEmails(ss).includes(norm(email));
 
 /** The short name rows of this person carry (owner_name or partner_name). */
 export function memberName(ss, email) {
@@ -36,9 +37,8 @@ export function rememberMember(email) {
 
 /** Owner only: the partner can open the spreadsheet (and so the app). No email is sent by Google. */
 export function sharePartner(ss) {
-  const email = partnerEmail(ss);
-  if (!email) return { shared: false };
-  if (ss.getEditors().some((u) => norm(u.getEmail()) === email)) return { shared: true, already: true };
-  ss.addEditor(email);
-  return { shared: true };
+  const editors = new Set(ss.getEditors().map((u) => norm(u.getEmail())));
+  const add = partnerEmails(ss).filter((e) => !editors.has(e));
+  add.forEach((e) => ss.addEditor(e));
+  return { shared: add.length };
 }

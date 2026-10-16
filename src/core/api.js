@@ -699,7 +699,7 @@ export function createApi(store, env) {
         yearly: { found: list('yearly_subs').length, at: String(store.config('yearly_scan') || '') },
         household: {
           me: owner(), isOwner: env.isOwner !== false, ownerName: String(store.config('owner_name') || ''),
-          partner: { email: String(store.config('partner_email') || ''), name: String(store.config('partner_name') || ''), bankNames: String(store.config('partner_bank_names') || '') },
+          partner: { emails: String(store.config('partner_email') || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean), email: String(store.config('partner_email') || ''), name: String(store.config('partner_name') || ''), bankNames: String(store.config('partner_bank_names') || '') },
           myGmailConnected: !env.myEmail || store.read(TABS.connections).some((c) => String(c.gmail).toLowerCase() === env.myEmail),
         },
         push: env.push && env.push.site ? {
@@ -789,8 +789,11 @@ export function createApi(store, env) {
       // The partner: only the owner sets who it is (it decides who can open the spreadsheet).
       if (['partner_email', 'partner_name', 'partner_bank_names'].some((k) => k in values)) {
         if (env.isOwner === false) throw new Error('only the owner can change the partner');
-        const email = String(values.partner_email ?? store.config('partner_email') ?? '').trim().toLowerCase();
-        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('partner email: not an email address');
+        // One partner may use several Google accounts: a comma-separated list.
+        const emails = String(values.partner_email ?? store.config('partner_email') ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+        const bad = emails.find((e) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+        if (bad) throw new Error(`partner email: "${bad}" is not an email address`);
+        const email = [...new Set(emails)].join(', ');
         const name = String(values.partner_name ?? store.config('partner_name') ?? '').trim();
         if (email && !name) throw new Error('partner name: required');
         if (name && name === String(store.config('owner_name') || '')) throw new Error('partner name: must differ from yours');

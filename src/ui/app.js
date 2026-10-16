@@ -1695,11 +1695,11 @@ function householdSection(s) {
       ${h.myGmailConnected ? `<p class="hint ok-text">✓ ${esc(T.hhConnected)}</p>` : `<p>${esc(T.hhConnectHint)}</p><div class="actions" style="justify-content:flex-start"><button class="btn primary" type="button" data-action="connectme">${esc(T.hhConnect)}</button></div>`}
       <p class="hint">${esc(T.hhAccountsHint)}</p></section>`;
   }
-  const conn = partner.email && (s.connections || []).find((c) => String(c.gmail).toLowerCase() === partner.email);
+  const conn = (s.connections || []).find((c) => (partner.emails || []).includes(String(c.gmail).toLowerCase()));
   return `<form class="card" data-form="household" novalidate><h2>${esc(T.hhTitle)}</h2><p class="lead">${esc(T.hhHint)}</p>
     <div class="fields2">
       ${field(T.hhName, `<input name="partner_name" autocomplete="off" value="${esc(partner.name)}">`)}
-      ${field(T.hhEmail, `<input name="partner_email" type="email" inputmode="email" autocomplete="off" spellcheck="false" value="${esc(partner.email)}">`, { help: T.hhEmailHelp })}
+      ${field(T.hhEmail, `<input name="partner_email" type="email" multiple inputmode="email" autocomplete="off" spellcheck="false" value="${esc(partner.email)}">`, { help: T.hhEmailHelp })}
       ${field(T.hhBankNames, `<input name="partner_bank_names" autocomplete="off" value="${esc(partner.bankNames)}">`, { help: T.hhBankNamesHelp, wide: true })}
     </div>
     ${partner.email ? `<div class="rows"><div class="rowi"><span class="what"><b>${esc(partner.name || partner.email)}</b><span class="meta">${esc(conn ? T.hhPartnerConnected(conn.last_sync ? new Date(conn.last_sync).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—') : T.hhPartnerNotYet)}</span></span></div></div>
@@ -2397,7 +2397,8 @@ function onSubmit(e) {
   if (kind === 'household') {
     const v = (n) => form.querySelector(`[name=${n}]`).value.trim();
     const email = v('partner_email').toLowerCase();
-    let ok = fieldMessage(form.querySelector('[name=partner_email]'), !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? '' : T.hhErrEmail);
+    const emails = email.split(',').map((x) => x.trim()).filter(Boolean);
+    let ok = fieldMessage(form.querySelector('[name=partner_email]'), emails.every((x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)) ? '' : T.hhErrEmail);
     ok = fieldMessage(form.querySelector('[name=partner_name]'), !email || v('partner_name') ? '' : T.hhErrName) && ok;
     if (!ok) return null;
     return saveForm(form, 'saveConfig', { partner_name: v('partner_name'), partner_email: email, partner_bank_names: v('partner_bank_names') }, async () => { await refresh(); viewSettings(await call('settings')); });
