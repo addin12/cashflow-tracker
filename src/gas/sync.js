@@ -22,6 +22,7 @@ import { createApi } from '../core/api.js';
 import { sheetStore } from './sheetstore.js';
 import { installMailTriggers, scheduleSelfTest, sendSyncAlert } from './weekly.js';
 import { rolloverYear } from './rollover.js';
+import { memberName, bankNames, isPartner, sharePartner, rememberMember } from './members.js';
 
 const OVERLAP_MS = 2 * 24 * 3600 * 1000;
 const TIME_BUDGET_MS = 4.5 * 60 * 1000; // Apps Script stops a run at 6 minutes
@@ -33,7 +34,8 @@ const TRIGGER_MINUTES = 1;
 // Emails you send yourself to log spending: "catat kopi 28rb gopay".
 const NOTE_QUERY = 'from:me to:me (catat OR log)';
 const FULL_EVERY_MS = 30 * 60 * 1000;
-// Script properties shared by the quick look and the full run.
+// Properties of the quick look and the full run. Each person's sync has its own (user properties):
+// checkpoint, known, lastFull, setup. Shared by both (script properties): stamp, checked.
 const P = {
   checkpoint: 'SYNC_CHECKPOINT_MS', // newest email the last complete run handled
   known: 'SYNC_KNOWN_IDS', // ids the quick look's searches returned right after that run
@@ -56,7 +58,7 @@ function needsFullRun(props) {
   if (Date.now() - Number(p[P.lastFull] || 0) > FULL_EVERY_MS) return true;
   const known = new Set(JSON.parse(p[P.known]));
   const fresh = recentIds(Number(p[P.checkpoint])).some((id) => !known.has(id));
-  props.setProperty(P.checked, String(Date.now()));
+  PropertiesService.getScriptProperties().setProperty(P.checked, String(Date.now()));
   return fresh;
 }
 
@@ -90,11 +92,10 @@ export function appSpreadsheet() {
   return SpreadsheetApp.openById(id);
 }
 
-function syncConfig(ss) {
-  const names = String(configValue(ss, 'owner_bank_names') || '').split(',').map((s) => s.trim()).filter(Boolean);
+function syncConfig(ss, gmail) {
   return {
-    owner: String(configValue(ss, 'owner_name') || ''),
-    ownerNames: names,
+    owner: memberName(ss, gmail),
+    ownerNames: bankNames(ss),
     categories: {
       transfer: String(configValue(ss, 'cat_transfer') || 'trf ke bank lain'),
       fee: String(configValue(ss, 'cat_fee') || 'Biaya Admin'),
@@ -119,7 +120,7 @@ function upsertConnection(ss, gmail, changes) {
     }
     return { ...row, ...changes };
   }
-  const fresh = { gmail, owner: configValue(ss, 'owner_name'), method: 'own trigger', connected_at: new Date(), ...changes };
+  const fresh = { gmail, owner: memberName(ss, gmail), method: 'own trigger', connected_at: new Date(), ...changes };
   appendRows(ss, TABS.connections, CONNECTION_HEADERS, [fresh]);
   return fresh;
 }
@@ -132,7 +133,7 @@ function upsertConnection(ss, gmail, changes) {
 export function runSync(opts = {}) {
   // The every-minute trigger: nothing new in Gmail means nothing to do.
   if (opts.quick) {
-    try { if (!needsFullRun(PropertiesService.getScriptProperties())) return { status: 'idle' }; } catch (e) { /* look properly instead */ }
+    try { if (!needsFullRun(PropertiesService.getUserProperties())) return { status: 'idle' }; } catch (e) { /* look properly instead */ }
   }
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return { status: 'busy' };
@@ -162,18 +163,23 @@ function syncOnce(opts) {
     const ss = appSpreadsheet();
     // An archived year (a copy made at New Year) keeps its data as it was.
     if (configValue(ss, 'archived')) return { status: 'archived' };
+    const me = myAddress();
+    const owner = !isPartner(ss, me);
     if ((Number(configValue(ss, 'setup_version')) || 0) < SETUP_VERSION) {
       runSetup(ss, opts.seed);
-      // After an upgrade: make sure the email triggers exist, and check the reports again.
-      try { installTrigger(); installMailTriggers(); scheduleSelfTest(); } catch (e) { /* tried again at the next upgrade */ }
+      // After an upgrade: make sure the triggers exist (the emails are the owner's), and check the reports again.
+      try { installTrigger(); if (owner) { installMailTriggers(); scheduleSelfTest(); } } catch (e) { /* tried again at the next upgrade */ }
+      // The partner (Config partner_email) can open the spreadsheet, and so the app.
+      try { if (owner) sharePartner(ss); } catch (e) { /* Settings shows it; tried again at the next upgrade */ }
     }
+    if (owner) rememberMember(me);
     const mode = modeOf(ss, opts.defaultMode || 'preview');
     let yearNote = '';
     if (mode === 'live') {
       const y = rolloverYear(ss);
       if (y) yearNote = `new year ${y.target}, ${y.year} archived`;
     }
-    const gmail = myAddress();
+    const gmail = me;
     const conn = readTable(ss, TABS.connections).find((r) => String(r.gmail).toLowerCase() === gmail.toLowerCase()) || {};
 
     const startDate = configValue(ss, 'start_date');
@@ -222,7 +228,7 @@ function syncOnce(opts) {
 
     const accounts = readTable(ss, TABS.accounts);
     const rules = readTable(ss, TABS.rules);
-    const plan = planSync({ emails, existing, accounts, rules, config: syncConfig(ss), nowIso: new Date().toISOString() });
+    const plan = planSync({ emails, existing, accounts, rules, config: syncConfig(ss, gmail), nowIso: new Date().toISOString() });
     const byId = Object.fromEntries(emails.map((e) => [e.id, e]));
     const byStatus = (id) => latest.get(String(id)); // a retry with the same outcome isn't logged twice
     // A retried email that fails again is already in the log: don't add it twice.
@@ -258,7 +264,7 @@ function syncOnce(opts) {
       try {
         const noteIds = listMessageIds(`${NOTE_QUERY} after:${Math.floor(sinceMs / 1000)}`, 50).filter((id) => !inTransactions.has(id) && !latest.has(String(id)));
         if (noteIds.length) {
-          const notesApi = createApi(sheetStore(ss), { now: () => new Date() });
+          const notesApi = createApi(sheetStore(ss), { now: () => new Date(), meName: memberName(ss, gmail) });
           const lines = [];
           for (const id of noteIds) {
             const e = getEmail(id);
@@ -272,8 +278,8 @@ function syncOnce(opts) {
         }
       } catch (e) { note = note ? `${note}; notes: ${e.message}` : `notes: ${e.message}`; }
     }
-    // Market prices of the Aset tab's stocks (Yahoo / Google Finance), at most every 25 minutes.
-    try { if (mode === 'live') refreshPrices(ss); } catch (e) { /* tried again next run */ }
+    // Market prices of the Aset tab's stocks (Yahoo / Google Finance), at most every 25 minutes (the owner's sync).
+    try { if (mode === 'live' && owner) refreshPrices(ss); } catch (e) { /* tried again next run */ }
     // Planned transactions (rent, cash bills) that are due go to Review; the daily trigger does this too.
     try { if (mode === 'live') createApi(sheetStore(ss), { now: () => new Date() }).createDuePlanned(); } catch (e) { /* tried again next run */ }
     try { if (mode === 'live') refreshInit(ss); } catch (e) { /* the page then fetches its data itself */ }
@@ -284,12 +290,14 @@ function syncOnce(opts) {
     };
     // What the quick look needs next time; a partial run leaves no known ids, so the next minute continues.
     if (mode === 'live') {
-      const props = PropertiesService.getScriptProperties();
+      const mine = PropertiesService.getUserProperties();
+      const shared = PropertiesService.getScriptProperties();
       const now = String(Date.now());
-      props.setProperties({ [P.lastFull]: now, [P.checked]: now, [P.setup]: String(SETUP_VERSION) });
-      if (complete) props.setProperties({ [P.checkpoint]: String(newest), [P.known]: JSON.stringify(recentIds(newest)) });
-      else props.deleteProperty(P.known);
-      if (plan.add.length || plan.update.length) props.setProperty(P.stamp, now);
+      mine.setProperties({ [P.lastFull]: now, [P.setup]: String(SETUP_VERSION) });
+      shared.setProperty(P.checked, now);
+      if (complete) mine.setProperties({ [P.checkpoint]: String(newest), [P.known]: JSON.stringify(recentIds(newest)) });
+      else mine.deleteProperty(P.known);
+      if (plan.add.length || plan.update.length) shared.setProperty(P.stamp, now);
     }
     const usedMin = Math.round(syncStamp().today / 6000) / 10;
     upsertConnection(ss, gmail, {

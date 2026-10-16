@@ -77,13 +77,20 @@ export function planSync({ emails, existing, accounts, rules, config, nowIso }) 
   const pool = existing.map((r) => ({ ...r }));
   const seen = new Set(existing.map((r) => r.gmail_id).filter(Boolean));
   const cat = config.categories;
+  // Two people can share the app. An email is about an account of its inbox's owner; the other side
+  // of a transfer may be either person's (money between partners is a transfer, not spending).
+  const mine = accounts.filter((a) => !a.owner || !config.owner || a.owner === config.owner);
+  const ownerOf = (stream) => (stream && (accounts.find((a) => a.stream === stream) || {}).owner) || config.owner;
 
-  const base = (email, ev, extra) => ({
-    id: '', date: ev.date, time: ev.time || '', owner: config.owner, stream: '', direction: ev.direction,
-    amount: ev.amount, category: '', description: ev.description || '', details: ev.details || '',
-    source: 'email', sender: email.from, gmail: email.gmail || '', gmail_id: email.id, ref_no: ev.refNo || '',
-    status: 'pending', transfer_id: '', rule_id: '', updated_by: 'sync', updated_at: nowIso, ...extra,
-  });
+  const base = (email, ev, extra) => {
+    const row = {
+      id: '', date: ev.date, time: ev.time || '', owner: config.owner, stream: '', direction: ev.direction,
+      amount: ev.amount, category: '', description: ev.description || '', details: ev.details || '',
+      source: 'email', sender: email.from, gmail: email.gmail || '', gmail_id: email.id, ref_no: ev.refNo || '',
+      status: 'pending', transfer_id: '', rule_id: '', updated_by: 'sync', updated_at: nowIso, ...extra,
+    };
+    return { ...row, owner: ownerOf(row.stream) };
+  };
   const added = new Set();
   const push = (row) => { add.push(row); pool.push(row); added.add(row.id); return row; };
   const change = (row, changes) => {
@@ -139,11 +146,11 @@ export function planSync({ emails, existing, accounts, rules, config, nowIso }) 
         notes.push(`named ${ev.source} charge ${target.id}`);
         return;
       }
-      const src = resolveAccount(ev.account, accounts);
+      const src = resolveAccount(ev.account, mine);
       if (!src) notes.push(`account not recognised (${ev.account.institution}${ev.account.hint ? ` …${ev.account.hint}` : ''})`);
 
       if (ev.type === 'summary') {
-        const stream = resolveAccount({ institution: 'GoPay' }, accounts);
+        const stream = resolveAccount({ institution: 'GoPay' }, mine);
         const month = monthOf(ev.date);
         const recorded = (dir) => pool.filter((x) => stream && x.stream === stream && x.direction === dir && monthOf(x.date) === month && x.source !== 'summary')
           .reduce((s, x) => s + Number(x.amount || 0), 0);

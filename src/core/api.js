@@ -40,7 +40,9 @@ const PUBLIC_FIELDS = ['date', 'time', 'stream', 'direction', 'amount', 'categor
 export function createApi(store, env) {
   const now = () => env.now();
   const nowIso = () => now().toISOString();
-  const owner = () => String(store.config('owner_name') || '');
+  // The person using the app (each of you when two share it); the owner when the script runs by itself.
+  const owner = () => String(env.meName || store.config('owner_name') || '');
+  const members = () => [store.config('owner_name'), store.config('partner_email') ? store.config('partner_name') : ''].map((s) => String(s || '')).filter(Boolean);
   // The two fixed categories (CASHFLOW K39/K40); the transfer one can be renamed (setting cat_transfer).
   const fixedNames = () => [FIXED_CATEGORIES.adjustment, String(store.config('cat_transfer') || FIXED_CATEGORIES.transfer)];
   const cats = () => categoryLists(store.slots(), fixedNames());
@@ -151,7 +153,7 @@ export function createApi(store, env) {
     bootstrap() {
       const c = cats();
       return {
-        owner: owner(), language: String(store.config('language') || ''), today: isoDate(now()), year: year(), sheetUrl: env.sheetUrl || '',
+        owner: owner(), me: owner(), members: members(), language: String(store.config('language') || ''), today: isoDate(now()), year: year(), sheetUrl: env.sheetUrl || '',
         start: String(store.config('start_date') || ''), currentMonth: currentMonth(), summaryPeriod: byPayday() ? 'payday' : 'month',
         payday: Number(store.config('payday_day')) || 28, categories: c,
         accounts: accounts().map((a) => ({ stream: a.stream, type: a.type, owner: a.owner, institution: a.institution })),
@@ -342,22 +344,24 @@ export function createApi(store, env) {
     dashboard({ month, owner: who } = {}) {
       const today = now();
       const m = month || currentMonth();
-      const all = rows();
+      // Kita / Aku / Dia: one person's rows and accounts, or the household.
+      const all = who ? rows().filter((r) => r.owner === who) : rows();
+      const accts = who ? accounts().filter((a) => a.owner === who) : accounts();
       const c = cats();
       // By payday, "October" is 28 Sep .. 27 Oct (the salary of 28 Sep pays for October).
-      const summary = summarizeMonth(all, c, m, who || '', rangeOf(m));
-      const balances = streamBalances(all, accounts(), { year: year(), asOf: isoDate(today) });
+      const summary = summarizeMonth(all, c, m, '', rangeOf(m));
+      const balances = streamBalances(all, accts, { year: year(), asOf: isoDate(today) });
       // The six months up to this one (none before the start date), for the trend chart.
       const first = start().slice(0, 7);
       const trend = [-5, -4, -3, -2, -1, 0].map((k) => monthAdd(m, k)).filter((x) => !first || x >= first)
-        .map((x) => { const t = x === m ? summary : summarizeMonth(all, c, x, who || '', rangeOf(x)); return { month: x, income: t.income, expense: t.expense }; });
+        .map((x) => { const t = x === m ? summary : summarizeMonth(all, c, x, '', rangeOf(x)); return { month: x, income: t.income, expense: t.expense }; });
       const rec = recurring(all);
       const cardList = cards(all);
       const wealth = store.read(TABS.assets).length ? netWorth(balances, store.read(TABS.assets)) : null;
       const goals = goalProgress(store.read(TABS.goals), balances, today);
       const ids = firstIds(all);
       return {
-        month: m, summary, balances, trend,
+        month: m, who: who || '', summary, balances, trend,
         perDay: budgetPerDay(balances, today, payday()),
         budgets: budgetUsage(summary, store.read(TABS.budgets)),
         pendingCount: all.filter((r) => r.status === 'pending').length,
@@ -406,6 +410,12 @@ export function createApi(store, env) {
       if (problems.length) throw new Error(problems.join('; '));
       store.setConfig('cards', JSON.stringify(clean));
       return { ok: true };
+    },
+
+    /** The partner connects their own Gmail: a sync trigger that runs as them, then a first sync. */
+    connectMe() {
+      if (!env.connect) throw new Error('connecting Gmail is not available here');
+      return env.connect();
     },
 
     /** A test notification to every phone that joined. */
@@ -687,6 +697,11 @@ export function createApi(store, env) {
         balances: streamBalances(rows(), accounts(), { year: year(), asOf: isoDate(now()) }), lastChecks: lastChecks(rows()),
         imports: importHistory(), salaryStream: salaryStream(), plans: store.read(TABS.plans), assets: store.read(TABS.assets), assetKinds: ASSET_KINDS, cards: list('cards'),
         yearly: { found: list('yearly_subs').length, at: String(store.config('yearly_scan') || '') },
+        household: {
+          me: owner(), isOwner: env.isOwner !== false, ownerName: String(store.config('owner_name') || ''),
+          partner: { email: String(store.config('partner_email') || ''), name: String(store.config('partner_name') || ''), bankNames: String(store.config('partner_bank_names') || '') },
+          myGmailConnected: !env.myEmail || store.read(TABS.connections).some((c) => String(c.gmail).toLowerCase() === env.myEmail),
+        },
         push: env.push && env.push.site ? {
           site: env.push.site, events: pushEventsOf(store.config('push_events')), link: `${env.push.site}/notifikasi?n=${pushCode()}`,
           devices: list('push_devices').map((d) => ({ label: d.label || '', at: d.at || '' })),
@@ -771,6 +786,19 @@ export function createApi(store, env) {
         store.setConfig('language', values.language);
       }
       if ('owner_bank_names' in values) store.setConfig('owner_bank_names', String(values.owner_bank_names || ''));
+      // The partner: only the owner sets who it is (it decides who can open the spreadsheet).
+      if (['partner_email', 'partner_name', 'partner_bank_names'].some((k) => k in values)) {
+        if (env.isOwner === false) throw new Error('only the owner can change the partner');
+        const email = String(values.partner_email ?? store.config('partner_email') ?? '').trim().toLowerCase();
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('partner email: not an email address');
+        const name = String(values.partner_name ?? store.config('partner_name') ?? '').trim();
+        if (email && !name) throw new Error('partner name: required');
+        if (name && name === String(store.config('owner_name') || '')) throw new Error('partner name: must differ from yours');
+        store.setConfig('partner_email', email);
+        store.setConfig('partner_name', name);
+        if ('partner_bank_names' in values) store.setConfig('partner_bank_names', String(values.partner_bank_names || '').trim());
+        if (email && env.share) env.share();
+      }
       for (const key of ['weekly_email', 'monthly_email', 'payday_email', 'bill_email', 'close_email', 'calendar_sync']) if (key in values) store.setConfig(key, values[key] === 'off' ? 'off' : 'on');
       // Switching the calendar on fills it straight away (gas/calendar.js); its result is shown in Settings.
       if (values.calendar_sync === 'on' && env.syncCalendar) {
@@ -896,5 +924,5 @@ export const API_METHODS = [
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
   'yearly', 'importStatement', 'undoImport', 'updateMany', 'tagih', 'owedSet', 'owedRemove', 'savePlans', 'saveAssets', 'markRecurring',
-  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget',
+  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe',
 ];

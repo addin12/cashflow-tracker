@@ -193,7 +193,8 @@ async function refresh() {
 const remember = (rows) => rows.forEach((r) => state.rowsById.set(String(r.id), r));
 function setAll(rows) { state.all = rows; state.allStale = false; remember(rows); }
 function absorb(data) {
-  state.boot = { ...data.boot, lang: state.boot?.lang };
+  // The page says who opened it (the cached first screen may have been made for the other person).
+  state.boot = { ...data.boot, me: window.__ME__ || data.boot.me, lang: state.boot?.lang };
   state.dataAt = data.at; // when Google built this data: newer sync changes mean refresh
   const incoming = data.incoming || [];
   if (state.incomingIds) {
@@ -205,7 +206,7 @@ function absorb(data) {
   if (!state.month) state.month = data.boot.currentMonth || data.boot.today.slice(0, 7);
   state.review = data.review;
   remember([...data.review.pending, ...data.review.recentAuto]);
-  state.dashByMonth[data.dashboard.month] = data.dashboard;
+  if (!state.who) state.dashByMonth[data.dashboard.month] = data.dashboard;
   updateNav();
 }
 
@@ -313,7 +314,7 @@ function viewReview() {
   const cards = r.pending.map((x) => `
     <article class="card txcard" data-id="${esc(x.id)}">
       <div class="top"><div class="name">${esc(x.description || x.details || '—')}</div><div class="amt ${esc(x.direction)}">${signed(x)}</div></div>
-      <div class="meta">${esc(when(x))} · ${esc(x.stream || T.noAccount)}${x.details && x.description ? ` · ${esc(x.details)}` : ''}${firstBadge(x)}</div>
+      <div class="meta">${esc(when(x))} · ${esc(x.stream || T.noAccount)}${x.details && x.description ? ` · ${esc(x.details)}` : ''}${otherOwner(x)}${firstBadge(x)}</div>
       ${x.stream ? '' : field(T.account, `<select data-field="stream">${accountOptions('')}</select>`)}
       ${field(T.category, `<select data-field="category">${categoryOptions(x.category, x.direction)}</select>`)}
       ${x.description && x.source !== 'summary' ? `<label class="check"><input type="checkbox" data-field="always" checked> ${esc(T.alwaysFor(x.description))}</label>` : ''}
@@ -466,7 +467,7 @@ async function viewDashboard() {
   let d = state.dashByMonth[state.month];
   if (!d) {
     skeleton(T.tabDashboard);
-    d = await call('dashboard', { month: state.month });
+    d = await call('dashboard', { month: state.month, owner: state.who || '' });
     state.dashByMonth[d.month] = d;
     if (state.tab !== 'dashboard' || d.month !== state.month) return;
   }
@@ -486,7 +487,7 @@ async function viewDashboard() {
   const viewBtn = (v, label) => `<button type="button" class="${(v === 'report') === report ? 'on' : ''}" aria-pressed="${(v === 'report') === report}" data-action="dashview" data-view="${v}">${esc(label)}</button>`;
   setView(`
     <header class="page-head"><div><h1>${esc(T.tabDashboard)}</h1><p class="sub">${esc(monthLabel(d.month))}${s.from ? ` · ${esc(rangeLabel(s.from, s.to))}` : ''}</p></div>
-      <div class="tools">
+      <div class="tools">${whoSeg()}
         <div class="seg">${viewBtn('overview', T.viewOverview)}${viewBtn('report', T.viewReport)}</div>
         <div class="monthnav">
           <button class="btn secondary small" data-action="setmonth" data-month="${prev}" aria-label="${esc(monthLabel(prev))}">‹ ${esc(monthShort(prev))}</button>
@@ -1337,7 +1338,7 @@ async function viewTransactions() {
   const opt = (v, label, cur) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(label)}</option>`;
   setView(`
     <header class="page-head"><div><h1>${esc(T.tabTransactions)}</h1><p class="sub">${esc(T.transactionsSub)}</p></div>
-      <div class="tools"><button class="btn secondary small" data-action="selectmode" aria-pressed="${!!state.selecting}">${esc(state.selecting ? T.selectDone : T.selectMany)}</button>
+      <div class="tools">${whoSeg()}<button class="btn secondary small" data-action="selectmode" aria-pressed="${!!state.selecting}">${esc(state.selecting ? T.selectDone : T.selectMany)}</button>
         <button class="btn secondary small" data-action="exportcsv">${esc(T.exportCsv)}</button>
         <button class="btn primary small" data-action="go" data-tab="add">＋ ${esc(T.addTransaction)}</button></div></header>
     <div class="pchips" role="group" aria-label="${esc(T.period)}">${[['period', T.presetPeriod], ['30', T.presetThirty], ['90', T.presetNinety], ['year', T.presetYear], ['all', T.presetAll]]
@@ -1674,6 +1675,38 @@ function submitAdd(form) {
 }
 
 // ---------------------------------------------------------------- Settings
+/** Kita / Aku / Dia: the household, or one person (only when two people share the app). */
+function whoSeg() {
+  const m = state.boot.members || [];
+  if (m.length < 2) return '';
+  const me = state.boot.me;
+  const other = m.find((x) => x !== me) || '';
+  const btn = (v, label) => `<button type="button" class="${(state.who || '') === v ? 'on' : ''}" aria-pressed="${(state.who || '') === v}" data-action="who" data-who="${esc(v)}">${esc(label)}</button>`;
+  return `<div class="seg who" role="group" aria-label="${esc(T.whoLabel)}">${btn('', T.whoAll)}${btn(me, T.whoMe)}${btn(other, other)}</div>`;
+}
+const otherOwner = (x) => (x.owner && (state.boot.members || []).length > 1 && x.owner !== state.boot.me ? ` · ${esc(x.owner)}` : '');
+
+/** Settings → Pasangan: the owner names the partner; the partner connects their own Gmail. */
+function householdSection(s) {
+  const h = s.household || {};
+  const partner = h.partner || {};
+  if (!h.isOwner) {
+    return `<section class="card"><h2>${esc(T.hhTitle)}</h2><p class="lead">${esc(T.hhYou(h.me, h.ownerName))}</p>
+      ${h.myGmailConnected ? `<p class="hint ok-text">✓ ${esc(T.hhConnected)}</p>` : `<p>${esc(T.hhConnectHint)}</p><div class="actions" style="justify-content:flex-start"><button class="btn primary" type="button" data-action="connectme">${esc(T.hhConnect)}</button></div>`}
+      <p class="hint">${esc(T.hhAccountsHint)}</p></section>`;
+  }
+  const conn = partner.email && (s.connections || []).find((c) => String(c.gmail).toLowerCase() === partner.email);
+  return `<form class="card" data-form="household" novalidate><h2>${esc(T.hhTitle)}</h2><p class="lead">${esc(T.hhHint)}</p>
+    <div class="fields2">
+      ${field(T.hhName, `<input name="partner_name" autocomplete="off" value="${esc(partner.name)}">`)}
+      ${field(T.hhEmail, `<input name="partner_email" type="email" inputmode="email" autocomplete="off" spellcheck="false" value="${esc(partner.email)}">`, { help: T.hhEmailHelp })}
+      ${field(T.hhBankNames, `<input name="partner_bank_names" autocomplete="off" value="${esc(partner.bankNames)}">`, { help: T.hhBankNamesHelp, wide: true })}
+    </div>
+    ${partner.email ? `<div class="rows"><div class="rowi"><span class="what"><b>${esc(partner.name || partner.email)}</b><span class="meta">${esc(conn ? T.hhPartnerConnected(conn.last_sync ? new Date(conn.last_sync).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—') : T.hhPartnerNotYet)}</span></span></div></div>
+      <details class="howto" ${conn ? '' : 'open'}><summary>${esc(T.hhStepsTitle)}</summary><ol>${T.hhSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></details>` : ''}
+    <div class="actions"><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div></form>`;
+}
+
 /** Phone notifications: the phones that joined, which things notify, a test. */
 const NOTIF_EVENTS = ['new', 'big', 'bills', 'payday', 'close'];
 function notifSection(s) {
@@ -1703,6 +1736,7 @@ async function viewSettings(local) {
         ${field(T.accountName, `<input data-a="stream" value="${esc(a.stream)}">`)}
         ${field(T.accountType, `<select data-a="type"><option value="Spending" ${a.type === 'Spending' ? 'selected' : ''}>${esc(T.typeSpending)}</option><option value="Saving" ${a.type === 'Saving' ? 'selected' : ''}>${esc(T.typeSaving)}</option></select>`)}
         ${field(T.bank, `<input data-a="institution" value="${esc(a.institution)}">`, { help: T.optional })}
+        ${(state.boot.members || []).length > 1 ? field(T.accountOwner, `<select data-a="owner">${state.boot.members.map((n) => `<option ${n === (a.owner || state.boot.members[0]) ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`, { help: T.accountOwnerHelp }) : ''}
         ${field(T.openingBalance, `<input data-a="opening_balance" type="number" inputmode="decimal" step="any" value="${esc(a.opening_balance)}">`)}
         ${field(T.hints, `<input data-a="match_hint" value="${esc(a.match_hint)}">`, { help: T.hintsHelp, wide: true })}
       </div></fieldset>`).join('');
@@ -1739,6 +1773,7 @@ async function viewSettings(local) {
     assets: assetsForm(s),
     cards: cardsForm(s),
     notif: notifSection(s),
+    household: householdSection(s),
     sync: `
       <section class="card"><h2>${esc(T.settingsSync)}</h2><p class="lead">${esc(T.settingsSyncHint)}</p><div class="rows">${conns}</div>
         <div class="actions"><button class="btn primary" type="button" data-action="sync">↻ ${esc(T.syncNow)}</button></div></section>`,
@@ -1797,7 +1832,7 @@ async function viewSettings(local) {
     [T.setGroupRoutine, [['monthend', T.monthEnd, T.monthEndShort], ['import', T.importTitle, (s.imports || []).length ? T.importLast(new Date(s.imports[0].at).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })) : T.importNever], ['sync', T.settingsSync, syncNote]]],
     [T.setGroupMoney, [['accounts', T.accountsTitle, T.nAccounts(s.accounts.length)], ['budgets', T.budgetsTitle, T.nBudgets(s.budgets.length)], ['goals', T.goalsTitle, T.nGoals((s.goals || []).length)], ['assets', T.assetsTitle, T.nAssets((s.assets || []).length)], ['cards', T.cardsTitle, T.nCards((s.cards || []).length)]]],
     [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['plans', T.plansTitle, T.nPlans((s.plans || []).length)], ['emails', T.emailsTitle, T.nEmailsOn(emailsOn, 5)], ['notif', T.notifTitle, s.push ? T.nDevices(s.push.devices.length) : T.notifOff]]],
-    [T.setGroupApp, [['prefs', T.preferences, T.prefSummary(lang, Number(cfg.payday_day) || 28)], ['more', T.more, T.moreSummary]]],
+    [T.setGroupApp, [['household', T.hhTitle, (s.household && s.household.partner && s.household.partner.name) || T.hhNone], ['prefs', T.preferences, T.prefSummary(lang, Number(cfg.payday_day) || 28)], ['more', T.more, T.moreSummary]]],
   ];
   if (state.settingsSection && !sections[state.settingsSection]) state.settingsSection = null;
   const open = state.settingsSection || 'monthend';
@@ -2079,6 +2114,13 @@ function onClick(e) {
     return null;
   }
   if (a === 'interest') return openInterest();
+  if (a === 'who') { state.who = el.dataset.who; state.filters.owner = state.who; state.dashByMonth = {}; return show(state.tab); }
+  if (a === 'connectme') {
+    el.disabled = true;
+    el.textContent = T.hhConnecting;
+    return call('connectMe').then(async () => { toast(T.hhConnectedToast); state.allStale = true; viewSettings(await call('settings')); })
+      .catch((err) => { el.disabled = false; el.textContent = T.hhConnect; toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }); });
+  }
   if (a === 'pushtest') {
     el.disabled = true;
     return call('pushTest').then((r) => toast(T.notifSent(r.sent))).catch((err) => toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' })).finally(() => { el.disabled = false; });
@@ -2351,6 +2393,14 @@ function onSubmit(e) {
   if (kind === 'plans') {
     const plans = readPlans(form).map((x) => ({ ...x, amount: amountValue(x.amount), day: Number(x.day) }));
     return saveForm(form, 'savePlans', { plans }, async () => { viewSettings(await call('settings')); });
+  }
+  if (kind === 'household') {
+    const v = (n) => form.querySelector(`[name=${n}]`).value.trim();
+    const email = v('partner_email').toLowerCase();
+    let ok = fieldMessage(form.querySelector('[name=partner_email]'), !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? '' : T.hhErrEmail);
+    ok = fieldMessage(form.querySelector('[name=partner_name]'), !email || v('partner_name') ? '' : T.hhErrName) && ok;
+    if (!ok) return null;
+    return saveForm(form, 'saveConfig', { partner_name: v('partner_name'), partner_email: email, partner_bank_names: v('partner_bank_names') }, async () => { await refresh(); viewSettings(await call('settings')); });
   }
   if (kind === 'notif') {
     const events = NOTIF_EVENTS.filter((k) => form.querySelector(`[name=push_${k}]`).checked);

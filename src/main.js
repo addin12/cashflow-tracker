@@ -12,6 +12,7 @@ import { createApi, API_METHODS } from './core/api.js';
 import { scanYearly } from './gas/yearly.js';
 import { syncCalendar } from './gas/calendar.js';
 import { pushSite, sendPush, acceptDevice } from './gas/push.js';
+import { activeEmail, isMember, rememberMember, isPartner, memberName, sharePartner } from './gas/members.js';
 import { sendWeeklySummary, clearSelfTestTrigger, runDaily, scheduleSelfTest, sendSyncAlert, installMailTriggers, runEvening } from './gas/weekly.js';
 import { refreshPrices } from './gas/prices.js';
 
@@ -68,14 +69,30 @@ export function menuSelfTest() {
 
 /** Web app page (deployed for the owner only: "execute as me, access: only myself"). */
 const TABS_OPENABLE = ['review', 'dashboard', 'transactions', 'add', 'settings'];
+/** Someone the spreadsheet isn't shared with: no data, only how to get access. */
+const NO_ACCESS = '<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><div style="font:17px/1.5 -apple-system,Segoe UI,sans-serif;max-width:480px;margin:48px auto;padding:0 16px"><h1 style="font-size:24px">Cashflow</h1><p>Akun ini belum punya akses. Minta pemilik menambahkan email Google-mu di Pengaturan → Pasangan.</p><p style="color:#6e6e73">This account has no access yet. Ask the owner to add your Google email in Settings → Partner.</p></div>';
+
+/** The person opening the app may use it: the spreadsheet is shared with them (that open fails otherwise). */
+function openAsMember() {
+  const email = activeEmail();
+  let ss = null;
+  let name = '';
+  // Reading Config is the check: getting the spreadsheet object alone may not ask for access.
+  try { ss = appSpreadsheet(); name = memberName(ss, email); } catch (err) { return null; }
+  rememberMember(email);
+  return { ss, email, name, owner: !isPartner(ss, email) };
+}
+
 export function doGet(e) {
+  const who = openAsMember();
+  if (!who) return HtmlService.createHtmlOutput(NO_ACCESS).setTitle('Cashflow').addMetaTag('viewport', 'width=device-width, initial-scale=1');
   const p = (e && e.parameter) || {};
   // ?tab= opens a screen (the site's short links /tambah, /cek ...); ?push= is a phone joining notifications.
   const tab = TABS_OPENABLE.includes(p.tab) ? p.tab : '';
-  const push = p.push ? (acceptDevice(appSpreadsheet(), p.push, p.n, p.label) ? 'ok' : 'bad') : '';
+  const push = p.push ? (acceptDevice(who.ss, p.push, p.n, p.label) ? 'ok' : 'bad') : '';
   // The cached first-screen data goes into the page itself, so it paints without a round trip.
   const init = cachedInit();
-  const start = `window.__TAB__=${JSON.stringify(tab)};window.__PUSH__=${JSON.stringify(push)};`;
+  const start = `window.__TAB__=${JSON.stringify(tab)};window.__PUSH__=${JSON.stringify(push)};window.__ME__=${JSON.stringify(who.name).replace(/</g, '\\u003c')};`;
   const html = HtmlService.createHtmlOutputFromFile('index').getContent()
     .replace('window.__INIT__=null;', () => start + (init ? `window.__INIT__=${init.replace(/</g, '\\u003c').replace(/\//g, '\\/')};` : 'window.__INIT__=null;'));
   return HtmlService.createHtmlOutput(html)
@@ -99,18 +116,25 @@ export function api(name, payloadJson) {
   const t0 = Date.now();
   try {
     // Asked every minute by the open page: answered without opening the spreadsheet.
-    if (name === 'stamp') return JSON.stringify({ data: syncStamp() });
+    if (name === 'stamp') {
+      if (!isMember(activeEmail())) throw new Error('no access');
+      return JSON.stringify({ data: syncStamp() });
+    }
     if (!API_METHODS.includes(name)) throw new Error(`unknown method ${name}`);
     const payload = JSON.parse(payloadJson || '{}');
-    const ss = appSpreadsheet();
+    const who = openAsMember();
+    if (!who) throw new Error('no access');
+    const { ss } = who;
     const t1 = Date.now();
     const impl = createApi(sheetStore(ss), {
       now: () => new Date(),
       sync: () => runSync({ seed: SEED, defaultMode: SYNC_DEFAULT }),
       sheetUrl: ss.getUrl(),
       sendSummary: () => sendWeeklySummary(ss, { force: true }),
-      scanYearly: () => scanYearly(ss),
-      syncCalendar: () => syncCalendar(ss),
+      // The owner's own things (their Gmail, their calendar); the partner has their own sync instead.
+      ...(who.owner ? { scanYearly: () => scanYearly(ss), syncCalendar: () => syncCalendar(ss), share: () => sharePartner(ss) } : {}),
+      connect: () => connect(SEED, SYNC_DEFAULT),
+      meName: who.name, isOwner: who.owner, myEmail: who.email,
       push: pushSite() ? { site: pushSite(), token: () => Utilities.getUuid().replace(/-/g, ''), send: (notice) => sendPush(ss, notice) } : null,
     });
     const lock = READ_ONLY.has(name) || name === 'syncNow' ? null : LockService.getScriptLock();

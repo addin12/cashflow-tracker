@@ -17,7 +17,7 @@ function install() {
     setProperties: (o) => { Object.entries(o).forEach(([k, v]) => { props[k] = String(v); }); },
     deleteProperty: (k) => { delete props[k]; },
   };
-  globalThis.PropertiesService = { getScriptProperties: () => store };
+  globalThis.PropertiesService = { getScriptProperties: () => store, getUserProperties: () => store }; // one store is enough here
   globalThis.Gmail = { Users: { Messages: { list: () => ({ messages: gmailIds.map((id) => ({ id })) }) } } };
   // A taken lock stands for "the full sync would run now" without needing a spreadsheet.
   globalThis.LockService = { getScriptLock: () => ({ tryLock: () => { lockTaken += 1; return false; }, releaseLock() {} }) };

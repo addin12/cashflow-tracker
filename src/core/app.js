@@ -235,12 +235,12 @@ export function newestFromEmail(rows, limit = 20) {
 }
 
 /** Simple filtered, newest-first list for the Transactions screen. */
-export function filterTransactions(rows, { month, from, to, stream, category, status, direction, q, limit = 100, offset = 0 } = {}) {
+export function filterTransactions(rows, { month, from, to, stream, category, status, direction, owner, q, limit = 100, offset = 0 } = {}) {
   const needle = String(q || '').trim().toLowerCase();
   const list = rows.filter((r) => (!month || String(r.date).startsWith(month))
     && (!from || String(r.date).slice(0, 10) >= from) && (!to || String(r.date).slice(0, 10) <= to)
     && (!stream || r.stream === stream) && (!category || r.category === category) && (!status || r.status === status)
-    && (!direction || r.direction === direction)
+    && (!direction || r.direction === direction) && (!owner || r.owner === owner)
     && (!needle || `${r.description} ${r.details} ${r.category} ${r.stream}`.toLowerCase().includes(needle)))
     .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
   return { total: list.length, rows: list.slice(offset, offset + limit) };
