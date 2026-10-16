@@ -21,7 +21,8 @@ import {
 import { compileRule } from './rules.js';
 import { recurringCharges, payee } from './recurring.js';
 import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth } from './salary.js';
-import { topPlaces, biggestExpenses, moneyFlow } from './insights.js';
+import { topPlaces, biggestExpenses, moneyFlow, spendingPattern, tagTotals } from './insights.js';
+import { netWorth, assetProblems, ASSET_KINDS, TICKER, duePlans, owedSummary } from './wealth.js';
 import { weeklySummary } from './summary.js';
 import { monthlyReport } from './notices.js';
 import { goalProgress, goalProblems } from './goals.js';
@@ -82,6 +83,13 @@ export function createApi(store, env) {
     const checks = json('balance_checks');
     if (!checks[stream] || String(checks[stream]) < d) store.setConfig('balance_checks', JSON.stringify({ ...checks, [stream]: d }));
   };
+  /** Open and paid "Tagih" entries, each with the name of the payment it belongs to. */
+  const owedView = (all) => {
+    const names = new Map(all.map((r) => [String(r.id), r.description || r.details || '']));
+    const s = owedSummary(store.read(TABS.owed));
+    const withName = (o) => ({ ...o, date: String(o.date || '').slice(0, 10), amount: Number(o.amount) || 0, payment: names.get(String(o.tx_id)) || o.note || '' });
+    return { open: s.open.map(withName), total: s.total, paid: s.paid.slice(-20).map(withName) };
+  };
   const importHistory = () => { try { return JSON.parse(String(store.config('imports') || '[]')) || []; } catch (e) { return []; } };
   /** Accounts whose opening balance came from a balance check, and that check's date. */
   const openingChecks = () => { try { return JSON.parse(String(store.config('opening_checks') || '{}')) || {}; } catch (e) { return {}; } };
@@ -96,6 +104,7 @@ export function createApi(store, env) {
         accounts: accounts().map((a) => ({ stream: a.stream, type: a.type, owner: a.owner, institution: a.institution })),
         connections: store.read(TABS.connections).map((x) => ({ gmail: x.gmail, last_sync: x.last_sync, last_status: x.last_status })),
         pendingCount: rows().filter((r) => r.status === 'pending').length,
+        rules: store.read(TABS.rules).map((r) => ({ pattern: r.pattern, category: r.category })), // for typing a transaction as a sentence
       };
     },
 
@@ -301,6 +310,11 @@ export function createApi(store, env) {
         places: topPlaces(all, c, spanOf(m)),
         biggest: biggestExpenses(all, c, spanOf(m)),
         flow: moneyFlow(all, c, spanOf(m), fixedNames()[1]),
+        pattern: spendingPattern(all, c, spanOf(m)),
+        tags: tagTotals(all, spanOf(m)),
+        owed: owedView(all),
+        wealth: store.read(TABS.assets).length ? netWorth(balances, store.read(TABS.assets)) : null,
+        recurringMarks: json('recurring_marks'),
         bigAmount: bigAmount(),
         big: bigSpends(all, { from: summary.from || `${m}-01`, to: summary.to || `${m}-31`, threshold: bigAmount(), skipCategories: fixedNames() }),
         recurring: recurring(all),
@@ -318,7 +332,7 @@ export function createApi(store, env) {
         return { month: m, income: t.income, expense: t.expense, byCategory: Object.fromEntries(t.byCategory.filter((x) => x.kind === 'expense').map((x) => [x.category, x.amount])) };
       });
       const range = { from: spanOf(`${yy}-01`).from, to: spanOf(`${yy}-12`).to };
-      return { year: yy, months, places: topPlaces(all, c, range, 10), biggest: biggestExpenses(all, c, range, 8) };
+      return { year: yy, months, places: topPlaces(all, c, range, 10), biggest: biggestExpenses(all, c, range, 8), pattern: spendingPattern(all, c, range), tags: tagTotals(all, range) };
     },
 
     /**
@@ -370,6 +384,102 @@ export function createApi(store, env) {
       return { ok: true };
     },
 
+    /** "Tagih": friends who share a payment you made, and what each owes you. */
+    tagih({ txId, people }) {
+      const row = findRow(txId);
+      const list = (Array.isArray(people) ? people : []).map((p) => ({ who: String(p.who || '').trim(), amount: Math.round(Math.abs(Number(p.amount)) * 100) / 100 }));
+      if (!list.length) throw new Error('add at least one name');
+      list.forEach((p, i) => {
+        if (!p.who) throw new Error(`person ${i + 1}: name is required`);
+        if (!(p.amount > 0)) throw new Error(`${p.who}: amount must be more than 0`);
+      });
+      const added = list.map((p) => ({ id: newId('o'), tx_id: row.id, who: p.who, amount: p.amount, note: row.description || row.details || '', date: String(row.date).slice(0, 10), status: 'open', paid_at: '' }));
+      store.append(TABS.owed, added);
+      return { ok: true, ids: added.map((o) => o.id) };
+    },
+
+    /** Marks a "Tagih" entry paid back (or open again). */
+    owedSet({ id, status }) {
+      if (!store.read(TABS.owed).some((o) => String(o.id) === String(id))) throw new Error('not found');
+      if (status !== 'paid' && status !== 'open') throw new Error('status must be paid or open');
+      store.update(TABS.owed, [{ id, changes: { status, paid_at: status === 'paid' ? isoDate(now()) : '' } }]);
+      return { ok: true };
+    },
+
+    owedRemove({ id }) {
+      if (!store.read(TABS.owed).some((o) => String(o.id) === String(id))) throw new Error('not found');
+      store.remove(TABS.owed, id);
+      return { ok: true };
+    },
+
+    /** Planned recurring transactions. A new one starts next month when its day has passed this month. */
+    savePlans({ plans }) {
+      const known = new Set(accounts().map((a) => a.stream));
+      const c = cats();
+      const month = isoDate(now()).slice(0, 7);
+      const before = new Map(store.read(TABS.plans).map((p) => [String(p.id), p]));
+      const clean = (plans || []).map((p, i) => {
+        const n = `plan ${i + 1}`;
+        const amount = Math.round(Math.abs(Number(p.amount)) * 100) / 100;
+        const day = Number(p.day);
+        if (!String(p.name || '').trim()) throw new Error(`${n}: name is required`);
+        if (!(amount > 0)) throw new Error(`${n}: amount must be more than 0`);
+        if (p.direction !== 'in' && p.direction !== 'out') throw new Error(`${n}: choose money in or out`);
+        if (!known.has(p.stream)) throw new Error(`${n}: choose an account`);
+        if (p.category && !(p.direction === 'in' ? c.income : c.expense).includes(p.category)) throw new Error(`${n}: "${p.category}" doesn't fit`);
+        if (!Number.isInteger(day) || day < 1 || day > 31) throw new Error(`${n}: day must be 1-31`);
+        const old = before.get(String(p.id));
+        const fresh = !old;
+        const passed = Number(isoDate(now()).slice(8)) > Math.min(day, new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate());
+        return {
+          id: old ? old.id : newId('p'), name: String(p.name).trim(), amount, direction: p.direction, stream: p.stream, category: p.category || '', day,
+          auto: !!p.auto && !!p.category, last: fresh ? (passed ? month : '') : String(old.last || ''), active: p.active !== false,
+        };
+      });
+      store.replace(TABS.plans, clean);
+      return { ok: true };
+    },
+
+    /** Adds the planned transactions that are due (run by the daily trigger and the sync). */
+    createDuePlanned() {
+      const plans = store.read(TABS.plans);
+      if (!plans.length) return { created: 0 };
+      const due = duePlans(plans, rows(), now());
+      if (!due.length) return { created: 0 };
+      const added = due.map(({ plan, month, date }) => ({
+        ...manualRows({ kind: plan.direction, amount: plan.amount, date, stream: plan.stream, category: plan.category || '-', description: plan.name, details: 'Rutin' }, { owner: owner(), nowIso: nowIso() })[0],
+        category: plan.category || '', ref_no: `plan:${plan.id}:${month}`, source: 'plan', status: plan.auto && plan.category ? 'approved' : 'pending',
+      }));
+      store.append(TABS.transactions, added);
+      const months = new Map(due.map((x) => [String(x.plan.id), x.month]));
+      store.replace(TABS.plans, plans.map((p) => (months.has(String(p.id)) ? { ...p, last: months.get(String(p.id)) } : p)));
+      return { created: added.length };
+    },
+
+    /** What you own and owe beyond the accounts. A ticker gets its price from Google Finance in the sheet. */
+    saveAssets({ assets }) {
+      const list = (assets || []).map((a) => ({
+        id: a.id || newId('a'), name: String(a.name || '').trim(), kind: a.kind, qty: a.qty === '' || a.qty == null ? 1 : Number(a.qty),
+        unit_value: Number(a.unit_value) || 0, ticker: String(a.ticker || '').trim().toUpperCase(), paid: Number(a.paid) || '', notes: String(a.notes || '').trim(),
+      }));
+      const problems = assetProblems(list);
+      if (problems.length) throw new Error(problems.join('; '));
+      // The ticker is checked against TICKER, so the formula can't carry anything else.
+      store.replace(TABS.assets, list.map((a) => ({ ...a, price: a.ticker && TICKER.test(a.ticker) ? `=IFERROR(GOOGLEFINANCE("${a.ticker}"),"")` : '' })));
+      return { ok: true };
+    },
+
+    /** "Keep" or "stop" on a subscription ('' clears it). */
+    markRecurring({ name, mark }) {
+      const key = payee(name);
+      if (!key) throw new Error('nothing to mark');
+      if (!['keep', 'stop', ''].includes(mark)) throw new Error('mark must be keep or stop');
+      const marks = json('recurring_marks');
+      if (mark) marks[key] = mark; else delete marks[key];
+      store.setConfig('recurring_marks', JSON.stringify(marks));
+      return { ok: true };
+    },
+
     /** One category (or "ignore") for several rows at once. */
     updateMany({ ids, category, status }) {
       const list = Array.isArray(ids) ? ids.map(String) : [];
@@ -413,7 +523,7 @@ export function createApi(store, env) {
           big_amount: bigAmount(),
         },
         balances: streamBalances(rows(), accounts(), { year: year(), asOf: isoDate(now()) }), lastChecks: lastChecks(rows()),
-        imports: importHistory(), salaryStream: salaryStream(),
+        imports: importHistory(), salaryStream: salaryStream(), plans: store.read(TABS.plans), assets: store.read(TABS.assets), assetKinds: ASSET_KINDS,
         budgetSuggestions: suggestBudgets(rows(), cats(), { start: start(), today: now() }),
         archives: String(store.config('archives') || '').split('\n').filter(Boolean)
           .map((line) => { const [year, url] = line.split(' '); return { year, url }; }),
@@ -610,5 +720,5 @@ export const API_METHODS = [
   'init', 'bootstrap', 'review', 'approve', 'ignore', 'restore', 'list', 'update', 'remove', 'add', 'dashboard', 'settings',
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
-  'yearly', 'importStatement', 'undoImport', 'updateMany',
+  'yearly', 'importStatement', 'undoImport', 'updateMany', 'tagih', 'owedSet', 'owedRemove', 'savePlans', 'saveAssets', 'markRecurring',
 ];

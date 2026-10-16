@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 16; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports
+export const SETUP_VERSION = 17; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs
 
 export const TABS = {
   transactions: 'Transactions',
@@ -13,12 +13,22 @@ export const TABS = {
   preview: 'Preview',
   budgets: 'Budgets',
   goals: 'Goals',
+  owed: 'Tagih',
+  plans: 'Rutin',
+  assets: 'Aset',
   selfTest: 'Self-test',
 };
 
 export const BUDGET_HEADERS = ['category', 'monthly_budget'];
 
 export const GOAL_HEADERS = ['stream', 'name', 'target', 'target_date'];
+
+// Money friends owe you for a payment you made ("Tagih").
+export const OWED_HEADERS = ['id', 'tx_id', 'who', 'amount', 'note', 'date', 'status', 'paid_at'];
+// Transactions you plan (rent, cash bills): put in Review (or saved) on their day each month.
+export const PLAN_HEADERS = ['id', 'name', 'amount', 'direction', 'stream', 'category', 'day', 'auto', 'last', 'active'];
+// What you own and owe beyond the accounts; price is a GOOGLEFINANCE formula when a ticker is set.
+export const ASSET_HEADERS = ['id', 'name', 'kind', 'qty', 'unit_value', 'ticker', 'price', 'paid', 'notes'];
 
 export const INBOX_LOG_HEADERS = ['gmail_id', 'received', 'from', 'subject', 'status', 'parser', 'reason', 'rows', 'gmail'];
 
@@ -68,6 +78,8 @@ export const CONFIG_KEYS = [
   { key: 'big_amount', name: 'CFG_BIG_AMOUNT', note: 'Spending from this amount up is flagged in the bell and the weekly email (empty = Rp1.000.000, 0 = off)' },
   // Added in setup version 16.
   { key: 'imports', name: 'CFG_IMPORTS', note: 'Bank statement imports (JSON, newest first); each can be undone in the app' },
+  // Added in setup version 17.
+  { key: 'recurring_marks', name: 'CFG_RECURRING_MARKS', note: 'Subscriptions marked keep or stop (JSON by payee)' },
 ];
 
 export const STATUS = ['pending', 'approved', 'ignored'];

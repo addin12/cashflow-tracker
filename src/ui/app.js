@@ -10,6 +10,7 @@ import { filterTransactions, ruleFromApproval, pendingMatching, renamedCategorie
 import { buildCategorySlots } from '../core/categories.js';
 import { compileRule } from '../core/rules.js';
 import { parseStatement, matchStatement } from '../core/statement.js';
+import { parseQuick, evalAmount } from '../core/quick.js';
 
 const state = {
   boot: null, tab: 'review', month: '', review: null, dashByMonth: {}, all: null, allStale: true,
@@ -586,9 +587,11 @@ function overviewHtml(d) {
       </div>
       <div class="stack">
         ${todayCard}
+        ${owedCard(d.owed)}
         ${incomeRows ? `<section class="card"><h2>${esc(T.incomeByCategory)}</h2><div class="rows">${incomeRows}</div></section>` : ''}
         ${goalsCard(d.goals)}
         ${recurringCard(d.recurring)}
+        ${wealthCard(d.wealth)}
         <section class="card"><h2>${esc(T.accounts)}</h2>${walletLine(d)}<p class="lead">${esc(T.accountsHint)}</p><div class="rows">${group('Spending', T.spendingGroup)}${group('Saving', T.savingGroup)}</div></section>
       </div>
     </div>`;
@@ -643,6 +646,8 @@ function reportHtml(d) {
     </div>
     <div class="stack">
       ${donutCard(cats, (v) => T.perDayShort(rp(v / idx)))}
+      ${patternCard(d.pattern)}
+      ${tagsCard(d.tags)}
       ${placesCard(d.places)}
       ${biggestCard(d.biggest)}
       ${trend.length ? `<section class="card"><h2>${esc(T.trendTitle)}</h2><p class="lead">${esc(T.trendHint)}</p><div class="chart">${chart}</div></section>` : ''}
@@ -746,6 +751,8 @@ function yearlyHtml(y) {
     </div>
     <div class="stack">
       ${donutCard(cats, (v) => T.perMonthShort(rp(v / Math.max(1, shown.length))))}
+      ${patternCard(y.pattern)}
+      ${tagsCard(y.tags)}
       ${placesCard(y.places)}
       ${biggestCard(y.biggest)}
     </div>
@@ -867,6 +874,175 @@ function applyPicked(category, status) {
     .catch((e) => { before.forEach((r) => patchRow(r.id, { category: r.category, status: r.status })); updateNav(); showResults(); toast(`${T.notSaved}: ${e.message}`, { kind: 'bad' }); });
 }
 
+
+// ---------------------------------------------------------------- Round 12 pieces
+/** Amount fields accept a little sum ("12000+3500", "3x25rb"); a leading minus stays (adjustments). */
+function amountValue(raw) {
+  const s = String(raw ?? '').trim();
+  if (/^-/.test(s)) return -evalAmount(s.slice(1));
+  return evalAmount(s);
+}
+/** Under an amount field: "= Rp15.500" while the field holds a sum. */
+function showCalc(input) {
+  const out = input.closest('.field') && $('.calc-out', input.closest('.field'));
+  if (!out) return;
+  const v = amountValue(input.value);
+  out.textContent = /[+\-x×*/÷:]/.test(input.value.replace(/^-/, '')) && Number.isFinite(v) ? `= ${rp(v)}` : '';
+}
+const CALC_KEYS = [['+', '+'], ['−', '-'], ['×', 'x'], ['÷', '/']];
+
+/** The sentence on Add fills the form below it (what it can't tell, the form still asks). */
+function applyQuick(text) {
+  const p = parseQuick(text, {
+    accounts: state.boot.accounts, rules: (state.settings && state.settings.rules) || state.boot.rules || [], today: state.boot.today,
+    salaryCategory: state.boot.categories.income.find((c) => /^gaji$/i.test(c)) || '',
+  });
+  state.quickText = text;
+  state.addPrefill = {
+    amount: Number.isFinite(p.amount) ? String(p.amount) : '', category: p.category, stream: p.stream, date: p.date,
+    description: p.description ? p.description[0].toUpperCase() + p.description.slice(1) : '', details: p.tags.map((t) => `#${t}`).join(' '),
+  };
+  const sum = $('#quickSum');
+  if (state.addKind !== p.direction && (state.addKind === 'out' || state.addKind === 'in')) {
+    state.addKind = p.direction;
+    viewAdd();
+    const q = $('#quickIn');
+    if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+    return;
+  }
+  const form = $('form[data-form=add]');
+  if (!form) return;
+  const set = (n, v) => { const el = form.querySelector(`[name=${n}]`); if (el && v !== undefined) el.value = v; };
+  const f = state.addPrefill;
+  set('amount', f.amount); set('description', f.description); set('details', f.details); set('date', f.date);
+  if (f.stream) set('stream', f.stream);
+  if (f.category) set('category', f.category);
+  if (sum) sum.textContent = text.trim() ? T.quickSummary(Number.isFinite(p.amount) ? rp(p.amount) : '?', p.direction === 'in' ? T.kindIn : T.kindOut, p.stream || T.chooseAccount, p.category || T.chooseCategory) : '';
+}
+
+/** Money friends owe you, with "paid back". */
+function owedCard(owed) {
+  if (!owed || (!owed.open.length && !owed.paid.length)) return '';
+  const rows = owed.open.map((o) => `<div class="rowi"><span class="what"><b>${esc(o.who)}</b><span class="meta">${esc([o.payment, dateLabel(o.date, { weekday: false })].filter(Boolean).join(' · '))}</span></span>
+    <span class="amt">${rp(o.amount)}</span><button class="btn secondary small" data-action="owedpaid" data-id="${esc(o.id)}" aria-label="${esc(T.owedPaidFor(o.who))}">${esc(T.owedPaid)}</button></div>`).join('');
+  return `<section class="card"><h2>${esc(T.owedTitle)}</h2><p class="lead">${esc(owed.open.length ? T.owedHint(rp(owed.total)) : T.owedNone)}</p>
+    ${rows ? `<div class="rows owed">${rows}</div>` : ''}</section>`;
+}
+
+/** Net worth: accounts, things owned, collectibles, debts. */
+function wealthCard(w) {
+  if (!w) return '';
+  const line = (label, v, cls = '') => `<div class="rowi"><span class="what"><b>${esc(label)}</b></span><span class="amt ${cls}">${v}</span></div>`;
+  const gains = w.items.filter((a) => a.gain != null).reduce((t, a) => t + a.gain, 0);
+  return `<section class="card"><h2>${esc(T.wealthTitle)}</h2>${bigRp(w.total, 'lg')}<p class="lead">${esc(T.wealthHint)}</p><div class="rows">
+    ${line(T.wealthAccounts, rp(w.accounts))}${w.owned ? line(T.wealthOwned, rp(w.owned)) : ''}
+    ${w.collectibles ? line(T.wealthCollect(gains ? `${gains > 0 ? '+' : '−'}${rp(Math.abs(gains))}` : ''), rp(w.collectibles)) : ''}
+    ${w.debts ? line(T.wealthDebts, `−${rp(w.debts)}`, 'bad') : ''}</div>
+    <button class="link" data-action="go" data-tab="settings" data-section="assets">${esc(T.wealthEdit)}</button></section>`;
+}
+
+/** When the money goes: weekdays and time of day, with the most expensive of each in words. */
+function patternCard(p) {
+  if (!p) return '';
+  const days = [...Array(7)].map((_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale(), { weekday: 'short' }));
+  const daysLong = [...Array(7)].map((_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale(), { weekday: 'long' }));
+  const top = Math.max(1, ...p.weekdays);
+  if (!p.weekdays.some((v) => v > 0)) return '';
+  const best = p.weekdays.indexOf(Math.max(...p.weekdays));
+  const parts = [['morning', T.partMorning], ['noon', T.partNoon], ['afternoon', T.partAfternoon], ['evening', T.partEvening], ['night', T.partNight]];
+  const pTop = Math.max(1, ...parts.map(([k]) => p.parts[k]));
+  const pBest = parts.reduce((a, b) => (p.parts[b[0]] > p.parts[a[0]] ? b : a));
+  const bar = (label, v, max, on) => `<div class="pat-row ${on ? 'on' : ''}"><span>${esc(label)}</span><span class="hbar"><i class="out" style="width:${Math.round((v / max) * 100)}%"></i></span><span class="amt">${rp(v)}</span></div>`;
+  return `<section class="card"><h2>${esc(T.patternTitle)}</h2><p class="lead">${esc(T.patternHint(daysLong[best], pBest[1].toLowerCase()))}</p>
+    <div class="pat">${p.weekdays.map((v, i) => bar(days[i], v, top, i === best)).join('')}</div>
+    <h3 class="sub-title">${esc(T.patternTime)}</h3>
+    <div class="pat">${parts.map(([k, l]) => bar(l, p.parts[k], pTop, k === pBest[0])).join('')}</div></section>`;
+}
+
+/** Totals per #tag; a tag opens its transactions. */
+function tagsCard(tags) {
+  if (!tags || !tags.length) return '';
+  return `<section class="card"><h2>${esc(T.tagsTitle)}</h2><p class="lead">${esc(T.tagsHint)}</p><div class="rows">${tags.map((t) => `
+    <button class="lrow" data-action="drill" data-q="#${esc(t.tag)}"><span class="cat-ic acct" aria-hidden="true">#</span><span class="what"><b>#${esc(t.tag)}</b><span class="meta">${esc(T.tagCount(t.count))}${t.in ? ` · <span class="in">+${rp(t.in)}</span>` : ''}</span></span><span class="amt">${rp(t.out)}</span></button>`).join('')}</div></section>`;
+}
+
+// Where to stop a subscription (only well-known pages).
+const STOP_LINKS = [
+  [/spotify/i, 'https://www.spotify.com/account/subscription/'], [/netflix/i, 'https://www.netflix.com/cancelplan'],
+  [/youtube/i, 'https://www.youtube.com/paid_memberships'], [/google ?play|google \*/i, 'https://play.google.com/store/account/subscriptions'],
+  [/apple/i, 'https://apps.apple.com/account/subscriptions'], [/claude|anthropic/i, 'https://claude.ai/settings/billing'],
+  [/canva/i, 'https://www.canva.com/settings/billing-and-teams'], [/microsoft|xbox|office/i, 'https://account.microsoft.com/services'],
+];
+function openSubs() {
+  const d = state.dashByMonth[state.month] || {};
+  const items = (d.recurring && d.recurring.items) || [];
+  const marks = d.recurringMarks || {};
+  const monthly = items.reduce((t, i) => t + i.amount, 0);
+  const stopping = items.filter((i) => marks[i.key] === 'stop').reduce((t, i) => t + i.amount, 0);
+  const sorted = [...items].sort((a, b) => b.amount - a.amount);
+  $('#modal').innerHTML = `<div class="sheet"><h2>${esc(T.subsTitle)}</h2>
+    <p class="lead">${esc(T.subsTotals(rp(monthly), rp(monthly * 12)))}${stopping ? ` <b class="in">${esc(T.subsSave(rp(stopping), rp(stopping * 12)))}</b>` : ''}</p>
+    <div class="rows">${sorted.map((i) => {
+      const link = (STOP_LINKS.find(([re]) => re.test(i.name)) || [])[1];
+      const m = marks[i.key] || '';
+      return `<div class="sub-row"><div class="sub-top">${icon(i.category)}<span class="what"><b>${esc(i.name)}</b><span class="meta">${esc(T.recurringNext(dateLabel(i.nextDate, { weekday: false }), Math.max(0, i.daysLeft)))} · ${esc(T.perYear(rp(i.amount * 12)))}</span></span><span class="amt">${rp(i.amount)}</span></div>
+        <div class="sub-acts">
+          <button type="button" class="chip-btn ${m === 'keep' ? 'on' : ''}" aria-pressed="${m === 'keep'}" data-action="submark" data-name="${esc(i.name)}" data-mark="${m === 'keep' ? '' : 'keep'}">${esc(T.subKeep)}</button>
+          <button type="button" class="chip-btn ${m === 'stop' ? 'on stop' : ''}" aria-pressed="${m === 'stop'}" data-action="submark" data-name="${esc(i.name)}" data-mark="${m === 'stop' ? '' : 'stop'}">${esc(T.subStop)}</button>
+          ${link ? `<a class="btn plain small" target="_blank" rel="noopener" href="${esc(link)}">${esc(T.subHowStop)} ↗</a>` : ''}
+        </div></div>`;
+    }).join('') || `<p class="hint">${esc(T.nothingYet)}</p>`}</div>
+    <div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.close)}</button></div></div>`;
+  $('#modal').classList.add('open');
+}
+
+/** Planned recurring transactions (rent, cash bills): one card per plan. */
+function plansForm(s) {
+  const c = state.boot.categories;
+  const rows = (s.plans || []).map((p, i) => `<fieldset class="acct-row plan-row" data-i="${i}"><legend>${esc(p.name || T.newPlan)}</legend>
+    <div class="fields2">
+      ${field(T.planName, `<input data-p="name" value="${esc(p.name)}" placeholder="${esc(T.planNamePh)}">`)}
+      ${field(T.amountRp, `<input data-p="amount" class="calc-input" inputmode="decimal" value="${esc(p.amount)}"><em class="calc-out"></em>`)}
+      ${field(T.kind, `<select data-p="direction"><option value="out" ${p.direction !== 'in' ? 'selected' : ''}>${esc(T.kindOut)}</option><option value="in" ${p.direction === 'in' ? 'selected' : ''}>${esc(T.kindIn)}</option></select>`)}
+      ${field(T.account, `<select data-p="stream">${accountOptions(p.stream)}</select>`)}
+      ${field(T.category, `<select data-p="category"><option value="">${esc(T.planReview)}</option>${(p.direction === 'in' ? c.income : c.expense).map((x) => `<option ${x === p.category ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>`)}
+      ${field(T.planDay, `<input data-p="day" type="number" min="1" max="31" inputmode="numeric" value="${esc(p.day || '')}">`, { help: T.planDayHelp })}
+    </div>
+    <label class="check"><input type="checkbox" data-p="auto" ${p.auto === true || p.auto === 'TRUE' ? 'checked' : ''}> ${esc(T.planAuto)}</label>
+    <div class="actions"><button class="btn danger small" type="button" data-action="delplan" data-i="${i}">${esc(T.planDelete)}</button></div></fieldset>`).join('');
+  return `<form class="card" data-form="plans" novalidate><h2>${esc(T.plansTitle)}</h2><p class="lead">${esc(T.plansHint)}</p>${rows || `<p class="hint">${esc(T.noPlans)}</p>`}
+    <div class="actions"><button class="btn secondary left" type="button" data-action="addplan">＋ ${esc(T.addPlan)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.savePlans)}</button></div></form>`;
+}
+const readPlans = (form) => $$('.plan-row', form).map((row, i) => ({
+  ...((state.settings.plans || [])[i] || {}),
+  ...Object.fromEntries($$('[data-p]', row).map((el) => [el.dataset.p, el.type === 'checkbox' ? el.checked : el.value])),
+}));
+
+/** Assets, debts and collectibles beyond the accounts. */
+function assetsForm(s) {
+  const kinds = s.assetKinds || ['property', 'vehicle', 'gold', 'stock', 'crypto', 'collectible', 'other', 'debt'];
+  const rows = (s.assets || []).map((a, i) => {
+    const price = Number(a.price);
+    const value = (Number(a.qty) || 1) * (price > 0 ? price : Number(a.unit_value) || 0);
+    return `<fieldset class="acct-row asset-row" data-i="${i}"><legend>${esc(a.name || T.newAsset)}${a.name ? ` · ${rp(value)}` : ''}</legend>
+    <div class="fields2">
+      ${field(T.assetName, `<input data-a2="name" value="${esc(a.name)}" placeholder="${esc(T.assetNamePh)}">`)}
+      ${field(T.assetKind, `<select data-a2="kind">${kinds.map((k) => `<option value="${k}" ${k === a.kind ? 'selected' : ''}>${esc(T[`kind_${k}`])}</option>`).join('')}</select>`)}
+      ${field(T.assetQty, `<input data-a2="qty" inputmode="decimal" value="${esc(a.qty === '' || a.qty == null ? 1 : a.qty)}">`, { help: T.assetQtyHelp })}
+      ${field(T.assetValue, `<input data-a2="unit_value" class="calc-input" inputmode="decimal" value="${esc(a.unit_value || '')}"><em class="calc-out"></em>`, { help: price > 0 ? T.assetMarket(rp(price)) : T.assetValueHelp })}
+      ${field(T.assetTicker, `<input data-a2="ticker" value="${esc(a.ticker || '')}" placeholder="IDX:BBCA" autocapitalize="characters" spellcheck="false">`, { help: T.assetTickerHelp })}
+      ${field(T.assetPaid, `<input data-a2="paid" class="calc-input" inputmode="decimal" value="${esc(a.paid || '')}"><em class="calc-out"></em>`, { help: T.optional })}
+    </div>
+    <div class="actions"><button class="btn danger small" type="button" data-action="delasset" data-i="${i}">${esc(T.assetDelete)}</button></div></fieldset>`;
+  }).join('');
+  return `<form class="card" data-form="assets" novalidate><h2>${esc(T.assetsTitle)}</h2><p class="lead">${esc(T.assetsHint)}</p>${rows || `<p class="hint">${esc(T.noAssets)}</p>`}
+    <div class="actions"><button class="btn secondary left" type="button" data-action="addasset">＋ ${esc(T.addAsset)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveAssets)}</button></div></form>`;
+}
+const readAssets = (form) => $$('.asset-row', form).map((row, i) => ({
+  ...((state.settings.assets || [])[i] || {}),
+  ...Object.fromEntries($$('[data-a2]', row).map((el) => [el.dataset.a2, el.value])),
+}));
+
 function recurringCard(r) {
   if (!r || !r.items || !r.items.length) return '';
   const when = (i) => (i.daysLeft < 0 ? T.recurringLate(dateLabel(i.nextDate, { weekday: false }), -i.daysLeft)
@@ -876,7 +1052,7 @@ function recurringCard(r) {
       <span class="meta">${esc(when(i))}${i.stream ? ` · ${esc(i.stream)}` : ''}${i.basis === 'category' ? ` · <span class="badge neutral">${esc(T.recurringGuess)}</span>` : ''}${i.daysLeft < 0 ? ` <span class="badge warn">${esc(T.recurringLateBadge)}</span>` : ''}</span></span>
       <span class="amt">${rp(i.amount)}</span></button>
     <button class="btn plain small rec-hide" data-action="hiderec" data-name="${esc(i.name)}" aria-label="${esc(T.notSubscriptionFor(i.name))}">${esc(T.notSubscription)}</button></div>`).join('');
-  return `<section class="card"><h2>${esc(T.recurringTitle)}</h2><p class="lead">${esc(T.recurringHint(rp(r.monthlyTotal)))}</p><div class="rows">${rows}</div></section>`;
+  return `<section class="card"><h2 class="row-title">${esc(T.recurringTitle)}<button class="link" data-action="subs">${esc(T.subsManage)}</button></h2><p class="lead">${esc(T.recurringHint(rp(r.monthlyTotal)))}</p><div class="rows">${rows}</div></section>`;
 }
 
 function goalsCard(goals) {
@@ -1067,24 +1243,40 @@ function openEditor(id) {
       <p class="lead">${esc(x.gmail_id ? T.fromEmail : T.enteredByHand)}${x.gmail_id ? ` · <a class="link" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/#all/${esc(x.gmail_id)}">${esc(T.openGmail)} ↗</a>` : ''}</p>
       ${field(T.description, `<input name="description" value="${esc(x.description)}">`)}
       <div class="fields2" style="margin-top:16px">
-        ${field(T.amountRp, `<input name="amount" type="number" inputmode="decimal" step="any" min="0" value="${esc(x.amount)}">`)}
+        ${field(T.amountRp, `<input name="amount" class="amount-input" inputmode="decimal" autocomplete="off" value="${esc(x.amount)}"><em class="calc-out"></em>`)}
         ${field(T.kind, `<select name="direction"><option value="out" ${x.direction === 'out' ? 'selected' : ''}>${esc(T.kindOut)}</option><option value="in" ${x.direction === 'in' ? 'selected' : ''}>${esc(T.kindIn)}</option></select>`)}
         ${field(T.category, `<select name="category">${categoryOptions(x.category, x.direction)}</select>`)}
         ${field(T.account, `<select name="stream">${accountOptions(x.stream)}</select>`)}
         ${field(T.date, `<input name="date" type="date" value="${esc(x.date)}">`)}
         ${field(T.status, `<select name="status">${statuses}</select>`, { help: T.statusHelp })}
       </div>
-      ${field(T.notes, `<input name="details" value="${esc(x.details)}">`, { help: T.optional })}
+      ${field(T.notes, `<input name="details" value="${esc(x.details)}">`, { help: T.notesTagHelp })}
       <div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.cancel)}</button><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div>
     </form>
     ${parentId ? `<div class="split-box"><p>${esc(T.isSplitPart)}</p><button class="btn secondary" type="button" data-action="edit" data-id="${esc(parentId)}">${esc(T.openSplitParent)}</button></div>`
     : `<div class="split-box" id="splitBox">${splitSummary(x)}</div>`}
+    ${x.direction === 'out' ? `<div class="split-box" id="tagihBox"><h3>${esc(T.tagihTitle)}</h3><p class="hint">${esc(T.tagihHint)}</p><div class="actions" style="justify-content:flex-start"><button class="btn secondary" type="button" data-action="tagihopen" data-id="${esc(x.id)}">${esc(T.tagihOpen)}</button></div></div>` : ''}
     <div class="danger-zone"><button class="btn danger" type="button" data-action="delete" data-id="${esc(x.id)}">${esc(T.deleteTransaction)}</button>
       ${x.gmail_id ? `<p class="hint">${esc(T.deleteEmailHint)}</p>` : ''}</div>
   </div>`;
   $('#modal').classList.add('open');
   const first = $('#modal input[name=description]');
   if (first && window.matchMedia && window.matchMedia('(min-width: 900px)').matches) first.focus();
+}
+function tagihForm(x) {
+  return `<form data-form="tagih" data-id="${esc(x.id)}" novalidate><h3>${esc(T.tagihTitle)}</h3>
+    ${field(T.tagihWho, '<input name="who" autocomplete="off" placeholder="Andi, Budi, Citra">', { help: T.tagihWhoHelp })}
+    <label class="check"><input type="checkbox" name="me" checked> ${esc(T.tagihWithMe)}</label>
+    ${field(T.tagihEach, '<input name="each" class="calc-input" inputmode="decimal" autocomplete="off"><em class="calc-out"></em>', { help: T.tagihEachHelp(rp(x.amount)) })}
+    <div class="actions"><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.tagihSave)}</button></div></form>`;
+}
+/** Each person's share: the payment split between the names (and you, when "including me"). */
+function updateTagih(form) {
+  const x = state.rowsById.get(String(form.dataset.id));
+  const names = form.querySelector('[name=who]').value.split(',').map((n) => n.trim()).filter(Boolean);
+  const n = names.length + (form.querySelector('[name=me]').checked ? 1 : 0);
+  const each = form.querySelector('[name=each]');
+  if (!each.dataset.touched) each.value = names.length && n ? String(Math.round((Number(x.amount) || 0) / n)) : '';
 }
 const closeModal = () => { $('#modal').classList.remove('open'); $('#modal').innerHTML = ''; };
 
@@ -1178,19 +1370,22 @@ function viewAdd() {
   const k = state.addKind;
   const kinds = [['out', T.kindOut], ['in', T.kindIn], ['transfer', T.kindTransfer], ['adjust', T.kindAdjust]];
   const last = state.addLast || {};
+  const pre = state.addPrefill || {};
   setView(`<div class="narrow">
     <header class="page-head"><div><h1>${esc(T.addTitle)}</h1><p class="sub">${esc(T.addSub)}</p></div></header>
+    ${k === 'out' || k === 'in' ? `<div class="card quick">${field(T.quickLabel, `<input id="quickIn" data-quick autocomplete="off" enterkeyhint="done" placeholder="${esc(T.quickPlaceholder)}" value="${esc(state.quickText || '')}">`, { help: T.quickHelp })}<p class="quick-sum" id="quickSum" role="status"></p></div>` : ''}
     <form class="card" data-form="add" novalidate>
       <div class="field"><span id="kindLabel">${esc(T.kind)}</span><div class="seg wrap" role="group" aria-labelledby="kindLabel">${kinds.map(([v, l]) => `<button type="button" class="${v === k ? 'on' : ''}" aria-pressed="${v === k}" data-action="kind" data-kind="${v}">${esc(l)}</button>`).join('')}</div></div>
-      ${field(T.amountRp, `<input class="amount-input" name="amount" type="number" inputmode="decimal" step="any" ${k === 'adjust' ? '' : 'min="0"'} placeholder="0">`, { help: k === 'adjust' ? T.adjustHint : T.amountHelp })}
+      ${field(T.amountRp, `<input class="amount-input" name="amount" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(pre.amount || '')}"><em class="calc-out"></em>`, { help: k === 'adjust' ? T.adjustHint : T.amountHelpCalc })}
+      <div class="calc-keys" role="group" aria-label="${esc(T.calcKeys)}">${CALC_KEYS.map(([l, v]) => `<button type="button" data-action="calckey" data-k="${v}" aria-label="${esc(l)}">${l}</button>`).join('')}</div>
       <div class="fields2" style="margin-top:16px">
-        ${k === 'out' || k === 'in' ? field(T.category, `<select name="category">${categoryOptions('', k)}</select>`) : ''}
-        ${field(k === 'transfer' ? T.fromAccount : T.account, `<select name="stream">${accountOptions(last.stream || (k === 'out' ? 'Cash' : ''))}</select>`)}
+        ${k === 'out' || k === 'in' ? field(T.category, `<select name="category">${categoryOptions(pre.category || '', k)}</select>`) : ''}
+        ${field(k === 'transfer' ? T.fromAccount : T.account, `<select name="stream">${accountOptions(pre.stream || last.stream || (k === 'out' ? 'Cash' : ''))}</select>`)}
         ${k === 'transfer' ? field(T.toAccount, `<select name="toStream">${accountOptions('')}</select>`) : ''}
-        ${field(T.date, `<input name="date" type="date" value="${esc(last.date || state.boot.today)}">`)}
+        ${field(T.date, `<input name="date" type="date" value="${esc(pre.date || last.date || state.boot.today)}">`)}
       </div>
-      ${field(T.description, '<input name="description" autocomplete="off">', { help: T.descriptionHelp })}
-      ${field(T.notes, '<input name="details" autocomplete="off">', { help: T.optional })}
+      ${field(T.description, `<input name="description" autocomplete="off" value="${esc(pre.description || '')}">`, { help: T.descriptionHelp })}
+      ${field(T.notes, `<input name="details" autocomplete="off" value="${esc(pre.details || '')}">`, { help: T.notesTagHelp })}
       <div id="addDup"></div>
       <div class="actions"><span class="state" id="addState" role="status"></span><button class="btn primary" type="submit">${esc(T.saveTransaction)}</button></div>
     </form></div>`);
@@ -1208,9 +1403,9 @@ function possibleDuplicates({ kind, amount, date, stream, toStream }) {
 function submitAdd(form) {
   const d = Object.fromEntries(new FormData(form).entries());
   const k = state.addKind;
-  const amount = Number(d.amount);
+  const amount = amountValue(d.amount);
   const el = (n) => form.querySelector(`[name=${n}]`);
-  let ok = fieldMessage(el('amount'), !d.amount || !amount || (k !== 'adjust' && amount < 0) ? T.errAmount : '');
+  let ok = fieldMessage(el('amount'), !d.amount || !Number.isFinite(amount) || !amount || (k !== 'adjust' && amount < 0) ? T.errAmount : '');
   if (el('category')) ok = fieldMessage(el('category'), d.category ? '' : T.errNoCategory) && ok;
   ok = fieldMessage(el('stream'), d.stream ? '' : T.errNoAccount) && ok;
   if (el('toStream')) ok = fieldMessage(el('toStream'), !d.toStream ? T.errNoAccount : d.toStream === d.stream ? T.errSameAccount : '') && ok;
@@ -1228,7 +1423,10 @@ function submitAdd(form) {
   $('#addDup').innerHTML = '';
   const label = `${d.description || d.category || T[`kind${k[0].toUpperCase()}${k.slice(1)}`]} ${rp(amount)}`;
   state.addLast = { stream: d.stream, date: d.date };
+  state.addPrefill = null; state.quickText = '';
+  if ($('#quickIn')) { $('#quickIn').value = ''; $('#quickSum').textContent = ''; }
   ['amount', 'description', 'details'].forEach((n) => { el(n).value = ''; });
+  showCalc(el('amount'));
   if (el('category')) el('category').value = '';
   const st = $('#addState');
   st.className = 'state'; st.textContent = `${T.saving} ${label}`;
@@ -1287,6 +1485,8 @@ async function viewSettings(local) {
   const sections = {
     monthend: balanceForm(s),
     import: importForm(s),
+    plans: plansForm(s),
+    assets: assetsForm(s),
     sync: `
       <section class="card"><h2>${esc(T.settingsSync)}</h2><p class="lead">${esc(T.settingsSyncHint)}</p><div class="rows">${conns}</div>
         <div class="actions"><button class="btn primary" type="button" data-action="sync">↻ ${esc(T.syncNow)}</button></div></section>`,
@@ -1337,8 +1537,8 @@ async function viewSettings(local) {
   const lang = cfg.language === 'en' ? 'English' : cfg.language === 'id' ? 'Bahasa Indonesia' : T.languageAuto;
   const groups = [
     [T.setGroupRoutine, [['monthend', T.monthEnd, T.monthEndShort], ['import', T.importTitle, (s.imports || []).length ? T.importLast(new Date(s.imports[0].at).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })) : T.importNever], ['sync', T.settingsSync, syncNote]]],
-    [T.setGroupMoney, [['accounts', T.accountsTitle, T.nAccounts(s.accounts.length)], ['budgets', T.budgetsTitle, T.nBudgets(s.budgets.length)], ['goals', T.goalsTitle, T.nGoals((s.goals || []).length)]]],
-    [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['emails', T.emailsTitle, T.nEmailsOn(emailsOn, 3)]]],
+    [T.setGroupMoney, [['accounts', T.accountsTitle, T.nAccounts(s.accounts.length)], ['budgets', T.budgetsTitle, T.nBudgets(s.budgets.length)], ['goals', T.goalsTitle, T.nGoals((s.goals || []).length)], ['assets', T.assetsTitle, T.nAssets((s.assets || []).length)]]],
+    [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['plans', T.plansTitle, T.nPlans((s.plans || []).length)], ['emails', T.emailsTitle, T.nEmailsOn(emailsOn, 3)]]],
     [T.setGroupApp, [['prefs', T.preferences, T.prefSummary(lang, Number(cfg.payday_day) || 28)], ['more', T.more, T.moreSummary]]],
   ];
   if (state.settingsSection && !sections[state.settingsSection]) state.settingsSection = null;
@@ -1575,6 +1775,40 @@ function onClick(e) {
   if (a === 'preset') { setPreset(el.dataset.p); state.limit = 50; return viewTransactions(); }
   if (a === 'kindchip') { setKind(el.dataset.k); state.limit = 50; return viewTransactions(); }
   if (a === 'dashview') { state.dashView = el.dataset.view; return viewDashboard(); }
+  if (a === 'calckey') { const i = el.closest('form').querySelector('[name=amount]'); i.value += el.dataset.k; i.focus(); showCalc(i); return null; }
+  if (a === 'tagihopen') { const x = state.rowsById.get(String(el.dataset.id)); $('#tagihBox').innerHTML = tagihForm(x); $('#tagihBox [name=who]').focus(); return null; }
+  if (a === 'owedpaid') {
+    const id = el.dataset.id;
+    const d = state.dashByMonth[state.month];
+    const before = d && d.owed ? JSON.parse(JSON.stringify(d.owed)) : null;
+    if (d && d.owed) { const o = d.owed.open.find((x) => x.id === id); d.owed.open = d.owed.open.filter((x) => x.id !== id); if (o) d.owed.total -= o.amount; viewDashboard(); }
+    toast(T.owedMarked, { undo: () => { save('owedSet', { id, status: 'open' }).catch(() => {}); if (d && before) { d.owed = before; viewDashboard(); } } });
+    return save('owedSet', { id, status: 'paid' }).catch((err) => { if (d && before) { d.owed = before; viewDashboard(); } toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }); });
+  }
+  if (a === 'subs') return openSubs();
+  if (a === 'submark') {
+    const d = state.dashByMonth[state.month];
+    const it = d && d.recurring.items.find((i) => i.name === el.dataset.name);
+    if (d && it) { d.recurringMarks = { ...(d.recurringMarks || {}) }; if (el.dataset.mark) d.recurringMarks[it.key] = el.dataset.mark; else delete d.recurringMarks[it.key]; }
+    openSubs();
+    return save('markRecurring', { name: el.dataset.name, mark: el.dataset.mark }).catch((err) => toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }));
+  }
+  if (a === 'addplan' || a === 'delplan') {
+    state.settings.plans = readPlans(el.closest('form'));
+    if (a === 'addplan') state.settings.plans.push({ name: '', amount: '', direction: 'out', stream: '', category: '', day: '', auto: false });
+    else state.settings.plans.splice(Number(el.dataset.i), 1);
+    viewSettings(state.settings);
+    if (a === 'addplan') { const n = $$('.plan-row [data-p=name]'); if (n.length) n[n.length - 1].focus(); }
+    return null;
+  }
+  if (a === 'addasset' || a === 'delasset') {
+    state.settings.assets = readAssets(el.closest('form'));
+    if (a === 'addasset') state.settings.assets.push({ name: '', kind: 'other', qty: 1, unit_value: '', ticker: '', paid: '' });
+    else state.settings.assets.splice(Number(el.dataset.i), 1);
+    viewSettings(state.settings);
+    if (a === 'addasset') { const n = $$('.asset-row [data-a2=name]'); if (n.length) n[n.length - 1].focus(); }
+    return null;
+  }
   if (a === 'reportmode') { state.reportYearly = el.dataset.mode === 'year'; return viewDashboard(); }
   if (a === 'yearmonth') { state.month = el.dataset.month; state.reportYearly = false; return show('dashboard'); }
   if (a === 'exportcsv') {
@@ -1784,7 +2018,7 @@ function onSubmit(e) {
   if (kind === 'add') return submitAdd(form);
   if (kind === 'split') return submitSplit(form);
   if (kind === 'edit') {
-    const amount = Number(d.amount);
+    const amount = amountValue(d.amount);
     if (!fieldMessage(form.querySelector('[name=amount]'), amount > 0 ? '' : T.errAmount)) return null;
     const id = form.dataset.id;
     const before = { ...state.rowsById.get(String(id)) };
@@ -1802,6 +2036,26 @@ function onSubmit(e) {
   if (kind === 'config') {
     applyTheme(d.theme);
     return saveForm(form, 'saveConfig', d, async () => { applyLanguage(d.language); state.month = ''; state.dashByMonth = {}; await refresh(); if (state.tab === 'settings') viewSettings(); });
+  }
+  if (kind === 'tagih') {
+    const names = form.querySelector('[name=who]').value.split(',').map((n) => n.trim()).filter(Boolean);
+    const each = amountValue(form.querySelector('[name=each]').value);
+    let ok = fieldMessage(form.querySelector('[name=who]'), names.length ? '' : T.errTagihWho);
+    ok = fieldMessage(form.querySelector('[name=each]'), each > 0 ? '' : T.errAmount) && ok;
+    if (!ok) return null;
+    return saveForm(form, 'tagih', { txId: form.dataset.id, people: names.map((who) => ({ who, amount: each })) }, () => {
+      state.dashByMonth = {};
+      form.querySelector('.state').textContent = `✓ ${T.tagihDone(names.length, rp(each * names.length))}`;
+      form.querySelector('button[type=submit]').disabled = true;
+    });
+  }
+  if (kind === 'plans') {
+    const plans = readPlans(form).map((x) => ({ ...x, amount: amountValue(x.amount), day: Number(x.day) }));
+    return saveForm(form, 'savePlans', { plans }, async () => { viewSettings(await call('settings')); });
+  }
+  if (kind === 'assets') {
+    const assets = readAssets(form).map((x) => ({ ...x, unit_value: amountValue(x.unit_value) || 0, paid: amountValue(x.paid) || '', qty: x.qty === '' ? 1 : Number(x.qty) }));
+    return saveForm(form, 'saveAssets', { assets }, async () => { state.dashByMonth = {}; viewSettings(await call('settings')); });
   }
   if (kind === 'import') {
     const rows = importChosen(form);
@@ -1902,6 +2156,8 @@ function onSubmit(e) {
 
 function onChange(e) {
   if (e.target.dataset.k === 'as_opening') { updateBalRow(e.target.closest('.bal-row')); return null; }
+  if (e.target.name === 'me' && e.target.closest('form[data-form=tagih]')) { updateTagih(e.target.closest('form')); return null; }
+  if (e.target.dataset.p === 'direction') { const f = e.target.closest('form'); state.settings.plans = readPlans(f); viewSettings(state.settings); return null; }
   const impForm = e.target.closest('form[data-form=import]');
   if (impForm && (e.target.name === 'statement' || e.target.name === 'stream')) { readStatement(impForm); return null; }
   if (impForm && e.target.dataset.imp) {
@@ -1944,12 +2200,17 @@ export async function start() {
   document.addEventListener('change', onChange);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && $('#modal').classList.contains('open')) closeModal();
+    if (e.key === 'Enter' && e.target.id === 'quickIn') { e.preventDefault(); const f = $('form[data-form=add]'); if (f) submitAdd(f); return; }
     const typing = e.target.closest && e.target.closest('input, textarea, select, [contenteditable]');
     if ((e.key === 'n' || e.key === 'N') && !typing && !e.ctrlKey && !e.metaKey && !e.altKey && !$('#modal').classList.contains('open') && state.boot) show('add');
   });
   let searchTimer;
   document.addEventListener('input', (e) => {
     if (e.target.closest('form[data-form=split]')) updateSplitLeft();
+    if (e.target.id === 'quickIn') applyQuick(e.target.value);
+    if (e.target.matches && e.target.matches('.amount-input, .calc-input')) showCalc(e.target);
+    const tg = e.target.closest('form[data-form=tagih]');
+    if (tg) { if (e.target.name === 'each') e.target.dataset.touched = '1'; else updateTagih(tg); }
     if (e.target.dataset.k === 'actual' && e.target.closest('.bal-row')) updateBalRow(e.target.closest('.bal-row'));
     const rule = e.target.closest('.rule');
     if (rule && e.target.dataset.r === 'pattern') previewRule(rule);

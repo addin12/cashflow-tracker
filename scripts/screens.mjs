@@ -29,7 +29,7 @@ for (const month of ['2026-09', '2026-10']) {
   const days = month === '2026-09' ? 30 : 5;
   for (let d = 1; d <= days; d += 1) {
     const [name, cat, amt] = merchants[(d * 7 + month.length) % merchants.length];
-    add({ date: `${month}-${String(d).padStart(2, '0')}`, time: `${String(8 + (d % 12)).padStart(2, '0')}:${String((d * 13) % 60).padStart(2, '0')}:00`, stream: d % 3 ? 'Bank A' : 'E-Wallet', direction: 'out', amount: amt + d * 500, category: cat, description: name, details: d % 2 ? 'QRIS' : '' });
+    add({ date: `${month}-${String(d).padStart(2, '0')}`, time: `${String(8 + (d % 12)).padStart(2, '0')}:${String((d * 13) % 60).padStart(2, '0')}:00`, stream: d % 3 ? 'Bank A' : 'E-Wallet', direction: 'out', amount: amt + d * 500, category: cat, description: name, details: d % 2 ? 'QRIS' : (d % 5 === 0 ? '#weekend' : '') });
   }
 }
 add({ date: '2026-09-15', stream: 'Bank A', direction: 'in', amount: 125000, category: 'Cashback & Refund', description: 'REFUND TOKOPEDIA' });
@@ -49,6 +49,9 @@ const t = {
   [TABS.inboxLog]: [{ gmail_id: 'g99', subject: 'Pembayaran Berhasil', from: 'bank', status: 'error', reason: 'no amount found' }],
   [TABS.budgets]: [{ category: 'Food & Beverages', monthly_budget: 1500000 }, { category: 'Belanja Online', monthly_budget: 200000 }, { category: 'Barber', monthly_budget: 100000 }],
   [TABS.goals]: [{ stream: 'Tabungan', name: 'Dana Darurat', target: 25000000, target_date: '2027-06-30' }, { stream: 'Bank A', name: 'Liburan', target: 5000000, target_date: '' }],
+  [TABS.owed]: [{ id: 'o1', tx_id: 'd3', who: 'Andi', amount: 75000, note: 'Makan bareng', date: '2026-10-03', status: 'open' }, { id: 'o2', tx_id: 'd3', who: 'Rina', amount: 75000, note: 'Makan bareng', date: '2026-10-03', status: 'open' }],
+  [TABS.plans]: [{ id: 'p1', name: 'Bayar kos', amount: 1500000, direction: 'out', stream: 'Cash', category: 'Pengeluaran Lainnya', day: 25, auto: false, last: '', active: true }],
+  [TABS.assets]: [{ id: 'a1', name: 'Motor', kind: 'vehicle', qty: 1, unit_value: 15000000 }, { id: 'a2', name: 'BBCA', kind: 'stock', qty: 500, unit_value: 9000, ticker: 'IDX:BBCA', price: 9450 }, { id: 'a3', name: 'Koleksi board game', kind: 'collectible', qty: 1, unit_value: 4000000, paid: 3200000 }],
 };
 const cfg = { owner_name: 'Demo', start_date: '2026-09-01', payday_day: 20, language: '', salary_stream: 'Bank A', summary_period: process.argv.includes('--by-payday') ? 'payday' : 'month', cat_transfer: 'trf ke bank lain', last_selftest: 'PASS 2026-10-05', owner_bank_names: 'DEMO USER' };
 const slots = buildCategorySlots({ income, expense });
@@ -74,6 +77,10 @@ const shots = [
   ['yearly', "document.querySelector('.nav [data-tab=dashboard]').click(); setTimeout(function(){ document.querySelector('[data-action=dashview][data-view=report]').click(); setTimeout(function(){ document.querySelector('[data-action=reportmode][data-mode=year]').click(); }, 300); }, 300);"],
   ['picking', "document.querySelector('.nav [data-tab=transactions]').click(); setTimeout(function(){ document.querySelector('[data-action=selectmode]').click(); setTimeout(function(){ var r = document.querySelectorAll('.trow'); r[3].click(); r[4].click(); }, 300); }, 300);"],
   ['import', "document.querySelector('.nav [data-tab=settings]').click(); setTimeout(function(){ document.querySelector('[data-section=import]').click(); }, 300);"],
+  ['subs', "document.querySelector('.nav [data-tab=dashboard]').click(); setTimeout(function(){ document.querySelector('[data-action=subs]').click(); }, 400);"],
+  ['quick', "document.querySelector('.nav [data-tab=add]').click(); setTimeout(function(){ var q = document.querySelector('#quickIn'); q.value = 'kopi kenangan 28rb+5rb e-wallet #ngopi'; q.dispatchEvent(new Event('input', { bubbles: true })); }, 400);"],
+  ['plans', "document.querySelector('.nav [data-tab=settings]').click(); setTimeout(function(){ document.querySelector('[data-section=plans]').click(); }, 300);"],
+  ['assets', "document.querySelector('.nav [data-tab=settings]').click(); setTimeout(function(){ document.querySelector('[data-section=assets]').click(); }, 300);"],
   ['setbudgets', "document.querySelector('.nav [data-tab=settings]').click(); setTimeout(function(){ document.querySelector('[data-section=budgets]').click(); }, 300);"],
   ['bell', "document.querySelector('.nav [data-tab=dashboard]').click(); setTimeout(function(){ document.querySelector('#bellBtn').click(); }, 300);"],
   ['darkmode', "document.querySelector('#themeBtn').click(); document.querySelector('.nav [data-tab=dashboard]').click();"],

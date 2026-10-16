@@ -37,6 +37,12 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 - **Impor mutasi bank** (Pengaturan → Impor mutasi bank): BCA tidak mengirim email untuk uang masuk. Unduh mutasi rekening dari KlikBCA (Informasi Rekening → Mutasi Rekening → Download, file CSV), pilih rekeningnya, pilih filenya. App menunjukkan mana yang sudah tercatat (dilewati) dan mana yang baru; centang yang mau ditambahkan, lalu **Tambahkan**. Bisa dibatalkan di Riwayat impor.
 - **Laporan Bulanan / Tahunan:** tahunan menunjukkan pengeluaran per bulan per kategori, kategori dari bulan ke bulan, tempat teratas dan pengeluaran terbesar. **Alur uang** menunjukkan uang masuk, pindah antar rekening, dan dibelanjakan dari mana.
 - **Transaksi:** **Pilih** beberapa baris lalu pakai satu kategori (atau abaikan) sekaligus; **Ekspor CSV** mengunduh daftar yang sedang tampil. Di PC, tombol **N** membuka Tambah.
+- **Tulis saja** (Tambah): ketik misalnya "kopi 28rb gopay", "gaji 8,5jt BCA" atau "parkir 5k kemarin #trip"; form terisi sendiri, Enter untuk simpan. Kolom jumlah bisa menghitung: 12000+3500, 3x25rb.
+- **Tagih:** buka transaksi → **Tagih** → nama-nama teman (pisahkan koma); jumlah per orang dihitung otomatis. Di Ringkasan, kartu **Piutang**: ketuk **Lunas** saat uangnya masuk.
+- **Tag:** tulis #tag di catatan transaksi (mis. #trip); Laporan menunjukkan total per tag, dan pencarian "#trip" menampilkan semuanya.
+- **Langganan → Kelola:** total per bulan dan per tahun, tandai "Masih dipakai" atau "Mau berhenti", dan link cara berhenti.
+- **Transaksi rutin** (Pengaturan): kos, iuran tunai, dll. Di tanggalnya transaksi masuk ke Cek (atau langsung tercatat).
+- **Aset, utang & koleksi** (Pengaturan): motor, emas, saham (kode seperti IDX:BBCA ikut harga pasar), koleksi dan utang; Ringkasan menunjukkan **Kekayaan bersih**.
 - **Gaji:** bank tidak mengirim email untuk uang masuk, jadi di tanggal gajian **Cek** menampilkan kartu "Gaji 28 …": isi jumlahnya → **Simpan gaji** (jumlah terakhir sudah terisi). Tidak ada gaji bulan itu? **Tidak ada gaji**. Rekening gaji dan gaji biasanya bisa diubah di **Pengaturan → Preferensi**.
 - **Ringkasan dari gajian ke gajian** (Pengaturan → Preferensi → Ringkasan dihitung): "Oktober" = 28 Sep – 27 Okt, jadi gaji tanggal 28 dihitung untuk bulan berikutnya. Laporan di spreadsheet tetap per bulan kalender.
 - **Bukan langganan:** di kartu *Langganan & tagihan rutin*, ketuk **Bukan langganan** di bawah nama yang bukan tagihan rutin.

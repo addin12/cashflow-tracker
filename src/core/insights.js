@@ -32,6 +32,40 @@ export function biggestExpenses(rows, cats, range, limit = 5) {
     .map((r) => ({ id: r.id, description: r.description || r.details || '', amount: round2(num(r.amount)), date: String(r.date).slice(0, 10), time: r.time || '', category: r.category, stream: r.stream || '', direction: 'out', status: r.status }));
 }
 
+/** Spending by weekday (Monday first) and by time of day, for "when do I spend most". */
+export function spendingPattern(rows, cats, range) {
+  const exp = new Set(cats.expense);
+  const weekdays = [0, 0, 0, 0, 0, 0, 0];
+  const parts = { morning: 0, noon: 0, afternoon: 0, evening: 0, night: 0 };
+  for (const r of rows) {
+    if (!isSpending(r, exp) || !inRange(r, range)) continue;
+    const d = String(r.date).slice(0, 10);
+    const wd = (new Date(`${d}T00:00:00`).getDay() + 6) % 7;
+    weekdays[wd] += num(r.amount);
+    const h = Number(String(r.time || '').slice(0, 2));
+    if (!String(r.time || '').trim() || !Number.isFinite(h)) continue;
+    const k = h < 5 ? 'night' : h < 11 ? 'morning' : h < 15 ? 'noon' : h < 18 ? 'afternoon' : 'evening';
+    parts[k] += num(r.amount);
+  }
+  return { weekdays: weekdays.map(round2), parts: Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, round2(v)])) };
+}
+
+/** Totals per #tag (written in a transaction's name or notes): money out and in, how many. */
+export function tagTotals(rows, range) {
+  const by = new Map();
+  for (const r of rows) {
+    if (r.status !== 'approved' || !inRange(r, range)) continue;
+    const tags = new Set([...`${r.description || ''} ${r.details || ''}`.matchAll(/#([\p{L}\p{N}_-]+)/gu)].map((m) => m[1].toLowerCase()));
+    for (const t of tags) {
+      const x = by.get(t) || { tag: t, out: 0, in: 0, count: 0 };
+      x[r.direction === 'in' ? 'in' : 'out'] += num(r.amount);
+      x.count += 1;
+      by.set(t, x);
+    }
+  }
+  return [...by.values()].map((x) => ({ ...x, out: round2(x.out), in: round2(x.in) })).sort((a, b) => b.out - a.out);
+}
+
 /**
  * Money flow for a period: income by account, transfers between own accounts (paired by
  * transfer_id; an unpaired one goes to/from "outside"), and spending by account.

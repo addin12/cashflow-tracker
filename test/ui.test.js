@@ -24,6 +24,7 @@ function memoryStore() {
     [TABS.connections]: [{ gmail: 'you@gmail.com', last_sync: '2026-10-05T03:00:00.000Z', last_status: 'live ok: +3 rows, 0 errors' }],
     [TABS.inboxLog]: [{ gmail_id: 'g9', subject: 'Pembayaran Berhasil!', from: 'bank', status: 'error', reason: 'no amount found' }],
     [TABS.budgets]: [{ category: 'Belanja Online', monthly_budget: 200000 }],
+    [TABS.owed]: [], [TABS.plans]: [], [TABS.assets]: [],
   };
   const cfg = { owner_name: 'Me', start_date: '2026-09-01', payday_day: 28, language: '', cat_transfer: 'trf ke bank lain', last_selftest: 'PASS' };
   let slots = buildCategorySlots({ income: ['gaji'], expense: ['fnb', 'Belanja Online'] });
@@ -424,7 +425,7 @@ describe('web app', () => {
     expect(doc.querySelectorAll('.set-detail > form, .set-detail > section').length).toBe(1);
     click(doc.querySelector('.set-back'));
     await until(() => !doc.querySelector('.settings').classList.contains('show-detail'), 'back to the list');
-    expect(doc.querySelectorAll('.set-row').length).toBe(11);
+    expect(doc.querySelectorAll('.set-row').length).toBe(13);
     expect(doc.querySelector('[data-section=accounts]').textContent).toContain('3 rekening');
   });
 
@@ -446,6 +447,73 @@ describe('web app', () => {
     expect(store.t[TABS.transactions].find((r) => r.ref_no === 'salary:2026-09')).toMatchObject({ category: 'gaji', direction: 'in', amount: 8000000, stream: 'BCA', date: '2026-09-28', status: 'approved' });
     await until(() => !doc.querySelector('.salary-card'), 'card gone');
     await tab('settings', 'Pengaturan');
+    await section('prefs', 'form[data-form=config]');
+  });
+
+  it('a sentence fills the Add form, sums work in the amount, and Enter saves', async () => {
+    click(doc.querySelector('.nav [data-tab=add]'));
+    await until(() => doc.querySelector('#quickIn'), 'sentence box');
+    const q = doc.querySelector('#quickIn');
+    q.value = 'kopi sore 12rb+4rb cash #ngopi';
+    q.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    const form = doc.querySelector('form[data-form=add]');
+    expect(form.querySelector('[name=amount]').value).toBe('16000');
+    expect(form.querySelector('[name=stream]').value).toBe('Cash');
+    expect(form.querySelector('[name=description]').value).toBe('Kopi sore');
+    expect(form.querySelector('[name=details]').value).toBe('#ngopi');
+    form.querySelector('[name=category]').value = 'fnb';
+    q.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await until(() => store.t[TABS.transactions].some((r) => r.description === 'Kopi sore'), 'saved from the sentence');
+    expect(store.t[TABS.transactions].find((r) => r.description === 'Kopi sore')).toMatchObject({ amount: 16000, stream: 'Cash', category: 'fnb', details: '#ngopi', direction: 'out' });
+    // a sum typed in the amount field shows its result and is saved as the result
+    const amount = doc.querySelector('form[data-form=add] [name=amount]');
+    amount.value = '3x25rb';
+    amount.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    expect(doc.querySelector('form[data-form=add] .calc-out').textContent).toBe('= Rp75.000');
+  });
+
+  it('Tagih: friends who share a payment, then "paid" on the summary', async () => {
+    await tab('transactions', 'Transaksi');
+    const reset = doc.querySelector('[data-action=resetfilters]');
+    if (reset) click(reset);
+    click(doc.querySelector('[data-action=preset][data-p=all]'));
+    await until(() => doc.querySelector('.trow[data-id="t3"]'), 'tokopedia row');
+    click(doc.querySelector('.trow[data-id="t3"]'));
+    await until(() => doc.querySelector('[data-action=tagihopen]'), 'editor');
+    click(doc.querySelector('[data-action=tagihopen]'));
+    const f = doc.querySelector('form[data-form=tagih]');
+    f.querySelector('[name=who]').value = 'Andi, Budi';
+    f.querySelector('[name=who]').dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    expect(f.querySelector('[name=each]').value).toBe(String(Math.round(320000 / 3)));
+    f.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+    await until(() => store.t[TABS.owed].length === 2, 'owed saved');
+    expect(store.t[TABS.owed].map((o) => [o.who, o.status])).toEqual([['Andi', 'open'], ['Budi', 'open']]);
+    click(doc.querySelector('[data-action=close]'));
+    click(doc.querySelector('.nav [data-tab=dashboard]'));
+    await until(() => doc.querySelector('[data-action=owedpaid]'), 'owed card');
+    click(doc.querySelector('[data-action=owedpaid]'));
+    await until(() => store.t[TABS.owed][0].status === 'paid', 'marked paid');
+  });
+
+  it('planned transactions and assets are kept in Settings', async () => {
+    click(doc.querySelector('.nav [data-tab=settings]'));
+    await section('plans', 'form[data-form=plans]');
+    click(doc.querySelector('[data-action=addplan]'));
+    const row = doc.querySelector('.plan-row');
+    const setP = (k, v) => { row.querySelector(`[data-p=${k}]`).value = v; };
+    setP('name', 'Bayar kos'); setP('amount', '1jt+500rb'); setP('stream', 'Cash'); setP('category', 'fnb'); setP('day', '25');
+    doc.querySelector('form[data-form=plans]').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+    await until(() => store.t[TABS.plans].length === 1, 'plan saved');
+    expect(store.t[TABS.plans][0]).toMatchObject({ name: 'Bayar kos', amount: 1500000, stream: 'Cash', day: 25, direction: 'out' });
+    await section('assets', 'form[data-form=assets]');
+    click(doc.querySelector('[data-action=addasset]'));
+    const a = doc.querySelector('.asset-row');
+    a.querySelector('[data-a2=name]').value = 'Motor';
+    a.querySelector('[data-a2=kind]').value = 'vehicle';
+    a.querySelector('[data-a2=unit_value]').value = '15jt';
+    doc.querySelector('form[data-form=assets]').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+    await until(() => store.t[TABS.assets].length === 1, 'asset saved');
+    expect(store.t[TABS.assets][0]).toMatchObject({ name: 'Motor', kind: 'vehicle', unit_value: 15000000 });
     await section('prefs', 'form[data-form=config]');
   });
 

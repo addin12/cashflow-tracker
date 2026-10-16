@@ -3,7 +3,7 @@
 /* global SpreadsheetApp */
 
 import {
-  TABS, TRANSACTION_HEADERS, ACCOUNT_HEADERS, RULE_HEADERS, CONNECTION_HEADERS, CONFIG_KEYS, INBOX_LOG_HEADERS, BUDGET_HEADERS, GOAL_HEADERS,
+  TABS, TRANSACTION_HEADERS, ACCOUNT_HEADERS, RULE_HEADERS, CONNECTION_HEADERS, CONFIG_KEYS, INBOX_LOG_HEADERS, BUDGET_HEADERS, GOAL_HEADERS, OWED_HEADERS, PLAN_HEADERS, ASSET_HEADERS,
   SETUP_VERSION, CF, TX_COL, STATUS, DIRECTION, ACCOUNT_TYPES, FIXED_CATEGORIES,
 } from '../core/schema.js';
 import { templatePatches, isOpenEnded } from '../core/formulas.js';
@@ -283,6 +283,9 @@ export function runSetup(ss, seedRaw) {
   ensureTab(ss, TABS.preview, TRANSACTION_HEADERS);
   ensureTab(ss, TABS.budgets, BUDGET_HEADERS);
   ensureTab(ss, TABS.goals, GOAL_HEADERS);
+  ensureTab(ss, TABS.owed, OWED_HEADERS);
+  ensureTab(ss, TABS.plans, PLAN_HEADERS);
+  ensureTab(ss, TABS.assets, ASSET_HEADERS);
   ensureConfig(ss, seed, firstRun);
   fillNewConfig(ss, seed);
   seedRules(ss, seed, log, fromVersion);

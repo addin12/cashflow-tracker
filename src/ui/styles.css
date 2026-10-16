@@ -613,3 +613,33 @@ button.rowi:hover { background: var(--zebra); }
 .imp-row .check small { color: var(--muted); font-size: 14px; }
 .imp-row select { grid-column: 1 / -1; min-height: 40px; border-radius: 10px; border: 1px solid var(--field-line); background: var(--field); color: var(--ink); font: inherit; padding: 0 10px; }
 .hint.bad { color: var(--critical); }
+
+/* ---------------------------------------------------------------- Round 12
+   Add: the sentence box and the calculator keys. Summary: owed, net worth. Reports: patterns,
+   tags. Subscriptions sheet. */
+.quick { margin-bottom: 12px; background: linear-gradient(135deg, var(--accent-soft), var(--card) 75%); }
+.quick input { font-size: 18px; }
+.quick-sum { margin: 8px 0 0; font-size: 15px; color: var(--ink-2); min-height: 1em; }
+.quick-sum:empty { display: none; }
+.calc-out { display: block; font-style: normal; font-size: 15px; font-weight: 600; color: var(--accent); margin-top: 4px; }
+.calc-out:empty { display: none; }
+.calc-keys { display: flex; gap: 8px; margin: 8px 0 4px; }
+.calc-keys button { min-width: 52px; min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-size: 20px; font-weight: 600; cursor: pointer; }
+.rows.owed .rowi { gap: 10px; }
+.rows.owed .what { flex: 1; min-width: 0; }
+.sub-title { margin: 18px 0 8px; font-size: 16px; font-weight: 600; color: var(--ink-2); }
+.pat { display: flex; flex-direction: column; gap: 6px; }
+.pat-row { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 15px; color: var(--ink-2); }
+.pat-row.on { color: var(--ink); font-weight: 600; }
+.pat-row .hbar { height: 10px; }
+.pat-row .amt { font-size: 14px; }
+.sub-row { padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.sub-row:last-child { border-bottom: 0; }
+.sub-top { display: flex; align-items: center; gap: 12px; }
+.sub-top .what { flex: 1; min-width: 0; }
+.sub-top .what b { display: block; font-weight: 500; }
+.sub-top .meta { display: block; color: var(--muted); font-size: 14px; }
+.sub-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0 52px; }
+.chip-btn { min-height: 36px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: var(--ink-2); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+.chip-btn.on { background: var(--success-soft); color: var(--success); border-color: transparent; }
+.chip-btn.on.stop { background: var(--critical-soft); color: var(--critical); }

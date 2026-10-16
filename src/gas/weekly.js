@@ -40,6 +40,7 @@ export function sendWeeklySummary(ss, { force = false } = {}) {
 export function runDaily(ss, today = new Date()) {
   const done = [];
   const api = createApi(sheetStore(ss), { now: () => today });
+  try { if (api.createDuePlanned().created) done.push('plans'); } catch (e) { /* the sync tries again */ }
   if (today.getDate() === 1 && isOn(ss, 'monthly_email')) {
     const month = prevMonth(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`);
     send(ss, monthlyEmail(api.monthly({ month }), { appUrl: appUrl(ss), lang: langOf(ss) }));

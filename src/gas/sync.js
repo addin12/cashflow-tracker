@@ -13,6 +13,8 @@ import { listMessageIds, getEmail, myAddress } from './gmail.js';
 import { configValue, runSetup } from './setup.js';
 import { flushStartupTimings } from './perf.js';
 import { refreshInit } from './initcache.js';
+import { createApi } from '../core/api.js';
+import { sheetStore } from './sheetstore.js';
 import { installMailTriggers, scheduleSelfTest, sendSyncAlert } from './weekly.js';
 import { rolloverYear } from './rollover.js';
 
@@ -243,6 +245,8 @@ function syncOnce(opts) {
     if (yearNote) note = note ? `${note}; ${yearNote}` : yearNote;
 
     try { flushStartupTimings(ss); } catch (e) { /* timings are optional */ }
+    // Planned transactions (rent, cash bills) that are due go to Review; the daily trigger does this too.
+    try { if (mode === 'live') createApi(sheetStore(ss), { now: () => new Date() }).createDuePlanned(); } catch (e) { /* tried again next run */ }
     try { if (mode === 'live') refreshInit(ss); } catch (e) { /* the page then fetches its data itself */ }
     const newest = emails.reduce((m, e) => Math.max(m, e.epochMs), Number(conn.checkpoint) || 0);
     const summary = {
