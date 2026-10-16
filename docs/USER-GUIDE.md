@@ -54,9 +54,19 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 - **Acara & trip** (Ringkasan): beri budget untuk #tag (mis. #bali); semua transaksi dengan tag itu dihitung, lintas bulan.
 - **Hari ini** (Cek): tulis pengeluaran tunai lalu Enter, kemudian **Tutup hari**; angka 🔥 = hari berturut-turut yang sudah ditutup. Pengingat jam 21.00 (mati secara bawaan) ada di **Pengaturan → Email otomatis**.
 - **Jenis aset** sekarang juga: reksa dana, obligasi/SBN, deposito, dana pensiun, gadget & barang, piutang, dan paylater/kartu kredit (dihitung sebagai utang).
+- **Gajian maju:** kalau tanggal gajian jatuh di Sabtu, Minggu, libur nasional atau cuti bersama, app memakai hari kerja sebelumnya (kartu gaji, periode ringkasan, sisa hari).
+- **Langganan berubah:** kartu Langganan dan email mingguan menandai yang *naik harga*, yang *baru*, dan yang *belum ditagih* (mungkin sudah berhenti).
+- **Langganan tahunan:** Langganan → Kelola → **Cari langganan tahunan** membaca email bank dan struk setahun ke belakang (1–4 menit). Yang ditemukan muncul dengan tanggal perpanjangannya. Berjalan sendiri sekali.
+- **Kartu kredit & paylater** (Pengaturan): tambahkan kartunya sebagai rekening, lalu isi tanggal cetak dan jatuh tempo. Ringkasan menunjukkan tagihan, yang sudah dibayar, dan pengingatnya.
+- **Cek kesehatan keuangan** (Ringkasan): berapa bulan dana darurat cukup, berapa persen pemasukan yang disisihkan, dan utang dibanding harta. **Simulasi bunga** membandingkan deposito dan SBN setelah pajak.
+- **Daftar harta untuk SPT** (Laporan → Tahunan): harta dan utang dengan kode SPT, bisa diunduh sebagai CSV.
+- **Pertama kali:** pembayaran pertama ke tempat yang belum pernah dibayar diberi tanda, supaya transaksi yang tidak dikenal cepat terlihat.
+- **Tutup kemarin:** lupa menutup hari? Sampai jam 12.00 besoknya masih bisa, runtutannya tidak putus.
 - **Tahun baru:** pada 1 Januari spreadsheet otomatis pindah ke tahun baru dan saldo berlanjut. Tahun yang selesai disimpan sebagai salinan "(arsip)", linknya ada di **Pengaturan → Lainnya**.
 
 > **Log by email:** send yourself "catat coffee 28k gopay" (one line per transaction). **The usual** chips on Add fill the form in one tap. The bell lists **bills due in 7 days** (optional reminder email the day before). **Trips & events** give a #tag a budget across months. **Today** in Review takes cash spending and **Close the day** builds a streak (optional 21:00 reminder, off by default). New asset kinds include funds, bonds, deposits, pension, goods, money lent and paylater (a debt).
+
+> **Payday** moves to the working day before a weekend or national holiday. **Subscriptions** show price rises, new ones and ones that stopped; **Find yearly plans** reads Gmail a year back. **Credit cards & paylater** (Settings) get their bill and due date. **Money health check** and an **interest calculator** (deposit vs SBN) are on the Summary; the **SPT asset list** is in Reports → Yearly. **First time** marks the first payment to a place. Yesterday can be closed until 12:00.
 
 > **Salary:** banks send no email for money coming in, so on payday **Review** shows a salary card: enter the amount → **Save salary** (or **No salary**). **Summary from payday to payday** is a setting (Settings → Preferences). **Not a subscription** under a name on the subscriptions card hides it. **Fill from earlier spending** in Settings → Monthly budgets fills the empty budgets.
 
