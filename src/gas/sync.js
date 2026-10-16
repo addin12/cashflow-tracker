@@ -10,6 +10,8 @@ import { parseEmail, SENDERS, backfillQuery } from '../core/parsers/index.js';
 import { planSync } from '../core/plan.js';
 import { readTable, appendRows, updateRows } from './store.js';
 import { listMessageIds, getEmail, myAddress } from './gmail.js';
+import { notesFromEmail } from '../core/quick.js';
+import { bodyToTokens } from '../core/text.js';
 import { configValue, runSetup } from './setup.js';
 import { flushStartupTimings } from './perf.js';
 import { refreshInit } from './initcache.js';
@@ -26,6 +28,8 @@ const MAX_EMAILS_PER_RUN = 80; // a backlog is worked off over several runs
 const PAUSE_MS = 300; // stays well under Gmail's per-minute quota for personal scripts
 export const TRIGGER_HANDLER = 'syncTrigger';
 const TRIGGER_MINUTES = 1;
+// Emails you send yourself to log spending: "catat kopi 28rb gopay".
+const NOTE_QUERY = 'from:me to:me (catat OR log)';
 const FULL_EVERY_MS = 30 * 60 * 1000;
 // Script properties shared by the quick look and the full run.
 const P = {
@@ -40,7 +44,7 @@ const P = {
 /** Ids of bank and shop emails since a moment just before `checkpointMs`. */
 function recentIds(checkpointMs) {
   const since = Math.floor(checkpointMs / 1000) - 60;
-  return [...listMessageIds(`from:(${SENDERS.join(' OR ')}) after:${since}`, 20), ...listMessageIds(backfillQuery(since), 20)];
+  return [...listMessageIds(`from:(${SENDERS.join(' OR ')}) after:${since}`, 20), ...listMessageIds(backfillQuery(since), 20), ...listMessageIds(`${NOTE_QUERY} after:${since}`, 20)];
 }
 
 /** The quick look: does anything call for a full run? */
@@ -246,6 +250,25 @@ function syncOnce(opts) {
     if (yearNote) note = note ? `${note}; ${yearNote}` : yearNote;
 
     try { flushStartupTimings(ss); } catch (e) { /* timings are optional */ }
+    // Notes you emailed yourself become transactions (each email once: its id goes on the rows).
+    if (mode === 'live') {
+      try {
+        const noteIds = listMessageIds(`${NOTE_QUERY} after:${Math.floor(sinceMs / 1000)}`, 50).filter((id) => !inTransactions.has(id) && !latest.has(String(id)));
+        if (noteIds.length) {
+          const notesApi = createApi(sheetStore(ss), { now: () => new Date() });
+          const lines = [];
+          for (const id of noteIds) {
+            const e = getEmail(id);
+            if (!String(e.from).toLowerCase().includes(gmail.toLowerCase())) continue; // only notes from yourself
+            const notes = notesFromEmail(e.subject, bodyToTokens(e.body || '', e.isHtml).join('\n'));
+            const r = notes.length ? notesApi.addNotes({ gmailId: e.id, sentMs: e.epochMs, notes }) : { added: 0, skipped: [] };
+            lines.push({ gmail_id: e.id, received: new Date(e.epochMs), from: e.from, subject: e.subject, status: r.added ? 'ok' : 'skip', parser: 'note', reason: r.skipped.length ? `no amount in: ${r.skipped.join(' | ').slice(0, 150)}` : '', rows: r.added, gmail });
+            if (r.added) plan.add.push(...new Array(r.added).fill(null)); // counted as new rows for the open app
+          }
+          appendRows(ss, TABS.inboxLog, INBOX_LOG_HEADERS, lines);
+        }
+      } catch (e) { note = note ? `${note}; notes: ${e.message}` : `notes: ${e.message}`; }
+    }
     // Market prices of the Aset tab's stocks (Yahoo / Google Finance), at most every 25 minutes.
     try { if (mode === 'live') refreshPrices(ss); } catch (e) { /* tried again next run */ }
     // Planned transactions (rent, cash bills) that are due go to Review; the daily trigger does this too.

@@ -9,7 +9,7 @@ import { recordStartup } from './gas/perf.js';
 import { cachedInit, storeInit } from './gas/initcache.js';
 import { sheetStore } from './gas/sheetstore.js';
 import { createApi, API_METHODS } from './core/api.js';
-import { sendWeeklySummary, clearSelfTestTrigger, runDaily, scheduleSelfTest, sendSyncAlert, installMailTriggers } from './gas/weekly.js';
+import { sendWeeklySummary, clearSelfTestTrigger, runDaily, scheduleSelfTest, sendSyncAlert, installMailTriggers, runEvening } from './gas/weekly.js';
 import { refreshPrices } from './gas/prices.js';
 
 const MENU = 'Cashflow Tracker';
@@ -143,6 +143,11 @@ export function weeklySummaryTrigger() {
   } finally {
     try { scheduleSelfTest(5 * 60 * 1000); } catch (e) { /* next Monday */ }
   }
+}
+
+/** Time-driven trigger (every day 21:00): the "anything to log today?" nudge, when switched on. */
+export function eveningTrigger() {
+  return runEvening(appSpreadsheet());
 }
 
 /** Time-driven trigger (every day 07:00): monthly report on the 1st, balance-check reminder on payday. */

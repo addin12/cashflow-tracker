@@ -643,3 +643,24 @@ button.rowi:hover { background: var(--zebra); }
 .chip-btn { min-height: 36px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: var(--ink-2); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
 .chip-btn.on { background: var(--success-soft); color: var(--success); border-color: transparent; }
 .chip-btn.on.stop { background: var(--critical-soft); color: var(--critical); }
+
+/* ---------------------------------------------------------------- Round 16
+   The usual (Add), today's box (Review), trips & events, category detail. */
+.usual { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.usual-label { font-size: 14px; color: var(--muted); }
+.usual .chip-btn { min-height: 40px; }
+.day-card .row-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.day-card h2 { margin: 0; }
+.streak { font-size: 15px; font-weight: 600; color: var(--warning); background: var(--warning-soft); border-radius: 99px; padding: 4px 12px; }
+.event { padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+.event:last-child { border-bottom: 0; }
+.event .row-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.event .bar { margin: 6px 0 4px; }
+.event .meta { color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.link.small { font-size: 14px; }
+.cat-head { display: flex; align-items: center; gap: 12px; }
+.cat-head h2 { margin: 0; }
+.cat-head .lead { margin: 2px 0 0; }
+.cat-chart { height: 150px; margin-top: 12px; }
+.cat-chart .bars i { width: 60%; max-width: 30px; }
+.cat-chart .bars i.out { background: var(--accent); }

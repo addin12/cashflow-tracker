@@ -57,9 +57,12 @@ export function tagTotals(rows, range) {
     if (r.status !== 'approved' || !inRange(r, range)) continue;
     const tags = new Set([...`${r.description || ''} ${r.details || ''}`.matchAll(/#([\p{L}\p{N}_-]+)/gu)].map((m) => m[1].toLowerCase()));
     for (const t of tags) {
-      const x = by.get(t) || { tag: t, out: 0, in: 0, count: 0 };
+      const x = by.get(t) || { tag: t, out: 0, in: 0, count: 0, first: '', last: '' };
       x[r.direction === 'in' ? 'in' : 'out'] += num(r.amount);
       x.count += 1;
+      const d = String(r.date).slice(0, 10);
+      if (!x.first || d < x.first) x.first = d;
+      if (d > x.last) x.last = d;
       by.set(t, x);
     }
   }

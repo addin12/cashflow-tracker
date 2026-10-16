@@ -111,6 +111,29 @@ export function paydayEmail(balances, { appUrl = '', lang = 'id' } = {}) {
 }
 
 /** problem: { error?: string, unread?: [{subject, from, reason}] } */
+/** The morning before bills are due: what, how much, from which list. */
+export function billsEmail(bills, { appUrl = '', lang = 'id' } = {}) {
+  const id = lang !== 'en';
+  const total = bills.reduce((t, b) => t + b.amount, 0);
+  const rows = bills.map((b) => `<tr><td style="padding:10px 0;border-bottom:1px solid #eee;font-size:16px">${esc(b.name)}</td><td style="padding:10px 0;border-bottom:1px solid #eee;font-size:16px;text-align:right">${rp(b.amount)}</td></tr>`).join('');
+  return {
+    subject: id ? `Cashflow: tagihan besok ${rp(total)}` : `Cashflow: bills due tomorrow ${rp(total)}`,
+    html: wrap([`<h1 style="font-size:26px;margin:0 0 12px">${esc(id ? 'Tagihan besok' : 'Bills due tomorrow')}</h1>`, `<table style="width:100%;border-collapse:collapse">${rows}</table>`,
+      button(appUrl, id ? 'Buka aplikasi' : 'Open the app'), footer(id ? 'Matikan di Pengaturan → Email otomatis.' : 'Turn it off in Settings → Automatic emails.')]),
+  };
+}
+
+/** 21:00, nothing typed in today: one line to log cash spending. */
+export function closeDayEmail({ appUrl = '', lang = 'id' } = {}) {
+  const id = lang !== 'en';
+  return {
+    subject: id ? 'Cashflow: ada pengeluaran tunai hari ini?' : 'Cashflow: any cash spending today?',
+    html: wrap([`<h1 style="font-size:26px;margin:0 0 12px">${esc(id ? 'Ada yang belum dicatat hari ini?' : 'Anything not logged today?')}</h1>`,
+      `<p style="font-size:16px">${esc(id ? 'Balas atau kirim email ke diri sendiri, misalnya "catat bakso 20rb cash", atau tutup hari di aplikasi (Cek).' : 'Email yourself, e.g. "catat bakso 20rb cash", or close the day in the app (Review).')}</p>`,
+      button(appUrl, id ? 'Tutup hari' : 'Close the day'), footer(id ? 'Dikirim hanya kalau hari ini belum ada yang dicatat manual. Matikan di Pengaturan → Email otomatis.' : 'Sent only when nothing was logged by hand today. Turn it off in Settings → Automatic emails.')]),
+  };
+}
+
 export function alertEmail(problem, { appUrl = '', lang = 'id' } = {}) {
   const t = L[lang] || L.id;
   if (problem.selftest) {

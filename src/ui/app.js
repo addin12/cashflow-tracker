@@ -308,7 +308,7 @@ function viewReview() {
     <header class="page-head"><div><h1>${esc(T.reviewTitle)}</h1><p class="sub">${esc(n ? T.reviewSub(n) : T.reviewSubNone)} · ${syncLine()}</p></div>
       <div class="tools"><button class="btn secondary small" data-action="sync">↻ ${esc(T.syncNow)}</button></div></header>
     <div class="split">
-      <section class="stack" aria-label="${esc(T.reviewTitle)}">${salary}${cards || (salary ? '' : empty)}</section>
+      <section class="stack" aria-label="${esc(T.reviewTitle)}">${dayCard(r.day)}${salary}${cards || (salary ? '' : empty)}</section>
       <aside>
         ${errors ? `<h2 class="section-title">${esc(T.unreadTitle)}<small>${esc(T.unreadHint)}</small></h2><div class="card rows">${errors}</div>` : ''}
         ${recent ? `<h2 class="section-title">${esc(T.recentTitle)}<small>${esc(T.recentHint)}</small></h2><div class="card rows">${recent}</div>` : ''}
@@ -507,13 +507,13 @@ function overviewHtml(d) {
   // Last month up to the same day, for "Rp… more than September".
   const prevSame = (d.prevDaily || []).slice(0, idx).reduce((a, x) => a + x.amount, 0);
   const diff = s.expense - prevSame;
-  const bills = ((d.recurring && d.recurring.items) || []).filter((i) => i.daysLeft >= 0 && i.daysLeft <= 7);
+  const bills = d.bills || ((d.recurring && d.recurring.items) || []).filter((i) => i.daysLeft >= 0 && i.daysLeft <= 7);
   const hour = new Date().getHours();
   const greet = hour < 11 ? T.greetMorning : hour < 15 ? T.greetNoon : hour < 18 ? T.greetAfternoon : T.greetEvening;
   const chips = [
     d.pendingCount ? `<button class="hchip warn" data-action="go" data-tab="review">⚠ ${esc(T.pendingNote(d.pendingCount))}</button>` : '',
     (d.salaryMissing || []).length ? `<button class="hchip warn" data-action="go" data-tab="review">💼 ${esc(T.salaryNotice(dateLabel(d.salaryMissing[0].date, { weekday: false })))}</button>` : '',
-    bills.length ? `<button class="hchip" data-action="drill" data-q="${esc(bills[0].name)}">📅 ${esc(T.billsThisWeek(bills.length))}</button>` : '',
+    bills.length ? `<button class="hchip" data-action="bills">📅 ${esc(T.billsThisWeek(bills.length))}</button>` : '',
   ].join('');
   const todayLong = new Date(`${state.boot.today}T00:00:00`).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
   const hero = isNow ? `<section class="hero">
@@ -591,6 +591,7 @@ function overviewHtml(d) {
         ${incomeRows ? `<section class="card"><h2>${esc(T.incomeByCategory)}</h2><div class="rows">${incomeRows}</div></section>` : ''}
         ${goalsCard(d.goals)}
         ${recurringCard(d.recurring)}
+        ${eventsCard(d.events)}
         ${wealthCard(d.wealth)}
         <section class="card"><h2>${esc(T.accounts)}</h2>${walletLine(d)}<p class="lead">${esc(T.accountsHint)}</p><div class="rows">${group('Spending', T.spendingGroup)}${group('Saving', T.savingGroup)}</div></section>
       </div>
@@ -898,6 +899,8 @@ function applyQuick(text) {
     salaryCategory: state.boot.categories.income.find((c) => /^gaji$/i.test(c)) || '',
   });
   state.quickText = text;
+  const usual = !Number.isFinite(p.amount) && p.description && (state.boot.usual || []).find((u) => u.description.toLowerCase() === p.description.toLowerCase());
+  if (usual) { p.amount = usual.amount; p.stream = p.stream || usual.stream; p.category = p.category || usual.category; }
   state.addPrefill = {
     amount: Number.isFinite(p.amount) ? String(p.amount) : '', category: p.category, stream: p.stream, date: p.date,
     description: p.description ? p.description[0].toUpperCase() + p.description.slice(1) : '', details: p.tags.map((t) => `#${t}`).join(' '),
@@ -935,9 +938,9 @@ function wealthCard(w) {
   const line = (label, v, cls = '') => `<div class="rowi"><span class="what"><b>${esc(label)}</b></span><span class="amt ${cls}">${v}</span></div>`;
   const gains = w.items.filter((a) => a.gain != null).reduce((t, a) => t + a.gain, 0);
   return `<section class="card"><h2>${esc(T.wealthTitle)}</h2>${bigRp(w.total, 'lg')}<p class="lead">${esc(T.wealthHint)}</p><div class="rows">
-    ${line(T.wealthAccounts, rp(w.accounts))}${w.owned ? line(T.wealthOwned, rp(w.owned)) : ''}
+    ${line(T.wealthAccounts, rp(w.accounts))}${Object.entries(w.byKind || {}).filter(([k]) => k !== 'collectible' && k !== 'debt' && k !== 'paylater').map(([k, v]) => line(T[`kind_${k}`] || k, rp(v))).join('')}
     ${w.collectibles ? line(T.wealthCollect(gains ? `${gains > 0 ? '+' : '−'}${rp(Math.abs(gains))}` : ''), rp(w.collectibles)) : ''}
-    ${w.debts ? line(T.wealthDebts, `−${rp(w.debts)}`, 'bad') : ''}</div>
+    ${['debt', 'paylater'].filter((k) => (w.byKind || {})[k]).map((k) => line(T[`kind_${k}`], `−${rp(w.byKind[k])}`, 'bad')).join('')}</div>
     <button class="link" data-action="go" data-tab="settings" data-section="assets">${esc(T.wealthEdit)}</button></section>`;
 }
 
@@ -963,7 +966,7 @@ function patternCard(p) {
 function tagsCard(tags) {
   if (!tags || !tags.length) return '';
   return `<section class="card"><h2>${esc(T.tagsTitle)}</h2><p class="lead">${esc(T.tagsHint)}</p><div class="rows">${tags.map((t) => `
-    <button class="lrow" data-action="drill" data-q="#${esc(t.tag)}"><span class="cat-ic acct" aria-hidden="true">#</span><span class="what"><b>#${esc(t.tag)}</b><span class="meta">${esc(T.tagCount(t.count))}${t.in ? ` · <span class="in">+${rp(t.in)}</span>` : ''}</span></span><span class="amt">${rp(t.out)}</span></button>`).join('')}</div></section>`;
+    <button class="lrow" data-action="drill" data-q="#${esc(t.tag)}"><span class="cat-ic acct" aria-hidden="true">#</span><span class="what"><b>#${esc(t.tag)}</b><span class="meta">${esc(T.tagCount(t.count))}${t.in ? ` · <span class="in">+${rp(t.in)}</span>` : ''}</span></span><span class="amt">${rp(t.out)}</span></button>`).join('')}</div><div class="actions" style="justify-content:flex-start"><button class="btn secondary small" data-action="tagbudget">${esc(T.eventAdd)}</button></div></section>`;
 }
 
 // Where to stop a subscription (only well-known pages).
@@ -1042,6 +1045,125 @@ const readAssets = (form) => $$('.asset-row', form).map((row, i) => ({
   ...((state.settings.assets || [])[i] || {}),
   ...Object.fromEntries($$('[data-a2]', row).map((el) => [el.dataset.a2, el.value])),
 }));
+
+
+// ---------------------------------------------------------------- Round 16 pieces
+/** "Yang biasa": one tap fills Add with something you log often. */
+function usualChips() {
+  const list = (state.boot && state.boot.usual) || [];
+  if (!list.length) return '';
+  return `<div class="usual" role="group" aria-label="${esc(T.usualTitle)}"><span class="usual-label">${esc(T.usualTitle)}</span>${list.map((u, i) => `
+    <button type="button" class="chip-btn" data-action="usual" data-i="${i}">${esc(u.description)} · ${rp(u.amount)}${u.stream ? ` · ${esc(u.stream)}` : ''}</button>`).join('')}</div>`;
+}
+function useUsual(i) {
+  const u = state.boot.usual[i];
+  if (!u) return null;
+  state.addKind = u.direction === 'in' ? 'in' : 'out';
+  state.addPrefill = { amount: String(u.amount), category: u.category, stream: u.stream, description: u.description, date: state.boot.today, details: '' };
+  state.quickText = '';
+  viewAdd();
+  const save = $('form[data-form=add] button[type=submit]');
+  if (save) save.focus();
+  return null;
+}
+
+/** Bills due in the next week (planned transactions and subscriptions). */
+function openBills() {
+  const d = state.dashByMonth[state.month] || {};
+  const bills = d.bills || [];
+  $('#modal').innerHTML = `<div class="sheet"><h2>${esc(T.billsTitle)}</h2><p class="lead">${esc(T.billsTotal(rp(bills.reduce((t, b) => t + b.amount, 0))))}</p>
+    <div class="rows">${bills.map((b) => `<div class="rowi"><span class="what"><b>${esc(b.name)}</b><span class="meta">${esc(b.daysLeft === 0 ? T.recurringToday : T.recurringNext(dateLabel(b.date, { weekday: false }), b.daysLeft))} · ${esc(b.kind === 'plan' ? T.billPlan : T.billSub)}</span></span><span class="amt">${rp(b.amount)}</span></div>`).join('') || `<p class="hint">${esc(T.nothingYet)}</p>`}</div>
+    <div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.close)}</button></div></div>`;
+  $('#modal').classList.add('open');
+}
+
+/** Trips and events: #tags with a budget, spent against it. */
+function eventsCard(events) {
+  const list = events || [];
+  const rows = list.map((e) => {
+    const pct = e.budget ? Math.min(100, Math.round((e.out / e.budget) * 100)) : 0;
+    const over = e.budget && e.out > e.budget;
+    const days = e.first && e.last ? Math.round((Date.parse(e.last) - Date.parse(e.first)) / 86400000) + 1 : 0;
+    return `<div class="event"><div class="row-top"><button class="link" data-action="drill" data-q="#${esc(e.tag)}"><b>#${esc(e.tag)}</b></button><span class="amt ${over ? 'bad' : ''}">${rp(e.out)}</span></div>
+      <span class="bar"><i class="${over ? 'over' : ''}" style="width:${pct}%"></i></span>
+      <div class="meta">${esc(over ? T.eventOver(rp(e.out - e.budget), rp(e.budget)) : T.eventLeft(rp(e.budget), rp(e.budget - e.out)))}${days > 1 ? ` · ${esc(T.eventPerDay(rp(e.out / days), days))}` : ''}
+        <button class="link small" data-action="tagbudget" data-tag="${esc(e.tag)}" data-budget="${esc(e.budget)}">${esc(T.eventEdit)}</button></div></div>`;
+  }).join('');
+  return `<section class="card"><h2 class="row-title">${esc(T.eventsTitle)}<button class="link" data-action="tagbudget">${esc(T.eventAdd)}</button></h2>
+    <p class="lead">${esc(list.length ? T.eventsHint : T.eventsEmpty)}</p>${rows}</section>`;
+}
+function openTagBudget(tag, budget) {
+  $('#modal').innerHTML = `<div class="sheet"><form data-form="tagbudget" novalidate><h2>${esc(T.eventBudgetTitle)}</h2><p class="lead">${esc(T.eventBudgetHint)}</p>
+    ${field(T.eventTag, `<input name="tag" autocomplete="off" placeholder="#bali" value="${esc(tag ? `#${tag}` : '')}">`)}
+    ${field(T.eventBudget, `<input name="amount" class="calc-input" inputmode="decimal" autocomplete="off" value="${esc(budget || '')}"><em class="calc-out"></em>`, { help: T.eventBudgetHelp })}
+    <div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.cancel)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.save)}</button></div></form></div>`;
+  $('#modal').classList.add('open');
+  $('#modal [name=tag]').focus();
+}
+
+/** Review: today's box, to log what no email reports and close the day. */
+function dayCard(day) {
+  if (!day) return '';
+  return `<section class="card day-card"><div class="row-top"><h2>${esc(T.dayTitle)}</h2>${day.streak ? `<span class="streak" title="${esc(T.streakHint)}">🔥 ${esc(T.streak(day.streak))}</span>` : ''}</div>
+    ${day.closed ? `<p class="lead">✓ ${esc(T.dayClosed)}</p><div class="actions" style="justify-content:flex-start"><button class="btn plain small" data-action="reopenday">${esc(T.dayReopen)}</button></div>`
+    : `<p class="lead">${esc(day.byHand ? T.dayLogged(day.byHand) : T.dayAsk)}</p>
+      ${field(T.quickLabel, `<input id="quickDay" autocomplete="off" enterkeyhint="done" placeholder="${esc(T.quickPlaceholder)}">`, { help: T.dayQuickHelp })}
+      <div class="actions"><button class="btn secondary" data-action="closeday">${esc(T.dayClose)}</button></div>`}
+  </section>`;
+}
+/** A sentence typed in Review: saved straight away when complete, otherwise finished on Add. */
+function quickFromReview(text) {
+  const p = parseQuick(text, { accounts: state.boot.accounts, rules: state.boot.rules || [], today: state.boot.today, salaryCategory: state.boot.categories.income.find((c) => /^gaji$/i.test(c)) || '' });
+  const usual = !(p.amount > 0) && (state.boot.usual || []).find((u) => u.description.toLowerCase() === p.description.toLowerCase());
+  if (usual) { p.amount = usual.amount; p.stream = p.stream || usual.stream; p.category = p.category || usual.category; }
+  const desc = p.description ? p.description[0].toUpperCase() + p.description.slice(1) : '';
+  if (p.amount > 0 && p.stream && p.category) {
+    const label = `${desc || p.category} ${rp(p.amount)}`;
+    toast(T.addedNamed(label));
+    state.allStale = true;
+    state.dashByMonth = {};
+    if (state.review && state.review.day) state.review.day.byHand += 1;
+    return save('add', { kind: p.direction, amount: p.amount, category: p.category, stream: p.stream, date: p.date, description: desc, details: p.tags.map((t) => `#${t}`).join(' ') })
+      .then(() => { if (state.tab === 'review') keepInputs(viewReview); })
+      .catch((e) => toast(`${T.notSaved}: ${label} — ${e.message}`, { kind: 'bad' }));
+  }
+  state.addKind = p.direction;
+  state.quickText = text;
+  state.addPrefill = { amount: p.amount > 0 ? String(p.amount) : '', category: p.category, stream: p.stream, date: p.date, description: desc, details: p.tags.map((t) => `#${t}`).join(' ') };
+  return show('add');
+}
+
+/** A category on its own: twelve months, its budget, where the money went, the biggest payments. */
+function categoryDetail(category) {
+  const c = state.boot.categories;
+  const dir = c.income.includes(category) ? 'in' : 'out';
+  const now = state.boot.today.slice(0, 7);
+  const start = String(state.boot.start || '').slice(0, 7);
+  const months = [...Array(12)].map((_, i) => monthAdd(now, i - 11)).filter((m) => !start || m >= start);
+  const mine = state.all.filter((r) => r.status === 'approved' && r.category === category && r.direction === dir && months.some((m) => String(r.date).startsWith(m)));
+  const total = (m) => mine.filter((r) => String(r.date).startsWith(m)).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const data = months.map((m) => ({ m, v: total(m) }));
+  const top = Math.max(1, ...data.map((d) => d.v));
+  const avg = data.reduce((s, d) => s + d.v, 0) / Math.max(1, data.length);
+  const places = new Map();
+  for (const r of mine) {
+    const k = String(r.description || r.details || '').trim().toLowerCase();
+    if (!k) continue;
+    const p = places.get(k) || { name: r.description || r.details, n: 0, v: 0 };
+    p.n += 1; p.v += Number(r.amount) || 0;
+    places.set(k, p);
+  }
+  const topPlaces = [...places.values()].sort((a, b) => b.v - a.v).slice(0, 5);
+  const biggest = [...mine].sort((a, b) => Number(b.amount) - Number(a.amount)).slice(0, 3);
+  const dash = state.dashByMonth[currentMonth()];
+  const budget = dash && (dash.budgets || []).find((b) => b.category === category);
+  return `<section class="card trend-card cat-detail"><div class="cat-head">${icon(category)}<div><h2>${esc(category)}</h2><p class="lead">${esc(T.categoryTrendHint(rp(avg)))}</p></div></div>
+    ${budget ? `<p class="budget-note ${budget.ratio > 1 ? 'over' : ''}">${esc(budget.ratio > 1 ? T.overBudget(rp(budget.spent - budget.budget), rp(budget.budget)) : T.ofBudget(rp(budget.budget), rp(budget.budget - budget.spent)))}</p>` : ''}
+    <div class="chart cat-chart">${data.map((d) => `<button class="m ${state.filters.month === d.m ? 'on' : ''}" data-action="trendmonth" data-month="${d.m}" aria-label="${esc(`${monthLabel(d.m)}: ${rp(d.v)}`)}"><span class="bars"><i class="${dir}" style="height:${Math.round((d.v / top) * 100)}%"></i></span><span>${esc(monthShort(d.m))}</span></button>`).join('')}</div>
+    ${topPlaces.length ? `<h3 class="sub-title">${esc(T.topPlaces)}</h3><div class="rows">${topPlaces.map((p) => `<button class="rowi" data-action="drill" data-q="${esc(p.name)}"><span class="what"><b>${esc(p.name)}</b><span class="meta">${p.n}×</span></span><span class="amt">${rp(p.v)}</span></button>`).join('')}</div>` : ''}
+    ${biggest.length ? `<h3 class="sub-title">${esc(T.biggestTitle)}</h3><div class="rows">${biggest.map((x) => `<button class="rowi" data-action="edit" data-id="${esc(x.id)}"><span class="what"><b>${esc(x.description || '—')}</b><span class="meta">${esc(dateLabel(x.date))}</span></span><span class="amt">${rp(x.amount)}</span></button>`).join('')}</div>` : ''}
+  </section>`;
+}
 
 function recurringCard(r) {
   if (!r || !r.items || !r.items.length) return '';
@@ -1191,7 +1313,7 @@ function showResults() {
       <span class="c-acct">${esc(x.stream || '—')}</span>
       <span class="c-amt amt ${esc(x.direction)}">${signed(x)}</span>
     </button>`).join('');
-  box.innerHTML = `${f.category ? categoryTrend(f.category) : ''}
+  box.innerHTML = `${f.category ? categoryDetail(f.category) : ''}
     <div class="summary-bar"><span><b>${esc(T.countTransactions(all.total))}</b></span>
       <span>${esc(T.kindIn)} <b class="amt in">+${rp(sum('in'))}</b> · ${esc(T.kindOut)} <b class="amt">${rp(sum('out'))}</b></span></div>
     ${rows.length ? `<div class="table" role="table"><div class="thead" role="row"><span>${esc(T.time)}</span><span>${esc(T.description)}</span><span>${esc(T.category)}</span><span>${esc(T.account)}</span><span class="r">${esc(T.amount)}</span></div>${items}</div>`
@@ -1202,23 +1324,6 @@ function showResults() {
       <button class="btn primary small" data-action="pickapply" ${state.picked.size ? '' : 'disabled'}>${esc(T.pickApply)}</button>
       <button class="btn secondary small" data-action="pickignore" ${state.picked.size ? '' : 'disabled'}>${esc(T.ignore)}</button>
       <button class="btn plain small" data-action="selectmode">${esc(T.cancel)}</button></div>` : ''}`;
-}
-
-/** Six months of one category, as labelled bars (tap a month to filter on it). */
-function categoryTrend(category) {
-  const c = state.boot.categories;
-  const dir = c.income.includes(category) ? 'in' : 'out';
-  const now = state.boot.today.slice(0, 7);
-  const start = String(state.boot.start || '').slice(0, 7);
-  const months = [-5, -4, -3, -2, -1, 0].map((k) => monthAdd(now, k)).filter((m) => !start || m >= start);
-  const total = (m) => state.all.filter((r) => r.status === 'approved' && r.category === category && r.direction === dir && String(r.date).startsWith(m))
-    .reduce((s, r) => s + (Number(r.amount) || 0), 0);
-  const data = months.map((m) => ({ m, v: total(m) }));
-  const top = Math.max(1, ...data.map((d) => d.v));
-  const avg = data.reduce((s, d) => s + d.v, 0) / Math.max(1, data.length);
-  return `<section class="card trend-card"><h2>${esc(T.categoryTrend(category))}</h2><p class="lead">${esc(T.categoryTrendHint(rp(avg)))}</p>
-    <div class="rows">${data.map((d) => `<button class="rowi hbar-row ${state.filters.month === d.m ? 'on' : ''}" data-action="trendmonth" data-month="${d.m}">
-      <span class="hbar-label">${esc(monthLabel(d.m))}</span><span class="hbar"><i class="${dir}" style="width:${Math.round((d.v / top) * 100)}%"></i></span><span class="amt ${dir}">${rp(d.v)}</span></button>`).join('')}</div></section>`;
 }
 
 function drill(el) {
@@ -1373,7 +1478,7 @@ function viewAdd() {
   const pre = state.addPrefill || {};
   setView(`<div class="narrow">
     <header class="page-head"><div><h1>${esc(T.addTitle)}</h1><p class="sub">${esc(T.addSub)}</p></div></header>
-    ${k === 'out' || k === 'in' ? `<div class="card quick">${field(T.quickLabel, `<input id="quickIn" data-quick autocomplete="off" enterkeyhint="done" placeholder="${esc(T.quickPlaceholder)}" value="${esc(state.quickText || '')}">`, { help: T.quickHelp })}<p class="quick-sum" id="quickSum" role="status"></p></div>` : ''}
+    ${k === 'out' || k === 'in' ? `<div class="card quick">${field(T.quickLabel, `<input id="quickIn" data-quick autocomplete="off" enterkeyhint="done" placeholder="${esc(T.quickPlaceholder)}" value="${esc(state.quickText || '')}">`, { help: T.quickHelp })}<p class="quick-sum" id="quickSum" role="status"></p>${usualChips()}</div>` : ''}
     <form class="card" data-form="add" novalidate>
       <div class="field"><span id="kindLabel">${esc(T.kind)}</span><div class="seg wrap" role="group" aria-labelledby="kindLabel">${kinds.map(([v, l]) => `<button type="button" class="${v === k ? 'on' : ''}" aria-pressed="${v === k}" data-action="kind" data-kind="${v}">${esc(l)}</button>`).join('')}</div></div>
       ${field(T.amountRp, `<input class="amount-input" name="amount" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(pre.amount || '')}"><em class="calc-out"></em>`, { help: k === 'adjust' ? T.adjustHint : T.amountHelpCalc })}
@@ -1510,6 +1615,9 @@ async function viewSettings(local) {
         <label class="check"><input type="checkbox" name="weekly_email" ${cfg.weekly_email !== 'off' ? 'checked' : ''}> ${esc(T.weeklyOn)}</label>
         <label class="check"><input type="checkbox" name="monthly_email" ${cfg.monthly_email !== 'off' ? 'checked' : ''}> ${esc(T.monthlyOn)}</label>
         <label class="check"><input type="checkbox" name="payday_email" ${cfg.payday_email !== 'off' ? 'checked' : ''}> ${esc(T.paydayOn)}</label>
+        <label class="check"><input type="checkbox" name="bill_email" ${cfg.bill_email !== 'off' ? 'checked' : ''}> ${esc(T.billEmailOn)}</label>
+        <label class="check"><input type="checkbox" name="close_email" ${cfg.close_email === 'on' ? 'checked' : ''}> ${esc(T.closeEmailOn)}</label>
+        <p class="hint">${esc(T.noteEmailHint)}</p>
         <p class="hint">${esc(T.alertsAlways)}</p>
         <div class="actions"><button class="btn secondary left" type="button" data-action="sendsummary">${esc(T.weeklySendNow)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div></form>`,
     prefs: `
@@ -1533,12 +1641,12 @@ async function viewSettings(local) {
   };
   const conn = (s.connections || [])[0];
   const syncNote = !conn || !conn.last_sync ? T.neverSynced : /^ERROR/.test(String(conn.last_status || '')) ? `⚠ ${T.syncProblem}` : T.syncHealthy;
-  const emailsOn = ['weekly_email', 'monthly_email', 'payday_email'].filter((k) => cfg[k] !== 'off').length;
+  const emailsOn = ['weekly_email', 'monthly_email', 'payday_email', 'bill_email'].filter((k) => cfg[k] !== 'off').length + (cfg.close_email === 'on' ? 1 : 0);
   const lang = cfg.language === 'en' ? 'English' : cfg.language === 'id' ? 'Bahasa Indonesia' : T.languageAuto;
   const groups = [
     [T.setGroupRoutine, [['monthend', T.monthEnd, T.monthEndShort], ['import', T.importTitle, (s.imports || []).length ? T.importLast(new Date(s.imports[0].at).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })) : T.importNever], ['sync', T.settingsSync, syncNote]]],
     [T.setGroupMoney, [['accounts', T.accountsTitle, T.nAccounts(s.accounts.length)], ['budgets', T.budgetsTitle, T.nBudgets(s.budgets.length)], ['goals', T.goalsTitle, T.nGoals((s.goals || []).length)], ['assets', T.assetsTitle, T.nAssets((s.assets || []).length)]]],
-    [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['plans', T.plansTitle, T.nPlans((s.plans || []).length)], ['emails', T.emailsTitle, T.nEmailsOn(emailsOn, 3)]]],
+    [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['plans', T.plansTitle, T.nPlans((s.plans || []).length)], ['emails', T.emailsTitle, T.nEmailsOn(emailsOn, 5)]]],
     [T.setGroupApp, [['prefs', T.preferences, T.prefSummary(lang, Number(cfg.payday_day) || 28)], ['more', T.more, T.moreSummary]]],
   ];
   if (state.settingsSection && !sections[state.settingsSection]) state.settingsSection = null;
@@ -1775,6 +1883,17 @@ function onClick(e) {
   if (a === 'preset') { setPreset(el.dataset.p); state.limit = 50; return viewTransactions(); }
   if (a === 'kindchip') { setKind(el.dataset.k); state.limit = 50; return viewTransactions(); }
   if (a === 'dashview') { state.dashView = el.dataset.view; return viewDashboard(); }
+  if (a === 'usual') return useUsual(Number(el.dataset.i));
+  if (a === 'bills') return openBills();
+  if (a === 'tagbudget') return openTagBudget(el.dataset.tag || '', el.dataset.budget || '');
+  if (a === 'closeday' || a === 'reopenday') {
+    const r = state.review;
+    if (r && r.day) { r.day.closed = a === 'closeday'; if (r.day.closed) r.day.streak += 1; else r.day.streak = Math.max(0, r.day.streak - 1); keepInputs(viewReview); }
+    if (a === 'closeday') toast(T.dayClosedToast);
+    return save(a === 'closeday' ? 'closeDay' : 'reopenDay', { date: state.boot.today })
+      .then((res) => { if (state.review) { state.review.day = { ...state.review.day, ...res }; if (state.tab === 'review') keepInputs(viewReview); } })
+      .catch((err) => toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }));
+  }
   if (a === 'calckey') { const i = el.closest('form').querySelector('[name=amount]'); i.value += el.dataset.k; i.focus(); showCalc(i); return null; }
   if (a === 'tagihopen') { const x = state.rowsById.get(String(el.dataset.id)); $('#tagihBox').innerHTML = tagihForm(x); $('#tagihBox [name=who]').focus(); return null; }
   if (a === 'owedpaid') {
@@ -2037,6 +2156,14 @@ function onSubmit(e) {
     applyTheme(d.theme);
     return saveForm(form, 'saveConfig', d, async () => { applyLanguage(d.language); state.month = ''; state.dashByMonth = {}; await refresh(); if (state.tab === 'settings') viewSettings(); });
   }
+  if (kind === 'tagbudget') {
+    const tag = form.querySelector('[name=tag]').value.replace(/^#/, '').trim();
+    const amount = amountValue(form.querySelector('[name=amount]').value || '0');
+    let ok = fieldMessage(form.querySelector('[name=tag]'), /^[\p{L}\p{N}_-]+$/u.test(tag) ? '' : T.errTag);
+    ok = fieldMessage(form.querySelector('[name=amount]'), amount >= 0 ? '' : T.errAmount) && ok;
+    if (!ok) return null;
+    return saveForm(form, 'setTagBudget', { tag, amount: amount || 0 }, () => { closeModal(); state.dashByMonth = {}; if (state.tab === 'dashboard') viewDashboard(); });
+  }
   if (kind === 'tagih') {
     const names = form.querySelector('[name=who]').value.split(',').map((n) => n.trim()).filter(Boolean);
     const each = amountValue(form.querySelector('[name=each]').value);
@@ -2149,7 +2276,7 @@ function onSubmit(e) {
   }
   if (kind === 'weekly') {
     const v = (n) => (form.querySelector(`[name=${n}]`).checked ? 'on' : 'off');
-    return saveForm(form, 'saveConfig', { weekly_email: v('weekly_email'), monthly_email: v('monthly_email'), payday_email: v('payday_email') });
+    return saveForm(form, 'saveConfig', { weekly_email: v('weekly_email'), monthly_email: v('monthly_email'), payday_email: v('payday_email'), bill_email: v('bill_email'), close_email: v('close_email') });
   }
   return null;
 }
@@ -2201,6 +2328,7 @@ export async function start() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && $('#modal').classList.contains('open')) closeModal();
     if (e.key === 'Enter' && e.target.id === 'quickIn') { e.preventDefault(); const f = $('form[data-form=add]'); if (f) submitAdd(f); return; }
+    if (e.key === 'Enter' && e.target.id === 'quickDay' && e.target.value.trim()) { e.preventDefault(); const t = e.target.value; e.target.value = ''; quickFromReview(t); return; }
     const typing = e.target.closest && e.target.closest('input, textarea, select, [contenteditable]');
     if ((e.key === 'n' || e.key === 'N') && !typing && !e.ctrlKey && !e.metaKey && !e.altKey && !$('#modal').classList.contains('open') && state.boot) show('add');
   });

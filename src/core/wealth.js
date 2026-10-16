@@ -1,7 +1,8 @@
 // What you own and owe beyond bank accounts (property, vehicle, gold, stocks, crypto, collectibles,
 // debts), planned recurring transactions, and money friends owe you ("Tagih"). Pure functions.
 
-export const ASSET_KINDS = ['property', 'vehicle', 'gold', 'stock', 'crypto', 'collectible', 'other', 'debt'];
+export const ASSET_KINDS = ['property', 'vehicle', 'gold', 'stock', 'fund', 'bond', 'deposit', 'pension', 'crypto', 'goods', 'collectible', 'receivable', 'other', 'debt', 'paylater'];
+export const DEBT_KINDS = new Set(['debt', 'paylater']);
 // Stock codes: IDX:BBCA, or just BBCA (an IDX stock), or EXCHANGE:CODE elsewhere (NASDAQ:AAPL).
 export const TICKER = /^(?:[A-Z]{2,10}:)?[A-Z0-9.-]{1,15}$/;
 
@@ -55,10 +56,13 @@ export function netWorth(balances, assets) {
   const accounts = round2(balances.reduce((t, b) => t + num(b.balance), 0));
   const items = assets.map((a) => ({ ...a, value: assetValue(a), gain: a.kind === 'collectible' && num(a.paid) ? round2(assetValue(a) - num(a.paid)) : null }));
   const sum = (f) => round2(items.filter(f).reduce((t, a) => t + a.value, 0));
-  const owned = sum((a) => a.kind !== 'debt' && a.kind !== 'collectible');
+  const owned = sum((a) => !DEBT_KINDS.has(a.kind) && a.kind !== 'collectible');
   const collectibles = sum((a) => a.kind === 'collectible');
-  const debts = sum((a) => a.kind === 'debt');
-  return { accounts, owned, collectibles, debts, total: round2(accounts + owned + collectibles - debts), items };
+  const debts = sum((a) => DEBT_KINDS.has(a.kind));
+  // Each kind's total, for the breakdown on the Summary.
+  const byKind = {};
+  for (const a of items) byKind[a.kind] = Math.round(((byKind[a.kind] || 0) + a.value) * 100) / 100;
+  return { accounts, owned, collectibles, debts, total: round2(accounts + owned + collectibles - debts), items, byKind };
 }
 
 /** Problems with the assets list (empty = fine). */
@@ -96,6 +100,28 @@ export function duePlans(plans, rows, today) {
     .filter((p) => !p.last || String(p.last) < month)
     .map((p) => ({ plan: p, month, date: planDate(month, p.day) }))
     .filter((x) => x.date <= t && !made.has(`plan:${x.plan.id}:${x.month}`));
+}
+
+/**
+ * Bills in the next `days` days: planned transactions (money out) and expected subscriptions,
+ * soonest first, one per name.
+ */
+export function upcomingBills(plans, recurringItems, today, days = 7) {
+  const t = isoOf(today);
+  const dayNo = (iso) => Math.round((Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) - Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+  const month = t.slice(0, 7);
+  const next = isoOf(new Date(today.getFullYear(), today.getMonth() + 1, 1)).slice(0, 7);
+  const out = [];
+  for (const p of plans) {
+    if (String(p.active) === 'false' || p.active === false || p.direction === 'in') continue;
+    const date = [planDate(month, p.day), planDate(next, p.day)].find((d) => d >= t && String(p.last || '') < d.slice(0, 7));
+    if (date && dayNo(date) <= days) out.push({ name: p.name, amount: num(p.amount), date, daysLeft: dayNo(date), kind: 'plan' });
+  }
+  for (const i of recurringItems) {
+    if (i.daysLeft >= 0 && i.daysLeft <= days) out.push({ name: i.name, amount: num(i.amount), date: i.nextDate, daysLeft: i.daysLeft, kind: 'sub' });
+  }
+  const seen = new Set();
+  return out.sort((a, b) => a.daysLeft - b.daysLeft || b.amount - a.amount).filter((b) => { const k = b.name.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
 }
 
 /** Money owed to you, open ones first, with the total still open. */

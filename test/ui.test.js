@@ -293,9 +293,10 @@ describe('web app', () => {
     const sel = doc.querySelector('[data-filter=category]');
     sel.value = 'Belanja Online';
     sel.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-    await until(() => view().includes('Tren 6 bulan: Belanja Online'), 'trend');
-    expect(doc.querySelectorAll('.hbar-row')).toHaveLength(2); // Sep and Oct (starts 1 Sep)
-    expect(doc.querySelector('.trend-card').textContent).toContain('Rp320.000');
+    await until(() => doc.querySelector('.cat-detail'), 'category detail');
+    expect(doc.querySelectorAll('.cat-chart .m')).toHaveLength(2); // Sep and Oct (starts 1 Sep)
+    expect(doc.querySelector('.cat-detail h2').textContent).toBe('Belanja Online');
+    expect(doc.querySelector('.cat-detail').textContent).toContain('Rp320.000'); // Tokopedia, as a top place and the biggest
   });
 
   it('adds a cash expense', async () => {
@@ -514,6 +515,24 @@ describe('web app', () => {
     doc.querySelector('form[data-form=assets]').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
     await until(() => store.t[TABS.assets].length === 1, 'asset saved');
     expect(store.t[TABS.assets][0]).toMatchObject({ name: 'Motor', kind: 'vehicle', unit_value: 15000000 });
+    await section('prefs', 'form[data-form=config]');
+  });
+
+  it('Review: "today" takes a sentence (finished on Add when incomplete) and closes the day', async () => {
+    await tab('review', 'Perlu dicek');
+    await until(() => doc.querySelector('#quickDay'), 'today box');
+    const q = doc.querySelector('#quickDay');
+    q.value = 'parkir 7rb cash';
+    q.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await until(() => doc.querySelector('form[data-form=add]'), 'finished on Add (no category yet)');
+    expect(doc.querySelector('form[data-form=add] [name=amount]').value).toBe('7000');
+    expect(doc.querySelector('form[data-form=add] [name=stream]').value).toBe('Cash');
+    await tab('review', 'Perlu dicek');
+    await until(() => doc.querySelector('[data-action=closeday]'), 'close button');
+    click(doc.querySelector('[data-action=closeday]'));
+    await until(() => String(store.cfg.closed_days || '').includes('2026-10-05'), 'day closed');
+    await until(() => doc.querySelector('[data-action=reopenday]'), 'shown as closed');
+    click(doc.querySelector('.nav [data-tab=settings]'));
     await section('prefs', 'form[data-form=config]');
   });
 

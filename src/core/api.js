@@ -22,7 +22,8 @@ import { compileRule } from './rules.js';
 import { recurringCharges, payee } from './recurring.js';
 import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth } from './salary.js';
 import { topPlaces, biggestExpenses, moneyFlow, spendingPattern, tagTotals } from './insights.js';
-import { netWorth, assetProblems, ASSET_KINDS, duePlans, owedSummary } from './wealth.js';
+import { netWorth, assetProblems, ASSET_KINDS, duePlans, owedSummary, upcomingBills } from './wealth.js';
+import { parseQuick, usualEntries } from './quick.js';
 import { weeklySummary } from './summary.js';
 import { monthlyReport } from './notices.js';
 import { goalProgress, goalProblems } from './goals.js';
@@ -83,6 +84,27 @@ export function createApi(store, env) {
     const checks = json('balance_checks');
     if (!checks[stream] || String(checks[stream]) < d) store.setConfig('balance_checks', JSON.stringify({ ...checks, [stream]: d }));
   };
+  /** Trips and events: #tags with a budget, spent all-time against it. */
+  const eventBudgets = (all) => {
+    const budgets = json('tag_budgets');
+    const tags = Object.keys(budgets);
+    if (!tags.length) return [];
+    const totals = new Map(tagTotals(all, { from: '0000-01-01', to: '9999-12-31' }).map((t) => [t.tag, t]));
+    return tags.map((tag) => ({ tag, budget: Number(budgets[tag]) || 0, ...(totals.get(tag) || { out: 0, in: 0, count: 0, first: '', last: '' }) }))
+      .sort((a, b) => String(b.last).localeCompare(String(a.last)));
+  };
+  /** "Tutup hari": is today closed, how many days in a row, and was anything logged by hand today. */
+  const closedDays = () => String(store.config('closed_days') || '').split(',').map((d) => d.trim()).filter(Boolean);
+  const dayState = (all) => {
+    const t = isoDate(now());
+    const days = new Set(closedDays());
+    let streak = 0;
+    const d = new Date(now().getFullYear(), now().getMonth(), now().getDate());
+    if (!days.has(t)) d.setDate(d.getDate() - 1); // an open today doesn't break yesterday's streak
+    while (days.has(isoDate(d))) { streak += 1; d.setDate(d.getDate() - 1); }
+    const byHand = all.filter((r) => String(r.date).slice(0, 10) === t && ['manual', 'note'].includes(r.source) && r.status !== 'ignored').length;
+    return { date: t, closed: days.has(t), streak, byHand };
+  };
   /** Open and paid "Tagih" entries, each with the name of the payment it belongs to. */
   const owedView = (all) => {
     const names = new Map(all.map((r) => [String(r.id), r.description || r.details || '']));
@@ -105,12 +127,13 @@ export function createApi(store, env) {
         connections: store.read(TABS.connections).map((x) => ({ gmail: x.gmail, last_sync: x.last_sync, last_status: x.last_status })),
         pendingCount: rows().filter((r) => r.status === 'pending').length,
         rules: store.read(TABS.rules).map((r) => ({ pattern: r.pattern, category: r.category })), // for typing a transaction as a sentence
+        usual: usualEntries(rows(), { today: now() }),
       };
     },
 
     review() {
       const all = rows();
-      return { ...reviewItems(all, store.read(TABS.inboxLog), { today: now() }), salary: salaries(all) };
+      return { ...reviewItems(all, store.read(TABS.inboxLog), { today: now() }), salary: salaries(all), day: dayState(all) };
     },
 
     /**
@@ -313,6 +336,8 @@ export function createApi(store, env) {
         pattern: spendingPattern(all, c, spanOf(m)),
         tags: tagTotals(all, spanOf(m)),
         owed: owedView(all),
+        bills: upcomingBills(store.read(TABS.plans), recurring(all).items, today),
+        events: eventBudgets(all),
         wealth: store.read(TABS.assets).length ? netWorth(balances, store.read(TABS.assets)) : null,
         recurringMarks: json('recurring_marks'),
         bigAmount: bigAmount(),
@@ -382,6 +407,57 @@ export function createApi(store, env) {
       }
       store.setConfig('imports', JSON.stringify(h.filter((x) => x.batch !== batch)));
       return { ok: true };
+    },
+
+    /**
+     * Notes from an email you sent yourself ("catat kopi 28rb gopay"): one transaction per note,
+     * saved when amount, account and category are all clear, otherwise waiting in Review.
+     * Notes without an amount are skipped. The email id goes on every row, so it is read once.
+     */
+    addNotes({ gmailId, sentMs, notes }) {
+      const day = isoDate(new Date(Number(sentMs) || now().getTime()));
+      const c = cats();
+      const salaryCat = salaryCategory(c.income);
+      const ctx = { accounts: accounts(), rules: store.read(TABS.rules), today: day, salaryCategory: salaryCat };
+      const added = [];
+      const skipped = [];
+      (notes || []).forEach((text, i) => {
+        const p = parseQuick(text, ctx);
+        if (!(p.amount > 0)) { skipped.push(text); return; }
+        const fits = p.category && (p.direction === 'in' ? c.income : c.expense).includes(p.category);
+        added.push({
+          id: `n_${gmailId}_${i}`, date: p.date, time: '', owner: owner(), stream: p.stream, direction: p.direction, amount: Math.round(p.amount * 100) / 100,
+          category: fits ? p.category : '', description: p.description ? p.description[0].toUpperCase() + p.description.slice(1) : text,
+          details: ['Catatan', ...p.tags.map((t) => `#${t}`)].join(' '), source: 'note', sender: '', gmail: '', gmail_id: gmailId, ref_no: '',
+          status: fits && p.stream ? 'approved' : 'pending', transfer_id: '', rule_id: '', updated_by: owner() || 'note', updated_at: nowIso(),
+        });
+      });
+      if (added.length) store.append(TABS.transactions, added);
+      return { added: added.length, pending: added.filter((r) => r.status === 'pending').length, skipped };
+    },
+
+    /** A budget for a #tag (a trip, an event); 0 removes it. */
+    setTagBudget({ tag, amount }) {
+      const t = String(tag || '').replace(/^#/, '').trim().toLowerCase();
+      if (!/^[\p{L}\p{N}_-]+$/u.test(t)) throw new Error('tag must be one word');
+      const v = Number(amount);
+      if (!(v >= 0)) throw new Error('budget must be a number');
+      const b = json('tag_budgets');
+      if (v > 0) b[t] = v; else delete b[t];
+      store.setConfig('tag_budgets', JSON.stringify(b));
+      return { ok: true };
+    },
+
+    /** "Tutup hari": today (or another day) is done; undone with reopenDay. */
+    closeDay({ date }) {
+      const d = /^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) ? date : isoDate(now());
+      store.setConfig('closed_days', [d, ...closedDays().filter((x) => x !== d)].sort().reverse().slice(0, 120).join(','));
+      return { ok: true, ...dayState(rows()) };
+    },
+    reopenDay({ date }) {
+      const d = /^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) ? date : isoDate(now());
+      store.setConfig('closed_days', closedDays().filter((x) => x !== d).join(','));
+      return { ok: true, ...dayState(rows()) };
     },
 
     /** "Tagih": friends who share a payment you made, and what each owes you. */
@@ -524,6 +600,7 @@ export function createApi(store, env) {
           payday_day: store.config('payday_day'), language: store.config('language'), owner_name: store.config('owner_name'),
           owner_bank_names: store.config('owner_bank_names'), start_date: store.config('start_date'),
           weekly_email: onOff('weekly_email'), monthly_email: onOff('monthly_email'), payday_email: onOff('payday_email'),
+          bill_email: onOff('bill_email'), close_email: String(store.config('close_email') || 'off') === 'on' ? 'on' : 'off',
           summary_period: byPayday() ? 'payday' : 'month', salary_stream: salaryStream(), salary_amount: Number(store.config('salary_amount')) || '',
           big_amount: bigAmount(),
         },
@@ -609,7 +686,7 @@ export function createApi(store, env) {
         store.setConfig('language', values.language);
       }
       if ('owner_bank_names' in values) store.setConfig('owner_bank_names', String(values.owner_bank_names || ''));
-      for (const key of ['weekly_email', 'monthly_email', 'payday_email']) if (key in values) store.setConfig(key, values[key] === 'off' ? 'off' : 'on');
+      for (const key of ['weekly_email', 'monthly_email', 'payday_email', 'bill_email', 'close_email']) if (key in values) store.setConfig(key, values[key] === 'off' ? 'off' : 'on');
       if ('summary_period' in values) store.setConfig('summary_period', values.summary_period === 'payday' ? 'payday' : 'month');
       if ('salary_stream' in values) {
         if (values.salary_stream && !accounts().some((a) => a.stream === values.salary_stream)) throw new Error('unknown account');
@@ -726,4 +803,5 @@ export const API_METHODS = [
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
   'yearly', 'importStatement', 'undoImport', 'updateMany', 'tagih', 'owedSet', 'owedRemove', 'savePlans', 'saveAssets', 'markRecurring',
+  'setTagBudget', 'closeDay', 'reopenDay',
 ];

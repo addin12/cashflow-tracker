@@ -1,13 +1,14 @@
 // The emails the app sends by itself, and the time triggers behind them:
 //   Mondays 07:00   weekly summary, then the self-test (an email only when it finds a problem)
-//   every day 07:00 the monthly report on the 1st, the balance-check reminder on payday
+//   every day 07:00 the monthly report on the 1st, the balance-check reminder on payday, bills due tomorrow
+//   every day 21:00 a nudge when nothing was logged by hand today (only when switched on)
 //   after a sync    an alert when the sync failed or a new bank email couldn't be read
 // plus the self-test that runs by itself after an upgrade. All go to the owner's own Gmail.
 /* global MailApp, ScriptApp, PropertiesService */
 
 import { createApi } from '../core/api.js';
 import { summaryEmail } from '../core/summary.js';
-import { monthlyEmail, paydayEmail, alertEmail, prevMonth } from '../core/notices.js';
+import { monthlyEmail, paydayEmail, alertEmail, prevMonth, billsEmail, closeDayEmail } from '../core/notices.js';
 import { isPayday } from '../core/payday.js';
 import { sheetStore } from './sheetstore.js';
 import { configValue } from './setup.js';
@@ -16,6 +17,7 @@ import { myAddress } from './gmail.js';
 export const WEEKLY_HANDLER = 'weeklySummaryTrigger';
 export const DAILY_HANDLER = 'dailyTrigger';
 export const SELFTEST_HANDLER = 'selfTestTrigger';
+export const EVENING_HANDLER = 'eveningTrigger';
 const ALERT_EVERY_MS = 12 * 3600 * 1000;
 
 function appUrl(ss) {
@@ -51,7 +53,21 @@ export function runDaily(ss, today = new Date()) {
     send(ss, paydayEmail(api.dashboard({}).balances, { appUrl: appUrl(ss), lang: langOf(ss) }));
     done.push('payday');
   }
+  const tomorrow = (api.dashboard({}).bills || []).filter((b) => b.daysLeft === 1);
+  if (tomorrow.length && isOn(ss, 'bill_email')) {
+    send(ss, billsEmail(tomorrow, { appUrl: appUrl(ss), lang: langOf(ss) }));
+    done.push('bills');
+  }
   return done;
+}
+
+/** 21:00: when switched on, and today isn't closed and nothing was logged by hand, one nudge. */
+export function runEvening(ss, today = new Date()) {
+  if (String(configValue(ss, 'close_email') || 'off') !== 'on') return 'off';
+  const day = createApi(sheetStore(ss), { now: () => today }).review().day;
+  if (day.closed || day.byHand) return 'not needed';
+  send(ss, closeDayEmail({ appUrl: appUrl(ss), lang: langOf(ss) }));
+  return 'sent';
 }
 
 /**
@@ -74,6 +90,7 @@ export function installMailTriggers() {
   const have = new Set(ScriptApp.getProjectTriggers().map((t) => t.getHandlerFunction()));
   if (!have.has(WEEKLY_HANDLER)) ScriptApp.newTrigger(WEEKLY_HANDLER).timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(7).create();
   if (!have.has(DAILY_HANDLER)) ScriptApp.newTrigger(DAILY_HANDLER).timeBased().everyDays(1).atHour(7).create();
+  if (!have.has(EVENING_HANDLER)) ScriptApp.newTrigger(EVENING_HANDLER).timeBased().everyDays(1).atHour(21).create();
 }
 
 /** A self-test one minute from now, in its own run (it takes a while), once. */

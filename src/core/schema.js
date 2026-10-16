@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 19; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at · 19: price_status
+export const SETUP_VERSION = 20; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at · 19: price_status · 20: notes by email, tag budgets, close the day, bill reminders
 
 export const TABS = {
   transactions: 'Transactions',
@@ -83,6 +83,11 @@ export const CONFIG_KEYS = [
   { key: 'recurring_marks', name: 'CFG_RECURRING_MARKS', note: 'Subscriptions marked keep or stop (JSON by payee)' },
   // Added in setup version 19.
   { key: 'price_status', name: 'CFG_PRICE_STATUS', note: 'Last market-price run: how many priced, and why any failed' },
+  // Added in setup version 20.
+  { key: 'tag_budgets', name: 'CFG_TAG_BUDGETS', note: 'Budgets for #tags such as a trip (JSON: tag -> amount)' },
+  { key: 'closed_days', name: 'CFG_CLOSED_DAYS', note: 'Days closed with "Tutup hari" (YYYY-MM-DD, newest first)' },
+  { key: 'bill_email', name: 'CFG_BILL_EMAIL', note: 'Email the morning before a bill is due: on / off' },
+  { key: 'close_email', name: 'CFG_CLOSE_EMAIL', note: 'Email at 21:00 when nothing was logged by hand today: on / off (default off)' },
 ];
 
 export const STATUS = ['pending', 'approved', 'ignored'];

@@ -87,3 +87,47 @@ export function parseQuick(text, { accounts = [], rules = [], today, salaryCateg
   if (!category && direction === 'in' && /\b(gaji|salary)\b/i.test(description)) category = salaryCategory;
   return { amount, direction, stream, description, category, date, tags };
 }
+
+/**
+ * The sentences in an email you sent yourself to log spending: every line starting with "catat"
+ * (or "log"), or every line of the body when the subject is just "catat". Quoted replies and
+ * signatures are left out.
+ */
+export function notesFromEmail(subject, text) {
+  const NOTE = /^\s*(catat|log)\b[:\s-]*/i;
+  const lines = [String(subject || ''), ...String(text || '').split(/\r?\n/)].map((l) => l.trim());
+  const sub = String(subject || '').trim();
+  const bodyIsNotes = NOTE.test(sub) && !sub.replace(NOTE, '').trim();
+  const out = [];
+  for (const [i, l] of lines.entries()) {
+    if (!l || /^>/.test(l) || /^(--|__|sent from|dikirim dari|on .* wrote:|pada .* menulis:)/i.test(l)) {
+      if (/^(--|__)/.test(l)) break;
+      continue;
+    }
+    if (NOTE.test(l)) { const t = l.replace(NOTE, '').trim(); if (t) out.push(t); } else if (bodyIsNotes && i > 0) out.push(l);
+  }
+  return out.slice(0, 20);
+}
+
+/**
+ * The most common things typed by hand (Add or notes) lately, with their usual amount, account and
+ * category: one tap on Add instead of filling the form.
+ */
+export function usualEntries(rows, { today, days = 90, limit = 6 }) {
+  const since = new Date(today.getTime() - days * 86400000).toISOString().slice(0, 10);
+  const by = new Map();
+  for (const r of rows) {
+    if (r.status !== 'approved' || !['manual', 'note'].includes(r.source) || !r.description || String(r.date).slice(0, 10) < since) continue;
+    if (!['in', 'out'].includes(r.direction) || /^Cek saldo /.test(r.description)) continue;
+    const k = String(r.description).trim().toLowerCase();
+    const x = by.get(k) || { description: String(r.description).trim(), count: 0, amounts: new Map(), last: r };
+    x.count += 1;
+    x.amounts.set(Number(r.amount), (x.amounts.get(Number(r.amount)) || 0) + 1);
+    if (String(r.date) >= String(x.last.date)) x.last = r;
+    by.set(k, x);
+  }
+  return [...by.values()].filter((x) => x.count >= 2).sort((a, b) => b.count - a.count).slice(0, limit).map((x) => ({
+    description: x.description, count: x.count, amount: [...x.amounts].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0],
+    stream: x.last.stream || '', category: x.last.category || '', direction: x.last.direction,
+  }));
+}

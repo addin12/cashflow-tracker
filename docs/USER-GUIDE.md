@@ -28,7 +28,7 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 - **Detail belanja:** pembayaran ke APPLE.COM/BILL, Tokopedia, Shopee, Xendit dan toko luar negeri otomatis diberi nama toko dan barangnya (dari email struk mereka). Kalau kategorinya belum pasti, transaksinya muncul lagi di **Cek**.
 - **Bagi transaksi:** satu pembayaran berisi beberapa hal (mis. buku + barang hobi)? **Transaksi** → ketuk barisnya → **Bagi transaksi ini** → isi jumlah dan kategori tiap bagian. Totalnya harus pas; app memberi tahu sisanya. **Gabungkan lagi** untuk membatalkan.
 - **Langganan & tagihan rutin** (di **Ringkasan**): tagihan berikutnya dan perkiraan totalnya per bulan.
-- **Tren kategori:** di **Transaksi**, pilih satu kategori → tren 6 bulannya muncul di atas daftar.
+- **Detail kategori:** di **Transaksi**, pilih satu kategori → grafik 6 bulan, rata-rata per bulan, tempat teratas dan pengeluaran terbesarnya muncul di atas daftar.
 - **Aturan otomatis** (di **Pengaturan**): ubah kata dan kategori, tambah aturan baru; app menunjukkan transaksi mana yang cocok.
 - **Email otomatis** (atur di **Pengaturan → Email otomatis**): ringkasan mingguan (Senin 07.00), laporan bulanan (tanggal 1), dan pengingat cek saldo (tanggal gajian). Kalau sinkron Gmail bermasalah atau ada email bank baru yang tidak terbaca, Anda juga dikirimi email.
 - **Peringatan dobel:** saat **Tambah**, kalau sudah ada transaksi dengan jumlah sama di hari yang sama (mis. dari email bank), app bertanya dulu: **Jangan simpan** atau **Tetap simpan**.
@@ -48,7 +48,15 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 - **Bukan langganan:** di kartu *Langganan & tagihan rutin*, ketuk **Bukan langganan** di bawah nama yang bukan tagihan rutin.
 - **Budget cepat:** di **Pengaturan → Budget bulanan**, tiap kategori menunjukkan pengeluaran bulan lalu; **Isi dari pengeluaran sebelumnya** mengisi yang masih kosong, lalu **Simpan budget**.
 - **Target tabungan** (atur di **Pengaturan → Target tabungan**): pilih rekening, nama, jumlah target dan tanggal (opsional). **Ringkasan** menunjukkan berapa yang sudah terkumpul dan berapa yang perlu disisihkan per bulan; laporan bulanan juga.
+- **Catat lewat email:** kirim email ke diri sendiri berisi "catat kopi 28rb gopay" (subjek atau isi; satu baris satu transaksi). Dalam 1–2 menit masuk; yang belum lengkap menunggu di **Cek**.
+- **Yang biasa** (Tambah): yang sering Anda ketik sendiri muncul sebagai tombol; satu ketukan mengisi form.
+- **Tagihan 7 hari ke depan:** tombol lonceng menunjukkan transaksi rutin dan langganan yang segera jatuh tempo. Pengingat email sehari sebelumnya bisa dinyalakan di **Pengaturan → Email otomatis**.
+- **Acara & trip** (Ringkasan): beri budget untuk #tag (mis. #bali); semua transaksi dengan tag itu dihitung, lintas bulan.
+- **Hari ini** (Cek): tulis pengeluaran tunai lalu Enter, kemudian **Tutup hari**; angka 🔥 = hari berturut-turut yang sudah ditutup. Pengingat jam 21.00 (mati secara bawaan) ada di **Pengaturan → Email otomatis**.
+- **Jenis aset** sekarang juga: reksa dana, obligasi/SBN, deposito, dana pensiun, gadget & barang, piutang, dan paylater/kartu kredit (dihitung sebagai utang).
 - **Tahun baru:** pada 1 Januari spreadsheet otomatis pindah ke tahun baru dan saldo berlanjut. Tahun yang selesai disimpan sebagai salinan "(arsip)", linknya ada di **Pengaturan → Lainnya**.
+
+> **Log by email:** send yourself "catat coffee 28k gopay" (one line per transaction). **The usual** chips on Add fill the form in one tap. The bell lists **bills due in 7 days** (optional reminder email the day before). **Trips & events** give a #tag a budget across months. **Today** in Review takes cash spending and **Close the day** builds a streak (optional 21:00 reminder, off by default). New asset kinds include funds, bonds, deposits, pension, goods, money lent and paylater (a debt).
 
 > **Salary:** banks send no email for money coming in, so on payday **Review** shows a salary card: enter the amount → **Save salary** (or **No salary**). **Summary from payday to payday** is a setting (Settings → Preferences). **Not a subscription** under a name on the subscriptions card hides it. **Fill from earlier spending** in Settings → Monthly budgets fills the empty budgets.
 

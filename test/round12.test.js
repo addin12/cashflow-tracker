@@ -43,7 +43,7 @@ describe('patterns and tags', () => {
     expect(p.parts).toEqual({ morning: 20000, noon: 0, afternoon: 0, evening: 100000, night: 0 });
   });
   it('#tags from the name or notes, any case, money out and in', () => {
-    expect(tagTotals(rows, range)).toEqual([{ tag: 'trip', out: 120000, in: 50000, count: 3 }]);
+    expect(tagTotals(rows, range)).toEqual([{ tag: 'trip', out: 120000, in: 50000, count: 3, first: '2026-10-03', last: '2026-10-06' }]);
   });
 });
 
