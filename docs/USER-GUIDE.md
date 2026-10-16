@@ -93,6 +93,15 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 
 > First time: Settings → Accounts & opening balances: enter each balance as of the end of 31 Aug 2026. Optional: monthly budgets (the Summary then shows what's left or over).
 
+## Berdua dengan pasangan / With your partner
+
+- **Pengaturan → Pasangan** (pemilik): nama, email Google, dan nama pasangan seperti di rekening bank. Spreadsheet dibagikan otomatis ke email itu.
+- **Pasangan**: buka **karjimut.vercel.app** dengan akun Google-nya, izinkan aplikasinya, lalu **Pengaturan → Pasangan → Hubungkan Gmail saya**. Tambahkan rekening-rekeningnya di **Rekening** dengan **Pemilik** = namanya (nama rekening dibedakan, mis. "BCA" dan "BCA <nama>").
+- **Kita / Aku / Dia** di Ringkasan dan Transaksi: uang berdua, punyamu saja, atau punya pasangan saja.
+- Email kalian tidak saling terbaca: tiap Gmail hanya dibaca oleh sinkronnya sendiri; yang dibagi hanya transaksinya. Transfer di antara kalian berdua dicatat sebagai transfer, bukan pengeluaran.
+
+> The owner names the partner in Settings → Partner; the spreadsheet is shared with them. The partner opens the app with their own Google account and connects their own Gmail; their accounts get Owner = their name. **Us / Me / Them** switches the view. Neither of you can read the other's email; money between you is a transfer.
+
 ## Kalau ada masalah / If something looks wrong
 
 - **Pengaturan → Sinkron Gmail** menunjukkan kapan terakhir sinkron dan apakah berjalan normal.

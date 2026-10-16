@@ -318,9 +318,11 @@ After Phase 2 the tracker already fills itself, so Phases 3–5 are about comfor
 
 ---
 
-## 12. Future: collaborating with your partner's Gmail
+## 12. Collaborating with your partner's Gmail
 
-*Not in v1. Noted on 2026-10-05 for a later phase.*
+*Noted on 2026-10-05; **built on 2026-10-16** (round 19), as below with these choices: own sync, Kita / Aku / Dia, money between the two is a transfer, payday per person later. Not built yet: private streams, the 20 + 12 stream slots (the template's 8 + 8 are enough for now), a payday for the partner.*
+
+**How it runs.** The web app executes as the person opening it (`USER_ACCESSING`, access: anyone with a Google account). The spreadsheet's sharing is the lock: `doGet` and `api` first read Config as that person, which fails for anyone it isn't shared with (they get a no-access page and no data); the `stamp` call, which skips the spreadsheet, checks the `MEMBERS` script property (people who opened it successfully). The owner sets the partner in Settings → Pasangan (Config `partner_email`, `partner_name`, `partner_bank_names`); the owner's sync then shares the spreadsheet with them (`Spreadsheet.addEditor`, no Drive scope). The partner's "Hubungkan Gmail saya" installs their own every-minute trigger. Each person's quick-look state is in user properties; the change stamp is shared. Emails, the calendar, the yearly-plan scan and prices stay the owner's.
 
 ### 12.1 What v1 already does to make this cheap
 
