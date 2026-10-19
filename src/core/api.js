@@ -461,6 +461,10 @@ export function createApi(store, env) {
       if (b.emails.length && !b.name) throw new Error('partner name: required');
       if (b.name && b.name.toLowerCase() === a.name.toLowerCase()) throw new Error('the two names must differ');
       if (a.emails.some((e) => b.emails.includes(e))) throw new Error('an email can belong to one person only');
+      // Emptying someone's accounts would lock them out of the app: change them, don't remove them all.
+      for (const [label, key, now] of [['owner', 'owner_email', a], ['partner', 'partner_email', b]]) {
+        if (String(store.config(key) || '').trim() && !now.emails.length) throw new Error(`${label}: keep at least one Google account`);
+      }
       if (env.myEmail && (a.emails.length || b.emails.length) && ![...a.emails, ...b.emails].includes(env.myEmail)) throw new Error('you would lose your own access: keep your Google account');
       const was = { a: String(store.config('owner_name') || ''), b: String(store.config('partner_name') || '') };
       const renames = { ...(was.a && was.a !== a.name ? { [was.a]: a.name } : {}), ...(was.b && b.name && was.b !== b.name ? { [was.b]: b.name } : {}) };

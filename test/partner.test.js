@@ -103,6 +103,14 @@ describe('the household', () => {
     expect(h).toMatchObject({ me: 'Me', myRole: 'owner' });
     expect(h.members.map((m) => [m.role, m.name, m.emails.length])).toEqual([['owner', 'Me', 1], ['partner', 'Dewi', 2]]);
   });
+  it('nobody can be left without a Google account, by either of you', () => {
+    const store = seat({ partner_email: 'dewi@example.com', partner_name: 'Dewi' });
+    const she = createApi(store, { now: oct16, isOwner: false, meName: 'Dewi', myEmail: 'dewi@example.com' });
+    expect(() => she.saveHousehold({ owner: { name: 'Me', emails: '' }, partner: { name: 'Dewi', emails: 'dewi@example.com' } })).toThrow(/owner: keep at least one Google account/);
+    expect(store.cfg.owner_email).toBe('me@example.com');
+    she.saveHousehold({ owner: { name: 'Me', emails: 'me@example.com, me.work@example.com' }, partner: { name: 'Dewi', emails: 'dewi@example.com' } }); // adding is fine
+    expect(store.cfg.owner_email).toBe('me@example.com, me.work@example.com');
+  });
   it('either of you can change it; a new name carries the rows and accounts along', () => {
     const store = seat({ partner_email: 'dewi@example.com', partner_name: 'Dewi' });
     const she = createApi(store, { now: oct16, isOwner: false, meName: 'Dewi', myEmail: 'dewi@example.com' });
