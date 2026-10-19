@@ -65,9 +65,19 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 - **Pasang di layar utama:** buka **karjimut.vercel.app/pasang** di HP, lalu **Pasang aplikasi** (Android) atau **Bagikan → Tambahkan ke Layar Utama** (iPhone). Ikon dompet Cashflow langsung membuka aplikasi; tekan lama untuk Tambah, Cek dan Ringkasan.
 - **Link pendek:** karjimut.vercel.app/tambah, /cek, /ringkasan, /transaksi, /pengaturan membuka layar itu.
 - **Notifikasi di HP** (Pengaturan → Notifikasi di HP): ketuk **Aktifkan di perangkat ini** di tiap HP, lalu pilih jenisnya: transaksi baru, pengeluaran besar, tagihan besok, hari gajian, pengingat 21.00. **Kirim tes** untuk mencoba. Di iPhone, pasang dulu di layar utama dan aktifkan dari ikonnya (iOS 16.4+).
+- **Cadangan bulanan:** email laporan bulanan (tanggal 1) melampirkan file CSV berisi semua transaksi. Simpan di tempat yang aman: spreadsheet bukan satu-satunya salinan.
+- **Cari dengan jumlah** (Transaksi): ketik `>20rb`, `<=50rb`, `30rb-100rb` atau `28rb` (tepat), boleh bersama kata, mis. `kopi >20rb`.
+- **Klaim asuransi:** buka transaksi → **Klaim asuransi** → *Perlu diklaim*. Batasnya = tanggal bayar + batas klaim (Pengaturan → Preferensi, bawaan 30 hari). Ringkasan menunjukkan yang belum diklaim, dan kamu diingatkan 3 hari sebelum batas. Tandai *Sudah diklaim* atau *Tidak perlu* kalau selesai.
+- **Langganan pindah rekening:** kartu Langganan menandai "pindah dari GoPay" kalau tagihannya sekarang dari rekening lain.
+- **Hari di bawah budget:** Ringkasan menunjukkan berapa hari bulan ini yang pengeluarannya di bawah jatah harian budget, dan berapa hari tanpa belanja.
+- **Kebiasaan per kategori:** layar kategori (Transaksi) menunjukkan 90 hari terakhir: berapa kali, berapa total, rata-rata, dan kira-kira tiap berapa hari.
+- **Garansi:** isi **Garansi sampai** di Pengaturan → Aset; diingatkan 30, 7 dan 1 hari sebelum habis (bel, notifikasi, email mingguan, kalender).
+- **Rekap tahun:** Ringkasan → Laporan → Tahunan: pemasukan, pengeluaran, berapa persen disisihkan, bulan paling hemat dan paling boros, kategori terbesar, tempat paling sering. Ketuk **Salin** untuk membagikannya. Mulai 15 Desember ada tombol di Ringkasan.
 - **Tahun baru:** pada 1 Januari spreadsheet otomatis pindah ke tahun baru dan saldo berlanjut. Tahun yang selesai disimpan sebagai salinan "(arsip)", linknya ada di **Pengaturan → Lainnya**.
 
 > **Log by email:** send yourself "catat coffee 28k gopay" (one line per transaction). **The usual** chips on Add fill the form in one tap. The bell lists **bills due in 7 days** (optional reminder email the day before). **Trips & events** give a #tag a budget across months. **Today** in Review takes cash spending and **Close the day** builds a streak (optional 21:00 reminder, off by default). New asset kinds include funds, bonds, deposits, pension, goods, money lent and paylater (a debt).
+
+> **Backup:** the monthly email attaches a CSV of every transaction. **Search** understands `>20k`, `<=50k`, `30k-100k`. **Insurance claims:** mark a payment "To claim" (deadline = payment date + claim window in Preferences) and get reminded. A subscription paid from another account says so. Summary shows days under the budget's daily share and no-spend days; a category shows its last-90-days habit. **Warranty** dates on assets give reminders. **Year in review** is in Reports → Yearly (Copy to share).
 
 > **Payday** moves to the working day before a weekend or national holiday. **Subscriptions** show price rises, new ones and ones that stopped; **Find yearly plans** reads Gmail a year back. **Credit cards & paylater** (Settings) get their bill and due date. **Money health check** and an **interest calculator** (deposit vs SBN) are on the Summary; the **SPT asset list** is in Reports → Yearly. **First time** marks the first payment to a place. Yesterday can be closed until 12:00.
 
@@ -95,12 +105,15 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 
 ## Berdua dengan pasangan / With your partner
 
-- **Pengaturan → Pasangan** (pemilik): nama, email Google, dan nama pasangan seperti di rekening bank. Spreadsheet dibagikan otomatis ke email itu.
-- **Pasangan**: buka **karjimut.vercel.app** dengan akun Google-nya, izinkan aplikasinya, lalu **Pengaturan → Pasangan → Hubungkan Gmail saya**. Tambahkan rekening-rekeningnya di **Rekening** dengan **Pemilik** = namanya (nama rekening dibedakan, mis. "BCA" dan "BCA <nama>").
-- **Kita / Aku / Dia** di Ringkasan dan Transaksi: uang berdua, punyamu saja, atau punya pasangan saja.
-- Email kalian tidak saling terbaca: tiap Gmail hanya dibaca oleh sinkronnya sendiri; yang dibagi hanya transaksinya. Transfer di antara kalian berdua dicatat sebagai transfer, bukan pengeluaran.
+Kalian berdua setara di aplikasi ini: hak yang sama, dan masing-masing punya pengaturan sendiri.
 
-> The owner names the partner in Settings → Partner; the spreadsheet is shared with them. The partner opens the app with their own Google account and connects their own Gmail; their accounts get Owner = their name. **Us / Me / Them** switches the view. Neither of you can read the other's email; money between you is a transfer.
+- **Pengaturan → Pasangan** (siapa saja): nama, email Google (boleh lebih dari satu, pisahkan koma) dan nama seperti di rekening bank, untuk **keduanya**. Spreadsheet dibagikan otomatis ke semua email yang tertulis. Mengganti nama membawa transaksi dan rekeningnya. Email milikmu sendiri tidak bisa dihapus (supaya tidak terkunci).
+- **Yang baru bergabung:** buka spreadsheet Cashflow dengan akun Google-nya → menu **Cashflow Tracker → Hubungkan Gmail** → izinkan. Sejak itu **karjimut.vercel.app** terbuka untuknya, dan **Pengaturan → Pasangan** menunjukkan Gmail mana yang terhubung. Tambahkan rekeningnya di **Rekening** dengan **Pemilik** = namanya (nama rekening dibedakan, mis. "BCA" dan "BCA <nama>").
+- **Punya masing-masing:** tanggal gajian dan kartu gaji, "Tutup hari" beserta runtutannya, email otomatis, notifikasi dan perangkatnya, kalender, pencarian langganan tahunan. Kosongkan tanggal gajian kalau belum tahu: kartu gaji baru muncul setelah diisi.
+- **Kita / Aku / Dia** di Ringkasan dan Transaksi: uang berdua, punyamu saja, atau punya pasangan saja. Sebuah transaksi milik pemilik rekeningnya.
+- Email kalian tidak saling terbaca: tiap Gmail hanya dibaca oleh sinkronnya sendiri; yang dibagi hanya transaksinya. Transfer di antara kalian berdua dicatat sebagai transfer, bukan pengeluaran. Tagihan, klaim dan garansi dinotifikasi sekali sehari ke kalian berdua.
+
+> The two of you are equal in the app: the same rights, and each with your own settings. **Settings → Partner** (either of you) holds both people's names, Google accounts (several allowed) and bank names; the spreadsheet is shared with every account listed. A newcomer opens the spreadsheet with their Google account → **Cashflow Tracker → Connect Gmail** → Allow. Each of you has your own payday and salary card, "Close the day" streak, emails, notifications and devices, calendar and yearly-plan scan. **Us / Me / Them** switches the view; a transaction belongs to the owner of its account. Neither of you can read the other's email; money between you is a transfer.
 
 ## Kalau ada masalah / If something looks wrong
 
