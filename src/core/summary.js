@@ -8,7 +8,7 @@ const num = (v) => Number(v) || 0;
 /**
  * @param {{rows, cats: {income, expense}, budgets: {category, monthly_budget}[], recurring: {items}, today: Date, bigAmount?: number}} input
  */
-export function weeklySummary({ rows, cats, budgets, recurring, today, bigAmount = 0 }) {
+export function weeklySummary({ rows, cats, budgets, recurring, today, bigAmount = 0, claims = [], warranties = [] }) {
   const from = isoOf(new Date(today.getTime() - 7 * DAY));
   const to = isoOf(new Date(today.getTime() - DAY));
   const exp = new Set(cats.expense);
@@ -43,6 +43,8 @@ export function weeklySummary({ rows, cats, budgets, recurring, today, bigAmount
     upcoming: (recurring.items || []).filter((i) => i.daysLeft >= 0 && i.daysLeft <= 7),
     // Subscriptions that went up, look stopped, or are new.
     changes: (recurring.items || []).filter((i) => i.change),
+    // Insurance claims whose deadline is within 14 days, and warranties ending within 30.
+    claims: claims.filter((c) => c.daysLeft <= 14), warranties,
   };
 }
 
@@ -52,7 +54,9 @@ const T = {
     title: 'Ringkasan minggu lalu', spent: 'Pengeluaran', income: 'Pemasukan', tx: (n) => `${n} transaksi`,
     top: 'Kategori terbesar', biggest: 'Transaksi terbesar', big: (v) => `Pengeluaran besar (${v} ke atas)`, pending: (n) => `${n} transaksi menunggu dicek di aplikasi.`,
     budgets: 'Budget bulan ini', over: (p) => `${p}% terpakai`, upcoming: 'Tagihan rutin 7 hari ke depan', open: 'Buka aplikasi',
-    changes: 'Langganan yang berubah', up: (was) => `Naik dari ${was}`, late: (d) => `Belum ditagih sejak ${d}: sudah berhenti?`, fresh: 'Langganan baru',
+    changes: 'Langganan yang berubah', moved: (from) => `Sekarang dari ${from}`, up: (was) => `Naik dari ${was}`,
+    claims: 'Klaim asuransi yang segera lewat batas', claimLine: (d, due) => (d < 0 ? `Lewat batas ${due}` : d === 0 ? 'Batas hari ini' : `Batas ${due} (${d} hari lagi)`),
+    warranties: 'Garansi yang segera habis', warrantyLine: (d, date) => (d === 0 ? 'Habis hari ini' : `Habis ${date} (${d} hari lagi)`), late: (d) => `Belum ditagih sejak ${d}: sudah berhenti?`, fresh: 'Langganan baru',
     none: 'Tidak ada pengeluaran minggu lalu.', footer: 'Email ini dikirim setiap Senin. Matikan di Pengaturan → Ringkasan mingguan.',
   },
   en: {
@@ -60,7 +64,9 @@ const T = {
     title: 'Last week', spent: 'Spent', income: 'Income', tx: (n) => `${n} transaction(s)`,
     top: 'Biggest categories', biggest: 'Biggest transactions', big: (v) => `Big spending (${v} and up)`, pending: (n) => `${n} transaction(s) waiting for review in the app.`,
     budgets: 'Budgets this month', over: (p) => `${p}% used`, upcoming: 'Repeating charges in the next 7 days', open: 'Open the app',
-    changes: 'Subscriptions that changed', up: (was) => `Up from ${was}`, late: (d) => `Not charged since ${d}: stopped?`, fresh: 'New subscription',
+    changes: 'Subscriptions that changed', moved: (from) => `Now from ${from}`, up: (was) => `Up from ${was}`,
+    claims: 'Insurance claims about to lapse', claimLine: (d, due) => (d < 0 ? `Past the deadline ${due}` : d === 0 ? 'Deadline today' : `Deadline ${due} (${d} days left)`),
+    warranties: 'Warranties ending soon', warrantyLine: (d, date) => (d === 0 ? 'Ends today' : `Ends ${date} (${d} days left)`), late: (d) => `Not charged since ${d}: stopped?`, fresh: 'New subscription',
     none: 'No spending last week.', footer: 'Sent every Monday. Turn it off in Settings → Weekly summary.',
   },
 };
@@ -85,7 +91,9 @@ export function summaryEmail(s, { appUrl = '', lang = 'id' } = {}) {
   if ((s.big || []).length) parts.push(section(t.big(rp(s.bigAmount)), s.big.map((b) => row(b.description, `<b>${rp(b.amount)}</b>`, `${b.date} · ${b.category}`)).join('')));
   if (s.biggest.length) parts.push(section(t.biggest, s.biggest.map((b) => row(b.description, rp(b.amount), `${b.date} · ${b.category}`)).join('')));
   if (s.budgetAlerts.length) parts.push(section(t.budgets, s.budgetAlerts.map((b) => row(b.category, `${rp(b.spent)} / ${rp(b.budget)}`, t.over(Math.round(b.ratio * 100)))).join('')));
-  if ((s.changes || []).length) parts.push(section(t.changes, s.changes.map((c) => row(c.name, rp(c.amount), c.change === 'up' ? t.up(rp(c.was)) : c.change === 'late' ? t.late(c.nextDate) : t.fresh)).join('')));
+  if ((s.changes || []).length) parts.push(section(t.changes, s.changes.map((c) => row(c.name, rp(c.amount), c.change === 'up' ? t.up(rp(c.was)) : c.change === 'moved' ? t.moved(c.from) : c.change === 'late' ? t.late(c.nextDate) : t.fresh)).join('')));
+  if ((s.claims || []).length) parts.push(section(t.claims, s.claims.map((c) => row(c.description, rp(c.amount), t.claimLine(c.daysLeft, c.due))).join('')));
+  if ((s.warranties || []).length) parts.push(section(t.warranties, s.warranties.map((w) => row(w.name, '', t.warrantyLine(w.daysLeft, w.date))).join('')));
   if (s.upcoming.length) parts.push(section(t.upcoming, s.upcoming.map((u) => row(u.name, rp(u.amount), `${u.nextDate} · ${u.category}`)).join('')));
   if (appUrl) parts.push(`<p style="margin:28px 0"><a href="${esc(appUrl)}" style="background:#0066cc;color:#fff;text-decoration:none;padding:12px 22px;border-radius:999px;font-size:16px;display:inline-block">${esc(t.open)}</a></p>`);
   parts.push(`<p style="color:#6e6e73;font-size:14px;margin-top:28px">${esc(t.footer)}</p>`);

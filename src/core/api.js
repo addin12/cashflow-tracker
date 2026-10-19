@@ -21,11 +21,12 @@ import {
 import { compileRule } from './rules.js';
 import { recurringCharges, payee } from './recurring.js';
 import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth } from './salary.js';
-import { topPlaces, biggestExpenses, moneyFlow, spendingPattern, tagTotals, newPlaceIds } from './insights.js';
-import { netWorth, assetProblems, ASSET_KINDS, duePlans, owedSummary, upcomingBills, financialHealth } from './wealth.js';
+import { topPlaces, biggestExpenses, moneyFlow, spendingPattern, tagTotals, newPlaceIds, underBudget } from './insights.js';
+import { netWorth, assetProblems, ASSET_KINDS, duePlans, owedSummary, upcomingBills, financialHealth, warrantyEnds } from './wealth.js';
+import { markClaim, openClaims, CLAIM_STATUSES, DEFAULT_CLAIM_DAYS } from './claims.js';
 import { cardBills, cardProblems } from './cards.js';
 import { sptList } from './spt.js';
-import { yearlyItems } from './yearly.js';
+import { yearlyItems, YEARLY_WORDS } from './yearly.js';
 import { pushEventsOf, PUSH_EVENTS, testNotice } from './push.js';
 import { parseQuick, usualEntries } from './quick.js';
 import { weeklySummary } from './summary.js';
@@ -69,7 +70,7 @@ export function createApi(store, env) {
   const recurring = (all) => {
     const r = recurringCharges(all, { today: now(), skipCategories: fixedNames(), hidden: lines('recurring_hidden'), start: start() });
     const known = new Set(r.items.map((i) => i.key));
-    const yearly = yearlyItems(list('yearly_subs'), all, { today: now(), hidden: lines('recurring_hidden') }).filter((i) => !known.has(i.key));
+    const yearly = yearlyItems(list('yearly_subs').filter((f) => !f.guess || YEARLY_WORDS.test(f.name)), all, { today: now(), hidden: lines('recurring_hidden') }).filter((i) => !known.has(i.key));
     if (!yearly.length) return r;
     return {
       items: [...r.items, ...yearly].sort((a, b) => a.nextDate.localeCompare(b.nextDate) || b.amount - a.amount),
@@ -88,7 +89,15 @@ export function createApi(store, env) {
   };
   /** "Pertama kali": rows paying a place for the first time get first: true. */
   const firstIds = (all) => newPlaceIds(all, { start: start(), today: now(), skipCategories: fixedNames() });
-  const withFirst = (rs, ids) => rs.map((r) => (ids.has(String(r.id)) ? { ...r, first: true } : r));
+  /** Rows with what the screens add to them: "Pertama kali" and the insurance claim mark. */
+  const withFirst = (rs, ids) => {
+    const marks = json('claims');
+    return rs.map((r) => {
+      const m = marks[r.id];
+      return ids.has(String(r.id)) || m ? { ...r, ...(ids.has(String(r.id)) ? { first: true } : {}), ...(m ? { claim: m.s, claimDue: m.due } : {}) } : r;
+    });
+  };
+  const claimDays = () => Math.min(365, Math.max(1, Number(store.config('claim_days')) || DEFAULT_CLAIM_DAYS));
   const salaryStream = () => String(store.config('salary_stream') || '');
   const salaries = (all) => missingSalaries(all, {
     start: start(), today: now(), payday: payday(), category: salaryCategory(cats().income),
@@ -360,6 +369,8 @@ export function createApi(store, env) {
       const wealth = store.read(TABS.assets).length ? netWorth(balances, store.read(TABS.assets)) : null;
       const goals = goalProgress(store.read(TABS.goals), balances, today);
       const ids = firstIds(all);
+      const daily = dailySpending(all, c, spanOf(m));
+      const budgetTotal = store.read(TABS.budgets).reduce((t, b) => t + (Number(b.monthly_budget) || 0), 0);
       return {
         month: m, who: who || '', summary, balances, trend,
         perDay: budgetPerDay(balances, today, payday()),
@@ -367,7 +378,10 @@ export function createApi(store, env) {
         pendingCount: all.filter((r) => r.status === 'pending').length,
         salaryMissing: salaries(all),
         // Day by day this month and last month: the calendar and the "compared with last month" line.
-        daily: dailySpending(all, c, spanOf(m)),
+        daily,
+        under: underBudget(daily, { today: isoDate(today), from: start(), allowance: budgetTotal ? budgetTotal / Math.max(1, daily.length) : 0 }),
+        claims: openClaims(all, json('claims'), today),
+        warranties: warrantyEnds(store.read(TABS.assets), today, 60),
         prevDaily: dailySpending(all, c, spanOf(monthAdd(m, -1))),
         // Today's payments (also the ones still waiting for a category) and the latest rows.
         today: withFirst(all.filter((r) => String(r.date).slice(0, 10) === isoDate(today) && r.direction === 'out' && r.status !== 'ignored' && !fixedNames().includes(r.category))
@@ -627,6 +641,7 @@ export function createApi(store, env) {
       const list = (assets || []).map((a) => ({
         id: a.id || newId('a'), name: String(a.name || '').trim(), kind: a.kind, qty: a.qty === '' || a.qty == null ? 1 : Number(a.qty),
         unit_value: Number(a.unit_value) || 0, ticker: String(a.ticker || '').trim().toUpperCase(), paid: Number(a.paid) || '', notes: String(a.notes || '').trim(),
+        warranty: String(a.warranty || '').trim(),
       }));
       const problems = assetProblems(list);
       if (problems.length) throw new Error(problems.join('; '));
@@ -637,6 +652,14 @@ export function createApi(store, env) {
         return { ...a, price: keep ? old.price : '', price_at: keep ? old.price_at : '' };
       }));
       return { ok: true, fetch: list.some((a) => a.ticker || a.kind === 'gold') };
+    },
+
+    /** Insurance: a payment you will claim ('open', with a deadline), have claimed, or needn't claim; '' clears it. */
+    markClaim({ id, status }) {
+      const row = findRow(id);
+      if (status && !CLAIM_STATUSES.includes(status)) throw new Error('status must be open, claimed or skip');
+      store.setConfig('claims', JSON.stringify(markClaim(json('claims'), String(id), status || '', { date: String(row.date).slice(0, 10), days: claimDays() })));
+      return { ok: true, ...(status === 'open' ? { due: json('claims')[String(id)].due } : {}) };
     },
 
     /** "Keep" or "stop" on a subscription ('' clears it). */
@@ -667,7 +690,10 @@ export function createApi(store, env) {
     /** Data for the weekly summary email (gas/weekly.js turns it into the email). */
     weekly() {
       const all = rows();
-      return weeklySummary({ rows: all, cats: cats(), budgets: store.read(TABS.budgets), recurring: recurring(all), today: now(), bigAmount: bigAmount() });
+      return weeklySummary({
+        rows: all, cats: cats(), budgets: store.read(TABS.budgets), recurring: recurring(all), today: now(), bigAmount: bigAmount(),
+        claims: openClaims(all, json('claims'), now()), warranties: warrantyEnds(store.read(TABS.assets), now(), 30),
+      });
     },
 
     /** Data for the monthly report email: `month` against the month before. */
@@ -692,7 +718,7 @@ export function createApi(store, env) {
           bill_email: onOff('bill_email'), close_email: String(store.config('close_email') || 'off') === 'on' ? 'on' : 'off',
           calendar_sync: String(store.config('calendar_sync') || 'off') === 'on' ? 'on' : 'off', calendar_status: String(store.config('calendar_status') || ''),
           summary_period: byPayday() ? 'payday' : 'month', salary_stream: salaryStream(), salary_amount: Number(store.config('salary_amount')) || '',
-          big_amount: bigAmount(),
+          big_amount: bigAmount(), claim_days: claimDays(),
         },
         balances: streamBalances(rows(), accounts(), { year: year(), asOf: isoDate(now()) }), lastChecks: lastChecks(rows()),
         imports: importHistory(), salaryStream: salaryStream(), plans: store.read(TABS.plans), assets: store.read(TABS.assets), assetKinds: ASSET_KINDS, cards: list('cards'),
@@ -816,6 +842,11 @@ export function createApi(store, env) {
         if (values.salary_stream && !accounts().some((a) => a.stream === values.salary_stream)) throw new Error('unknown account');
         store.setConfig('salary_stream', String(values.salary_stream || ''));
       }
+      if ('claim_days' in values) {
+        const n = Math.round(Number(values.claim_days));
+        if (!(n >= 1 && n <= 365)) throw new Error('claim days must be 1-365');
+        store.setConfig('claim_days', n);
+      }
       if ('big_amount' in values) {
         const n = Number(values.big_amount);
         if (!(n >= 0)) throw new Error('big spending amount must be a number');
@@ -927,5 +958,5 @@ export const API_METHODS = [
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
   'yearly', 'importStatement', 'undoImport', 'updateMany', 'tagih', 'owedSet', 'owedRemove', 'savePlans', 'saveAssets', 'markRecurring',
-  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe',
+  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe', 'markClaim',
 ];

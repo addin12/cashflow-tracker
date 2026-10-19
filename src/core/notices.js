@@ -52,7 +52,7 @@ const L = {
     income: 'Pemasukan', expense: 'Pengeluaran', net: 'Sisa', rate: (p) => `Ditabung ${p}% dari pemasukan`, noRate: 'Belum ada pemasukan bulan ini.',
     cats: 'Pengeluaran per kategori', more: (v) => `naik ${v}`, less: (v) => `turun ${v}`, same: 'sama', budgets: 'Budget', over: (v) => `lebih ${v}`, left: (v) => `sisa ${v}`,
     goals: 'Target tabungan', goalLine: (p, l) => `${p}% · kurang ${l}`, goalDone: 'Tercapai',
-    open: 'Buka aplikasi', monthFooter: 'Dikirim setiap tanggal 1. Matikan di Pengaturan → Email otomatis.',
+    backupNote: 'Cadangan semua transaksi terlampir (file CSV). Simpan di tempat yang aman.', open: 'Buka aplikasi', monthFooter: 'Dikirim setiap tanggal 1. Matikan di Pengaturan → Email otomatis.',
     paySubject: 'Gajian! Waktunya cek saldo rekening', payTitle: 'Waktunya cek saldo',
     payIntro: 'Hari ini tanggal gajian. Catat dulu gaji Anda di Cek (bank tidak mengirim email untuk uang masuk). Lalu bandingkan saldo di aplikasi bank dengan saldo di Cashflow. Kalau berbeda, isi saldo aslinya di Pengaturan → Cek saldo akhir bulan; selisihnya dicatat sebagai Penyesuaian.',
     payTable: 'Saldo menurut Cashflow hari ini', payFooter: 'Dikirim setiap tanggal gajian. Matikan di Pengaturan → Email otomatis.',
@@ -67,7 +67,7 @@ const L = {
     income: 'Income', expense: 'Expenses', net: 'Left', rate: (p) => `Saved ${p}% of income`, noRate: 'No income this month yet.',
     cats: 'Expenses by category', more: (v) => `up ${v}`, less: (v) => `down ${v}`, same: 'same', budgets: 'Budgets', over: (v) => `${v} over`, left: (v) => `${v} left`,
     goals: 'Savings goals', goalLine: (p, l) => `${p}% · ${l} to go`, goalDone: 'Reached',
-    open: 'Open the app', monthFooter: 'Sent on the 1st of every month. Turn it off in Settings → Automatic emails.',
+    backupNote: 'A backup of every transaction is attached (a CSV file). Keep it somewhere safe.', open: 'Open the app', monthFooter: 'Sent on the 1st of every month. Turn it off in Settings → Automatic emails.',
     paySubject: 'Payday! Time to check your balances', payTitle: 'Time to check your balances',
     payIntro: 'It’s payday. First record your salary in Review (banks send no email for money coming in). Then compare the balance in your bank apps with Cashflow. If one differs, enter the real balance in Settings → Month-end balance check; the difference is recorded as an Adjustment.',
     payTable: 'Balances according to Cashflow today', payFooter: 'Sent every payday. Turn it off in Settings → Automatic emails.',
@@ -85,7 +85,7 @@ const section = (title, body) => `<h2 style="font-size:19px;margin:28px 0 8px">$
 const button = (url, label) => (url ? `<p style="margin:28px 0"><a href="${esc(url)}" style="background:#0066cc;color:#fff;text-decoration:none;padding:12px 22px;border-radius:999px;font-size:16px;display:inline-block">${esc(label)}</a></p>` : '');
 const footer = (text) => `<p style="color:#6e6e73;font-size:14px;margin-top:28px">${esc(text)}</p>`;
 
-export function monthlyEmail(r, { appUrl = '', lang = 'id' } = {}) {
+export function monthlyEmail(r, { appUrl = '', lang = 'id', backup = false } = {}) {
   const t = L[lang] || L.id;
   const change = (c) => (c.change > 0 ? t.more(rp(c.change)) : c.change < 0 ? t.less(rp(-c.change)) : t.same);
   const parts = [
@@ -95,6 +95,7 @@ export function monthlyEmail(r, { appUrl = '', lang = 'id' } = {}) {
   if (r.categories.length) parts.push(section(t.cats, r.categories.map((c) => row(c.category, rp(c.amount), change(c))).join('')));
   if (r.budgets.length) parts.push(section(t.budgets, r.budgets.map((b) => row(b.category, `${rp(b.spent)} / ${rp(b.budget)}`, b.over ? t.over(rp(b.spent - b.budget)) : t.left(rp(b.budget - b.spent)))).join('')));
   if ((r.goals || []).length) parts.push(section(t.goals, r.goals.map((g) => row(g.name, `${rp(g.saved)} / ${rp(g.target)}`, g.done ? t.goalDone : t.goalLine(g.percent, rp(g.left)))).join('')));
+  if (backup) parts.push(`<p style="background:#f5f5f7;padding:12px 16px;border-radius:12px;font-size:16px;margin:20px 0 0">${esc(t.backupNote)}</p>`);
   parts.push(button(appUrl, t.open), footer(t.monthFooter));
   return { subject: t.monthSubject(monthName(r.month, lang)), html: wrap(parts) };
 }

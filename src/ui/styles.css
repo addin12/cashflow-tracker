@@ -680,3 +680,6 @@ button.rowi:hover { background: var(--zebra); }
 .day-card .yesterday p { margin: 0; flex: 1 1 200px; }
 .rec-row .amt small, .sub-row .amt small { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 2px; }
 .health .what { flex: 1; min-width: 0; text-align: left; }
+.under { margin: 4px 0 0; }
+.recap .rowi .what { flex: 1; min-width: 0; }
+.recap .amt { text-align: right; overflow-wrap: anywhere; }

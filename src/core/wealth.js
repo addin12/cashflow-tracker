@@ -75,6 +75,7 @@ export function assetProblems(list) {
     if (a.ticker && !TICKER.test(a.ticker)) out.push(`${n}: ticker must look like BBCA or IDX:BBCA`);
     if (!(num(a.unit_value) > 0) && !(a.ticker && TICKER.test(a.ticker)) && a.kind !== 'gold') out.push(`${n}: enter a value`);
     if (a.qty !== '' && a.qty != null && !(Number(a.qty) > 0)) out.push(`${n}: quantity must be above 0`);
+    if (a.warranty && !/^\d{4}-\d{2}-\d{2}$/.test(String(a.warranty))) out.push(`${n}: warranty must be a date`);
   });
   return out;
 }
@@ -169,6 +170,15 @@ export function interestCompare({ amount, months = 1, depositRate, sbnRate }) {
     return { gross: round2(gross), tax: round2(gross * tax), net: round2(gross * (1 - tax)), perMonth: round2((gross * (1 - tax)) / Math.max(1, num(months))) };
   };
   return { deposit: one(depositRate, a > 7500000 ? 0.2 : 0), sbn: one(sbnRate, 0.1) };
+}
+
+/** Warranties ending within `days` days (not already over), the nearest first. */
+export function warrantyEnds(assets, today, days = 60) {
+  const t = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  return assets.filter((a) => /^\d{4}-\d{2}-\d{2}$/.test(String(a.warranty || '')) && !DEBT_KINDS.has(a.kind))
+    .map((a) => ({ name: a.name, date: String(a.warranty), daysLeft: Math.round((Date.UTC(+a.warranty.slice(0, 4), +a.warranty.slice(5, 7) - 1, +a.warranty.slice(8, 10)) - t) / 86400000) }))
+    .filter((w) => w.daysLeft >= 0 && w.daysLeft <= days)
+    .sort((a, b) => a.daysLeft - b.daysLeft);
 }
 
 /** Money owed to you, open ones first, with the total still open. */

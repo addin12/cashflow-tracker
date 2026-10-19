@@ -5,6 +5,7 @@
 
 import { nextPayday, daysUntilPayday } from './payday.js';
 import { literalPattern } from './rules.js';
+import { amountOf } from './quick.js';
 import { EMPTY_SLOT } from './schema.js';
 
 const num = (v) => Number(v) || 0;
@@ -235,13 +236,49 @@ export function newestFromEmail(rows, limit = 20) {
 }
 
 /** Simple filtered, newest-first list for the Transactions screen. */
+/**
+ * The search box: words, plus amounts. ">20rb", ">=20rb", "<50rb", "<=50rb", "=28rb" and "28rb" (an
+ * exact amount), "30rb-100rb" (a range); a bare number of 4+ digits matches an amount or the text.
+ * @returns {{text: string, ok: (row) => boolean}} text: what is left for the words; ok: the amount tests
+ */
+export function parseSearch(q) {
+  const words = [];
+  const tests = [];
+  const either = [];
+  const near = (a, b) => Math.abs(a - b) < 0.005;
+  const NUM = '(?:rp\\.?)?([\\d.,]+(?:rb|ribu|k|jt|juta)?)';
+  for (const tok of String(q || '').trim().toLowerCase().split(/\s+/).filter(Boolean)) {
+    const range = tok.match(new RegExp(`^${NUM}-${NUM}$`));
+    const one = tok.match(new RegExp(`^(>=|<=|>|<|=)?${NUM}$`));
+    if (range && Number.isFinite(amountOf(range[1])) && Number.isFinite(amountOf(range[2]))) {
+      const [lo, hi] = [amountOf(range[1]), amountOf(range[2])].sort((a, b) => a - b);
+      tests.push((a) => a >= lo - 0.005 && a <= hi + 0.005);
+    } else if (one && Number.isFinite(amountOf(one[2])) && (one[1] || /[a-z]$/.test(one[2]))) {
+      const v = amountOf(one[2]);
+      const op = one[1] || '=';
+      tests.push((a) => (op === '>' ? a > v : op === '<' ? a < v : op === '>=' ? a >= v - 0.005 : op === '<=' ? a <= v + 0.005 : near(a, v)));
+    } else if (one && !one[1] && /^\d{4,}$/.test(one[2])) {
+      either.push({ word: tok, value: Number(one[2]) });
+    } else words.push(tok);
+  }
+  return {
+    text: words.join(' '),
+    ok: (r) => {
+      const a = num(r.amount);
+      const hay = `${r.description} ${r.details} ${r.category} ${r.stream}`.toLowerCase();
+      return tests.every((t) => t(a)) && either.every((e) => near(a, e.value) || hay.includes(e.word));
+    },
+  };
+}
+
 export function filterTransactions(rows, { month, from, to, stream, category, status, direction, owner, q, limit = 100, offset = 0 } = {}) {
-  const needle = String(q || '').trim().toLowerCase();
+  const search = parseSearch(q);
+  const needle = search.text;
   const list = rows.filter((r) => (!month || String(r.date).startsWith(month))
     && (!from || String(r.date).slice(0, 10) >= from) && (!to || String(r.date).slice(0, 10) <= to)
     && (!stream || r.stream === stream) && (!category || r.category === category) && (!status || r.status === status)
     && (!direction || r.direction === direction) && (!owner || r.owner === owner)
-    && (!needle || `${r.description} ${r.details} ${r.category} ${r.stream}`.toLowerCase().includes(needle)))
+    && (!needle || `${r.description} ${r.details} ${r.category} ${r.stream}`.toLowerCase().includes(needle)) && search.ok(r))
     .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
   return { total: list.length, rows: list.slice(offset, offset + limit) };
 }

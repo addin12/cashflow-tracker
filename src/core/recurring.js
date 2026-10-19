@@ -8,7 +8,8 @@
 // A charge whose next date passed more than 45 days ago is treated as stopped. Payees the owner
 // marked "not a subscription" (Config recurring_hidden) are left out.
 // Each item says what changed lately (`change`): 'up' (charged more than the time before),
-// 'late' (more than a week past its date: stopped?) or 'new' (first charged in the last 40 days).
+// 'moved' (charged to another account than the time before), 'late' (more than a week past its
+// date: stopped?) or 'new' (first charged in the last 40 days).
 
 const DAY = 86400000;
 const toDay = (iso) => { const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number); return Date.UTC(y, m - 1, d); };
@@ -69,10 +70,12 @@ export function recurringCharges(rows, { today, skipCategories = [], hidden = []
     const daysLeft = Math.round((next - now) / DAY);
     const prev = list.length >= 2 ? list[list.length - 2] : null;
     const fresh = list.length === 1 && toDay(last.date) >= now - 40 * DAY && (!start || toDay(last.date) >= toDay(start) + 40 * DAY);
-    const change = daysLeft < -7 ? 'late' : prev && last.amount > prev.amount * 1.02 && last.amount <= prev.amount * 3 ? 'up' : fresh ? 'new' : '';
+    const up = prev && last.amount > prev.amount * 1.02 && last.amount <= prev.amount * 3;
+    const moved = prev && prev.stream && last.stream && prev.stream !== last.stream;
+    const change = daysLeft < -7 ? 'late' : up ? 'up' : moved ? 'moved' : fresh ? 'new' : '';
     items.push({
       key: payee(last.description), name: last.description, amount: last.amount, category: last.category || '', stream: last.stream || '',
-      lastDate: last.date, nextDate: iso(next), basis, daysLeft, change, ...(change === 'up' ? { was: prev.amount } : {}),
+      lastDate: last.date, nextDate: iso(next), basis, daysLeft, change, ...(change === 'up' ? { was: prev.amount } : {}), ...(change === 'moved' ? { from: prev.stream } : {}),
     });
   }
   items.sort((a, b) => a.nextDate.localeCompare(b.nextDate) || b.amount - a.amount);

@@ -12,6 +12,8 @@ import { compileRule } from '../core/rules.js';
 import { parseStatement, matchStatement } from '../core/statement.js';
 import { parseQuick, evalAmount } from '../core/quick.js';
 import { interestCompare } from '../core/wealth.js';
+import { toCsv } from '../core/csv.js';
+import { categoryHabit } from '../core/insights.js';
 
 const state = {
   boot: null, tab: 'review', month: '', review: null, dashByMonth: {}, all: null, allStale: true,
@@ -538,6 +540,7 @@ function overviewHtml(d) {
     d.pendingCount ? `<button class="hchip warn" data-action="go" data-tab="review">⚠ ${esc(T.pendingNote(d.pendingCount))}</button>` : '',
     (d.salaryMissing || []).length ? `<button class="hchip warn" data-action="go" data-tab="review">💼 ${esc(T.salaryNotice(dateLabel(d.salaryMissing[0].date, { weekday: false })))}</button>` : '',
     bills.length ? `<button class="hchip" data-action="bills">📅 ${esc(T.billsThisWeek(bills.length))}</button>` : '',
+    state.boot.today.slice(5, 7) === '12' && Number(state.boot.today.slice(8)) >= 15 ? `<button class="hchip" data-action="recap">✨ ${esc(T.recapChip(state.boot.today.slice(0, 4)))}</button>` : '',
   ].join('');
   const todayLong = new Date(`${state.boot.today}T00:00:00`).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
   const hero = isNow ? `<section class="hero">
@@ -597,6 +600,7 @@ function overviewHtml(d) {
           <p class="k">${esc(T.monthSpending(monthName(d.month), isNow ? idx : 0))}</p>
           <button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
           ${prevSame > 0 ? `<p class="cmp ${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '↑' : '↓'} ${esc(diff > 0 ? T.moreThan(rp(diff), prevName) : T.lessThan(rp(-diff), prevName))}</p>` : ''}
+          ${d.under && (d.under.under != null || d.under.noSpend) ? `<p class="muted under">${esc(T.underLine(d.under.under, d.under.elapsed, rp(d.under.allowance), d.under.noSpend))}</p>` : ''}
           <div class="mini-stats">
             <button data-action="drill" data-direction="in"><span>${esc(T.income)}</span><b class="amt in">+${rp(s.income)}</b></button>
             <button data-action="drill"><span>${esc(T.netThisMonth)}</span><b class="amt ${s.balance < 0 ? 'bad' : ''}">${s.balance < 0 ? '' : '+'}${rp(s.balance)}</b></button>
@@ -616,6 +620,8 @@ function overviewHtml(d) {
         ${goalsCard(d.goals)}
         ${recurringCard(d.recurring)}
         ${eventsCard(d.events)}
+        ${claimsCard(d.claims)}
+        ${warrantiesCard(d.warranties)}
         ${cardsCard(d.cards)}
         ${healthCard(d.health)}
         ${wealthCard(d.wealth)}
@@ -768,6 +774,7 @@ function yearlyHtml(y) {
   }).join('');
   return `<div class="ov-grid">
     <div class="stack">
+      ${recapCard(y)}
       <section class="spend"><p class="k">${esc(T.moneyOutYear(shown.length ? `${monthShort(shown[0].month)}–${monthShort(shown[shown.length - 1].month)}` : String(y.year)))}</p>${bigRp(totalOut, 'lg')}
         <p class="muted">${esc(T.ofIncome(rp(totalIn), rp(totalIn - totalOut)))}</p></section>
       <section class="card"><h2>${esc(T.monthlyTrend)}</h2><p class="lead">${esc(T.monthlyTrendHint(rp(avg)))}</p>
@@ -1056,6 +1063,7 @@ function assetsForm(s) {
       ${field(T.assetValue, `<input data-a2="unit_value" class="calc-input" inputmode="decimal" value="${esc(a.unit_value || '')}"><em class="calc-out"></em>`, { help: price > 0 ? T.assetMarket(rp(price), Number(a.price_at) ? new Date(Number(a.price_at)).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '') : a.ticker || a.kind === 'gold' ? T.assetPriceSoon : T.assetValueHelp })}
       ${field(T.assetTicker, `<input data-a2="ticker" value="${esc(a.ticker || '')}" placeholder="IDX:BBCA" autocapitalize="characters" spellcheck="false">`, { help: T.assetTickerHelp })}
       ${field(T.assetPaid, `<input data-a2="paid" class="calc-input" inputmode="decimal" value="${esc(a.paid || '')}"><em class="calc-out"></em>`, { help: T.optional })}
+      ${field(T.assetWarranty, `<input data-a2="warranty" type="date" value="${esc(a.warranty || '')}">`, { help: T.assetWarrantyHelp })}
     </div>
     <div class="actions"><button class="btn danger small" type="button" data-action="delasset" data-i="${i}">${esc(T.assetDelete)}</button></div></fieldset>`;
   }).join('');
@@ -1179,7 +1187,11 @@ function categoryDetail(category) {
   const biggest = [...mine].sort((a, b) => Number(b.amount) - Number(a.amount)).slice(0, 3);
   const dash = state.dashByMonth[currentMonth()];
   const budget = dash && (dash.budgets || []).find((b) => b.category === category);
+  // The last 90 days: how often, how much, how far apart.
+  const h = categoryHabit(mine, { today: state.boot.today });
+  const habit = h ? T.catHabit(h.n, rp(h.sum), rp(h.avg), h.every) : '';
   return `<section class="card trend-card cat-detail"><div class="cat-head">${icon(category)}<div><h2>${esc(category)}</h2><p class="lead">${esc(T.categoryTrendHint(rp(avg)))}</p></div></div>
+    ${habit ? `<p class="hint">${esc(habit)}</p>` : ''}
     ${budget ? `<p class="budget-note ${budget.ratio > 1 ? 'over' : ''}">${esc(budget.ratio > 1 ? T.overBudget(rp(budget.spent - budget.budget), rp(budget.budget)) : T.ofBudget(rp(budget.budget), rp(budget.budget - budget.spent)))}</p>` : ''}
     <div class="chart cat-chart">${data.map((d) => `<button class="m ${state.filters.month === d.m ? 'on' : ''}" data-action="trendmonth" data-month="${d.m}" aria-label="${esc(`${monthLabel(d.m)}: ${rp(d.v)}`)}"><span class="bars"><i class="${dir}" style="height:${Math.round((d.v / top) * 100)}%"></i></span><span>${esc(monthShort(d.m))}</span></button>`).join('')}</div>
     ${topPlaces.length ? `<h3 class="sub-title">${esc(T.topPlaces)}</h3><div class="rows">${topPlaces.map((p) => `<button class="rowi" data-action="drill" data-q="${esc(p.name)}"><span class="what"><b>${esc(p.name)}</b><span class="meta">${p.n}×</span></span><span class="amt">${rp(p.v)}</span></button>`).join('')}</div>` : ''}
@@ -1258,8 +1270,7 @@ const readCards = (form) => $$('.card-row', form).map((row) => Object.fromEntrie
 
 /** A CSV file the browser saves (Excel reads the BOM as UTF-8). */
 function downloadCsv(name, head, rows) {
-  const cell = (v) => { const s = String(v ?? ''); return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-  const blob = new Blob([`\uFEFF${[head, ...rows].map((r) => r.map(cell).join(',')).join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
+  const blob = new Blob([toCsv(head, rows)], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = name;
@@ -1296,13 +1307,80 @@ function sptCsv() {
   downloadCsv(`spt-${s.year}.csv`, T.sptColumns, rows);
 }
 
+// ---------------------------------------------------------------- Round 20 pieces
+/** Insurance claim marks on a payment, in its editor. */
+function claimBox(x) {
+  const s = x.claim || '';
+  const btn = (v, label) => `<button type="button" class="chip-btn ${s === v ? 'on' : ''}" aria-pressed="${s === v}" data-action="claim" data-id="${esc(x.id)}" data-status="${s === v ? '' : v}">${esc(label)}</button>`;
+  return `<div class="split-box" id="claimBox"><h3>${esc(T.claimTitle)}</h3><p class="hint">${esc(s === 'open' && x.claimDue ? T.claimOpenHint(dateLabel(x.claimDue, { weekday: false })) : T.claimHint)}</p>
+    <div class="actions" style="justify-content:flex-start">${btn('open', T.claimOpen)}${btn('claimed', T.claimDone)}${btn('skip', T.claimSkip)}</div></div>`;
+}
+
+/** Overview: claims still to make, nearest deadline first. */
+function claimsCard(list) {
+  if (!list || !list.length) return '';
+  const rows = list.map((c) => `<button class="lrow" data-action="edit" data-id="${esc(c.id)}"><span class="what"><b>${esc(c.description || '—')}</b><span class="meta">${esc(T.claimDue(dateLabel(c.due, { weekday: false }), c.daysLeft))}${c.daysLeft <= 3 ? ` <span class="badge ${c.daysLeft < 0 ? 'bad' : 'warn'}">${esc(c.daysLeft < 0 ? T.claimLate : T.claimSoon)}</span>` : ''}</span></span><span class="amt">${rp(c.amount)}</span></button>`).join('');
+  return `<section class="card"><h2>${esc(T.claimsTitle)}</h2><p class="lead">${esc(T.claimsHint(rp(list.reduce((t, c) => t + c.amount, 0))))}</p><div class="rows">${rows}</div></section>`;
+}
+
+/** Overview: warranties ending soon. */
+function warrantiesCard(list) {
+  if (!list || !list.length) return '';
+  return `<section class="card"><h2>${esc(T.warrantiesTitle)}</h2><div class="rows">${list.map((w) => `<div class="rowi"><span class="what"><b>${esc(w.name)}</b><span class="meta">${esc(T.warrantyLine(dateLabel(w.date, { weekday: false }), w.daysLeft))}</span></span></div>`).join('')}</div>
+    <button class="link" data-action="go" data-tab="settings" data-section="assets">${esc(T.wealthEdit)}</button></section>`;
+}
+
+/** The year in a few lines (from the yearly report's own numbers), with a button to copy it. */
+function recapCard(y) {
+  const nowMonth = state.boot.today.slice(0, 7);
+  const months = y.months.filter((m) => m.expense || m.income);
+  if (!months.length) return '';
+  const totalOut = months.reduce((t, m) => t + m.expense, 0);
+  const totalIn = months.reduce((t, m) => t + m.income, 0);
+  const kept = totalIn > 0 ? Math.round(((totalIn - totalOut) / totalIn) * 100) : null;
+  const whole = months.filter((m) => m.expense > 0 && m.month < nowMonth); // a month still running isn't compared
+  const cheap = whole.length > 1 ? whole.reduce((a, b) => (b.expense < a.expense ? b : a)) : null;
+  const dear = whole.length > 1 ? whole.reduce((a, b) => (b.expense > a.expense ? b : a)) : null;
+  const byCat = new Map();
+  for (const m of y.months) for (const [c, v] of Object.entries(m.byCategory)) byCat.set(c, (byCat.get(c) || 0) + v);
+  const top = [...byCat].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const place = (y.places || [])[0];
+  const big = (y.biggest || [])[0];
+  const lines = [
+    [T.income, `+${rp(totalIn)}`], [T.recapSpent, rp(totalOut)], kept == null ? null : [T.recapKept, `${kept}%`],
+    cheap ? [T.recapCheapest, `${monthName(cheap.month)} · ${rp(cheap.expense)}`] : null, dear ? [T.recapPriciest, `${monthName(dear.month)} · ${rp(dear.expense)}`] : null,
+    ...top.map(([c, v], i) => [i ? '' : T.recapTopCats, `${c} · ${rp(v)}`]),
+    place ? [T.recapPlace, `${place.name} · ${place.count}×`] : null, big ? [T.recapBiggest, `${big.description} · ${rp(big.amount)}`] : null,
+  ].filter(Boolean);
+  state.recapText = [T.recapTitle(y.year), ...lines.map(([k, v]) => (k ? `${k}: ${v}` : `  ${v}`))].join('\n');
+  return `<section class="card recap"><h2 class="row-title">${esc(T.recapTitle(y.year))}<button class="link" data-action="copyrecap">${esc(T.recapCopy)}</button></h2>
+    <div class="rows">${lines.map(([k, v]) => `<div class="rowi"><span class="what">${k ? `<b>${esc(k)}</b>` : ''}</span><span class="amt">${esc(v)}</span></div>`).join('')}</div></section>`;
+}
+function copyRecap() {
+  const text = state.recapText || '';
+  const done = () => toast(T.recapCopied);
+  if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text).then(done).catch(() => legacyCopy(text, done));
+  return legacyCopy(text, done);
+}
+function legacyCopy(text, done) {
+  const t = document.createElement('textarea');
+  t.value = text;
+  t.setAttribute('readonly', '');
+  t.style.position = 'fixed';
+  t.style.opacity = '0';
+  document.body.appendChild(t);
+  t.select();
+  try { document.execCommand('copy'); done(); } catch (e) { toast(T.recapCopyFail, { kind: 'bad' }); }
+  t.remove();
+}
+
 function recurringCard(r) {
   if (!r || !r.items || !r.items.length) return '';
   const when = (i) => (i.daysLeft < 0 ? T.recurringLate(dateLabel(i.nextDate, { weekday: false }), -i.daysLeft)
     : i.daysLeft === 0 ? T.recurringToday : T.recurringNext(dateLabel(i.nextDate, { weekday: false }), i.daysLeft));
   const rows = r.items.map((i) => `<div class="rec-row">
     <button class="rowi" data-action="drill" data-q="${esc(i.name)}"><span class="what"><b>${esc(i.name)}</b>
-      <span class="meta">${esc(when(i))}${i.stream ? ` · ${esc(i.stream)}` : ''}${['category', 'yearly-guess'].includes(i.basis) ? ` · <span class="badge neutral">${esc(T.recurringGuess)}</span>` : ''}${i.change === 'up' ? ` <span class="badge warn">↑ ${esc(T.subUp(rp(i.was)))}</span>` : ''}${i.change === 'new' ? ` <span class="badge new">${esc(T.subNew)}</span>` : ''}${i.daysLeft < 0 ? ` <span class="badge warn">${esc(T.recurringLateBadge)}</span>` : ''}</span></span>
+      <span class="meta">${esc(when(i))}${i.stream ? ` · ${esc(i.stream)}` : ''}${['category', 'yearly-guess'].includes(i.basis) ? ` · <span class="badge neutral">${esc(T.recurringGuess)}</span>` : ''}${i.change === 'up' ? ` <span class="badge warn">↑ ${esc(T.subUp(rp(i.was)))}</span>` : ''}${i.change === 'new' ? ` <span class="badge new">${esc(T.subNew)}</span>` : ''}${i.change === 'moved' ? ` <span class="badge neutral">${esc(T.subMoved(i.from))}</span>` : ''}${i.daysLeft < 0 ? ` <span class="badge warn">${esc(T.recurringLateBadge)}</span>` : ''}</span></span>
       <span class="amt">${rp(i.amount)}${i.cycle === 'year' ? `<small>/${esc(T.yearShort)}</small>` : ''}</span></button>
     <button class="btn plain small rec-hide" data-action="hiderec" data-name="${esc(i.name)}" aria-label="${esc(T.notSubscriptionFor(i.name))}">${esc(T.notSubscription)}</button></div>`).join('');
   return `<section class="card"><h2 class="row-title">${esc(T.recurringTitle)}<button class="link" data-action="subs">${esc(T.subsManage)}</button></h2><p class="lead">${esc(T.recurringHint(rp(r.monthlyTotal)))}</p><div class="rows">${rows}</div></section>`;
@@ -1491,6 +1569,7 @@ function openEditor(id) {
     </form>
     ${parentId ? `<div class="split-box"><p>${esc(T.isSplitPart)}</p><button class="btn secondary" type="button" data-action="edit" data-id="${esc(parentId)}">${esc(T.openSplitParent)}</button></div>`
     : `<div class="split-box" id="splitBox">${splitSummary(x)}</div>`}
+    ${x.direction === 'out' ? claimBox(x) : ''}
     ${x.direction === 'out' ? `<div class="split-box" id="tagihBox"><h3>${esc(T.tagihTitle)}</h3><p class="hint">${esc(T.tagihHint)}</p><div class="actions" style="justify-content:flex-start"><button class="btn secondary" type="button" data-action="tagihopen" data-id="${esc(x.id)}">${esc(T.tagihOpen)}</button></div></div>` : ''}
     <div class="danger-zone"><button class="btn danger" type="button" data-action="delete" data-id="${esc(x.id)}">${esc(T.deleteTransaction)}</button>
       ${x.gmail_id ? `<p class="hint">${esc(T.deleteEmailHint)}</p>` : ''}</div>
@@ -1810,6 +1889,7 @@ async function viewSettings(local) {
           ${field(T.language, `<select name="language"><option value="" ${!cfg.language ? 'selected' : ''}>${esc(T.languageAuto)}</option><option value="id" ${cfg.language === 'id' ? 'selected' : ''}>Bahasa Indonesia</option><option value="en" ${cfg.language === 'en' ? 'selected' : ''}>English</option></select>`)}
           ${field(T.payday, `<input name="payday_day" type="number" min="1" max="31" value="${esc(cfg.payday_day)}">`, { help: T.paydayHelp })}
           ${field(T.summaryPeriod, `<select name="summary_period"><option value="month" ${cfg.summary_period !== 'payday' ? 'selected' : ''}>${esc(T.periodMonth)}</option><option value="payday" ${cfg.summary_period === 'payday' ? 'selected' : ''}>${esc(T.periodPayday(Number(cfg.payday_day) || 28))}</option></select>`, { help: T.summaryPeriodHelp, wide: true })}
+          ${field(T.claimDays, `<input name="claim_days" type="number" inputmode="numeric" min="1" max="365" value="${esc(cfg.claim_days)}">`, { help: T.claimDaysHelp })}
           ${field(T.bigAmount, `<input name="big_amount" type="number" inputmode="decimal" step="any" min="0" value="${esc(cfg.big_amount)}">`, { help: T.bigAmountHelp })}
           ${field(T.salarySettings, `<select name="salary_stream">${accountOptions(cfg.salary_stream, T.chooseAccount)}</select>`, { help: T.salarySettingsHelp })}
           ${field(T.salaryAmountSetting, `<input name="salary_amount" type="number" inputmode="decimal" step="any" min="0" value="${esc(cfg.salary_amount)}">`, { help: T.salaryAmountSettingHelp })}
@@ -1923,6 +2003,14 @@ function notifications() {
   }
   for (const b of (d && d.big) || []) {
     out.push({ id: `big:${b.id}`, kind: 'info', title: T.notifBig(b.description, rp(b.amount)), text: `${dateLabel(b.date, { weekday: false })}${b.category ? ` · ${b.category}` : ''}`, q: b.description, goLabel: T.seeList });
+  }
+  for (const c of (d && d.claims) || []) {
+    if (c.daysLeft > 7) continue;
+    out.push({ id: `claim:${c.id}:${c.due}`, kind: c.daysLeft <= 3 ? 'bad' : 'warn', title: T.notifClaim(c.description, rp(c.amount)), text: T.claimDue(dateLabel(c.due, { weekday: false }), c.daysLeft), q: c.description, goLabel: T.seeList });
+  }
+  for (const w of (d && d.warranties) || []) {
+    if (w.daysLeft > 30) continue;
+    out.push({ id: `warranty:${w.name}:${w.date}`, kind: 'info', title: T.notifWarranty(w.name), text: T.warrantyLine(dateLabel(w.date, { weekday: false }), w.daysLeft), go: 'settings', section: 'assets', goLabel: T.notifOpenSettings });
   }
   for (const i of (d && d.recurring && d.recurring.items) || []) {
     if (i.daysLeft > 3 || i.daysLeft < -7) continue;
@@ -2114,6 +2202,19 @@ function onClick(e) {
     return null;
   }
   if (a === 'interest') return openInterest();
+  if (a === 'claim') {
+    const id = el.dataset.id;
+    const status = el.dataset.status;
+    const x = state.rowsById.get(String(id));
+    if (x) { x.claim = status || undefined; if (!status) delete x.claimDue; }
+    if (state.all) state.allStale = state.allStale || false;
+    state.dashByMonth = {};
+    openEditor(id);
+    return save('markClaim', { id, status }).then((r) => { const row = state.rowsById.get(String(id)); if (row && r && r.due) row.claimDue = r.due; if (row && state.all) { const i = state.all.findIndex((z) => String(z.id) === String(id)); if (i >= 0) state.all[i] = row; } if ($('#claimBox')) openEditor(id); toast(status === 'open' ? T.claimMarked : status ? T.claimSaved : T.claimCleared); })
+      .catch((err) => toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }));
+  }
+  if (a === 'recap') { state.dashView = 'report'; state.reportYearly = true; state.month = state.boot.today.slice(0, 7); return show('dashboard'); }
+  if (a === 'copyrecap') return copyRecap();
   if (a === 'who') { state.who = el.dataset.who; state.filters.owner = state.who; state.dashByMonth = {}; return show(state.tab); }
   if (a === 'connectme') {
     el.disabled = true;
@@ -2136,7 +2237,7 @@ function onClick(e) {
   }
   if (a === 'addasset' || a === 'delasset') {
     state.settings.assets = readAssets(el.closest('form'));
-    if (a === 'addasset') state.settings.assets.push({ name: '', kind: 'other', qty: 1, unit_value: '', ticker: '', paid: '' });
+    if (a === 'addasset') state.settings.assets.push({ name: '', kind: 'other', qty: 1, unit_value: '', ticker: '', paid: '', warranty: '' });
     else state.settings.assets.splice(Number(el.dataset.i), 1);
     viewSettings(state.settings);
     if (a === 'addasset') { const n = $$('.asset-row [data-a2=name]'); if (n.length) n[n.length - 1].focus(); }

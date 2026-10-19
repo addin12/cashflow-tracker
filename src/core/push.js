@@ -72,6 +72,17 @@ export function newRowsNotice(rows, { bigAmount = 0, events = DEFAULT_EVENTS, la
     body: lines(shown, rowLine, lang), url: shown.some((r) => r.status === 'pending') ? '/cek' : '/transaksi', tag: big.length ? 'big' : 'new',
   };
 }
+/** Insurance claims whose deadline is near (the list is already limited to those). */
+export const claimsNotice = (claims, lang = 'id') => (claims.length ? {
+  title: lang === 'en' ? 'Insurance claim deadline' : 'Batas klaim asuransi',
+  body: lines(claims, (c) => `${c.description} ${rp(c.amount)} · ${lang === 'en' ? (c.daysLeft === 0 ? 'today' : `in ${c.daysLeft} days`) : (c.daysLeft === 0 ? 'hari ini' : `${c.daysLeft} hari lagi`)}`, lang),
+  url: '/ringkasan', tag: 'claims',
+} : null);
+export const warrantyNotice = (list, lang = 'id') => (list.length ? {
+  title: lang === 'en' ? 'Warranty ending' : 'Garansi segera habis',
+  body: lines(list, (w) => `${w.name} · ${lang === 'en' ? (w.daysLeft === 0 ? 'today' : `in ${w.daysLeft} days`) : (w.daysLeft === 0 ? 'hari ini' : `${w.daysLeft} hari lagi`)}`, lang),
+  url: '/ringkasan', tag: 'warranty',
+} : null);
 export const billsNotice = (bills, lang = 'id') => (bills.length ? { title: t(lang).bills, body: lines(bills, (b) => `${b.name} ${rp(b.amount)}`, lang), url: '/ringkasan', tag: 'bills' } : null);
 export const paydayNotice = (lang = 'id') => ({ title: t(lang).payday, body: t(lang).paydayBody, url: '/cek', tag: 'payday' });
 export const closeNotice = (lang = 'id') => ({ title: t(lang).close, body: t(lang).closeBody, url: '/cek', tag: 'close' });

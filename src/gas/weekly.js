@@ -5,7 +5,7 @@
 //   every day 21:00 a nudge when nothing was logged by hand today (only when switched on)
 //   after a sync    an alert when the sync failed or a new bank email couldn't be read
 // plus the self-test that runs by itself after an upgrade. All go to the owner's own Gmail.
-/* global MailApp, ScriptApp, PropertiesService */
+/* global MailApp, ScriptApp, PropertiesService, Utilities */
 
 import { createApi } from '../core/api.js';
 import { summaryEmail } from '../core/summary.js';
@@ -16,8 +16,10 @@ import { configValue } from './setup.js';
 import { myAddress } from './gmail.js';
 import { syncCalendar } from './calendar.js';
 import { scanYearly } from './yearly.js';
-import { sendPush, pushOn } from './push.js';
-import { billsNotice, paydayNotice, closeNotice } from '../core/push.js';
+import { sendPush, pushOn, onceToday } from './push.js';
+import { billsNotice, paydayNotice, closeNotice, claimsNotice, warrantyNotice } from '../core/push.js';
+import { backupCsv } from '../core/csv.js';
+import { TABS } from '../core/schema.js';
 
 export const WEEKLY_HANDLER = 'weeklySummaryTrigger';
 export const DAILY_HANDLER = 'dailyTrigger';
@@ -30,9 +32,9 @@ function appUrl(ss) {
 }
 const langOf = (ss) => (String(configValue(ss, 'language') || 'id') === 'en' ? 'en' : 'id');
 const isOn = (ss, key) => String(configValue(ss, key) || 'on').toLowerCase() !== 'off';
-function send(ss, { subject, html }) {
+function send(ss, { subject, html, attachments }) {
   const to = myAddress();
-  MailApp.sendEmail({ to, subject, htmlBody: html, name: 'Cashflow' });
+  MailApp.sendEmail({ to, subject, htmlBody: html, name: 'Cashflow', ...(attachments ? { attachments } : {}) });
   return { sent: true, to };
 }
 
@@ -50,7 +52,9 @@ export function runDaily(ss, today = new Date()) {
   try { if (api.createDuePlanned().created) done.push('plans'); } catch (e) { /* the sync tries again */ }
   if (today.getDate() === 1 && isOn(ss, 'monthly_email')) {
     const month = prevMonth(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`);
-    send(ss, monthlyEmail(api.monthly({ month }), { appUrl: appUrl(ss), lang: langOf(ss) }));
+    // The backup: every transaction as a CSV, so the spreadsheet isn't the only copy.
+    const backup = Utilities.newBlob(backupCsv(sheetStore(ss).read(TABS.transactions)), 'text/csv', `cashflow-backup-${month}.csv`);
+    send(ss, { ...monthlyEmail(api.monthly({ month }), { appUrl: appUrl(ss), lang: langOf(ss), backup: true }), attachments: [backup] });
     done.push('monthly');
   }
   const payday = Number(configValue(ss, 'payday_day')) || 28;
@@ -67,6 +71,13 @@ export function runDaily(ss, today = new Date()) {
     send(ss, billsEmail(tomorrow, { appUrl: appUrl(ss), lang: langOf(ss) }));
     done.push('bills');
   }
+  // Insurance claims 0-3 days from their deadline; warranties 30, 7 and 1 days from their end.
+  const dash = api.dashboard({});
+  const day = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const claims = (dash.claims || []).filter((c) => c.daysLeft >= 0 && c.daysLeft <= 3);
+  if (claims.length && pushOn(ss, 'bills') && onceToday('claims', day)) try { sendPush(ss, claimsNotice(claims, langOf(ss))); done.push('claims push'); } catch (e) { /* the app shows them too */ }
+  const warranties = (dash.warranties || []).filter((w) => [30, 7, 1].includes(w.daysLeft));
+  if (warranties.length && pushOn(ss, 'bills') && onceToday('warranty', day)) try { sendPush(ss, warrantyNotice(warranties, langOf(ss))); done.push('warranty push'); } catch (e) { /* the app shows them too */ }
   return done;
 }
 

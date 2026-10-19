@@ -194,6 +194,8 @@ describe('web app', () => {
     await until(() => doc.querySelector('.year-chart'), 'year view');
     expect(calls).toContain('yearly');
     expect(doc.querySelectorAll('.year-chart .m')).toHaveLength(12);
+    expect(doc.querySelector('.recap h2').textContent).toContain('Rekap 2026'); // the year in a few lines
+    expect(doc.querySelector('.recap').textContent).toContain('96%'); // kept: Rp8.000.000 in, Rp300.000 out
     click(doc.querySelector('[data-action=reportmode][data-mode=month]'));
     await until(() => doc.querySelector('.hm-grid'), 'month report again');
     click(doc.querySelector('[data-action=dashview][data-view=overview]'));
@@ -212,6 +214,22 @@ describe('web app', () => {
     click(doc.querySelector('[data-action=drill][data-category="Belanja Online"]'));
     await until(() => view().includes('Tokopedia') && !view().includes('WARUNG'), 'drill-down');
     expect([...doc.querySelectorAll('.chip')].map((c) => c.textContent.trim())).toEqual(['Oktober 2026 ✕', 'Belanja Online ✕']);
+  });
+
+  it('a claim is marked from the editor and then shows on the overview', async () => {
+    click(doc.querySelector('.trow[data-id=t3]'));
+    await until(() => doc.querySelector('#claimBox'), 'claim box in the editor');
+    expect(doc.querySelector('#claimBox').textContent).toContain('Klaim asuransi');
+    click(doc.querySelector('#claimBox [data-action=claim][data-status=open]'));
+    await until(() => store.cfg.claims && JSON.parse(store.cfg.claims).t3, 'claim saved');
+    expect(JSON.parse(store.cfg.claims).t3).toEqual({ s: 'open', due: '2026-11-02' }); // 3 Oct + the default 30 days
+    await until(() => doc.querySelector('#claimBox [aria-pressed=true]'), 'the box shows the mark');
+    expect(doc.querySelector('#claimBox').textContent).toContain('batas');
+    click(doc.querySelector('#modal [data-action=close]'));
+    await tab('dashboard', 'Klaim asuransi');
+    const card = [...doc.querySelectorAll('#view section.card')].find((c) => c.querySelector('h2') && c.querySelector('h2').textContent === 'Klaim asuransi');
+    expect(card.textContent).toContain('Tokopedia');
+    expect(card.textContent).toContain('28 hari lagi'); // 5 Oct to 2 Nov
   });
 
   it('transactions are grouped by day, and the kind chips filter', async () => {

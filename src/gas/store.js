@@ -21,7 +21,7 @@ function fromCell(header, v, tz) {
 
 /** Core value -> sheet cell (dates as Date so the template's date formulas work). */
 function toCell(header, v) {
-  if (header === 'date' && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+  if ((header === 'date' || header === 'warranty') && typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
     const [y, m, d] = v.split('-').map(Number);
     return new Date(y, m - 1, d);
   }

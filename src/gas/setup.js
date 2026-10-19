@@ -297,6 +297,7 @@ export function runSetup(ss, seedRaw) {
   if (!firstRun && fromVersion < 2) migrateAccountHints(ss, seed, log);
   if (!firstRun) applyCategoryChanges(ss, seed, log, fromVersion);
   if (!firstRun) applyDataFixes(ss, seed, log, fromVersion);
+  if (!firstRun && fromVersion < 26) setConfigValue(ss, 'yearly_scan', ''); // the yearly-plan rule changed: look again
 
   if (firstRun) {
     writeCategories(ss, seed.slots);

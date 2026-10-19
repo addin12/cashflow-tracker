@@ -44,7 +44,7 @@ export function findYearly(charges, { today }) {
     const renews = renewsOn(last.details);
     let next = '';
     if (renews && toDay(renews) - toDay(last.date) >= 300 * DAY) next = renews;
-    else if (!renews && YEARLY_WORDS.test(`${last.description} ${last.details || ''}`) && now - toDay(last.date) >= 45 * DAY) next = addYear(last.date);
+    else if (!renews && YEARLY_WORDS.test(last.description) && now - toDay(last.date) >= 45 * DAY) next = addYear(last.date);
     if (!next || toDay(next) < now - 30 * DAY || toDay(next) > now + 400 * DAY) continue;
     out.push({ key, name: last.description, amount: last.amount, lastDate: last.date, nextDate: next, guess: !renews });
   }

@@ -31,6 +31,33 @@ export function newPlaceIds(rows, { start = '', today, days = 60, skipCategories
   return new Set([...firsts.values()].filter((f) => ['email', 'import'].includes(f.r.source) && dayMs(f.d) >= from).map((f) => String(f.r.id)));
 }
 
+/**
+ * How often one category was paid lately: times, total, average, and about how many days apart.
+ * @param {{date: string, amount: number}[]} rows  the category's approved rows
+ * @returns {{n: number, sum: number, avg: number, every: number} | null}  null under 2 payments
+ */
+export function categoryHabit(rows, { today, days = 90 }) {
+  const since = new Date(Date.parse(today) - days * 86400000).toISOString().slice(0, 10);
+  const lately = rows.filter((r) => String(r.date).slice(0, 10) >= since && String(r.date).slice(0, 10) <= today);
+  if (lately.length < 2) return null;
+  const sum = round2(lately.reduce((t, r) => t + num(r.amount), 0));
+  return { n: lately.length, sum, avg: round2(sum / lately.length), every: Math.max(1, Math.round(days / lately.length)) };
+}
+
+/**
+ * Days so far this period: how many stayed within the budget's daily share (`allowance`, 0 = no budgets)
+ * and how many had no spending at all.
+ * @param {{date: string, amount: number}[]} daily  one entry per day of the period
+ */
+export function underBudget(daily, { today, from = '', allowance = 0 }) {
+  const days = daily.filter((d) => d.date <= today && (!from || d.date >= from));
+  if (!days.length) return null;
+  return {
+    elapsed: days.length, noSpend: days.filter((d) => !(d.amount > 0)).length,
+    under: allowance > 0 ? days.filter((d) => d.amount <= allowance).length : null, allowance: Math.round(allowance),
+  };
+}
+
 /** Where the money went, by place (transaction name): times and total, biggest first. */
 export function topPlaces(rows, cats, range, limit = 8) {
   const exp = new Set(cats.expense);

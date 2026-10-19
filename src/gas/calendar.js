@@ -18,9 +18,11 @@ const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate(
 const rp = (n) => `Rp${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(Math.round(Number(n) || 0))}`;
 
 /** The events the calendar should hold: key "YYYY-MM-DD|title". */
-export function calendarEvents({ plans, recurringItems, cards, payday, today, lang = 'id' }) {
+export function calendarEvents({ plans, recurringItems, cards, payday, today, lang = 'id', claims = [], warranties = [] }) {
   const out = new Map();
   for (const b of upcomingBills(plans, recurringItems, today, DAYS, cards)) out.set(`${b.date}|${b.name} · ${rp(b.amount)}`, true);
+  for (const c of claims) if (c.daysLeft >= 0 && c.daysLeft <= DAYS) out.set(`${c.due}|${lang === 'en' ? 'Claim deadline' : 'Batas klaim'} · ${c.description} ${rp(c.amount)}`, true);
+  for (const w of warranties) if (w.daysLeft <= DAYS) out.set(`${w.date}|${lang === 'en' ? 'Warranty ends' : 'Garansi habis'} · ${w.name}`, true);
   let p = nextPayday(today, payday);
   const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + DAYS);
   for (let i = 0; i < 2 && p <= end; i += 1) {
@@ -44,7 +46,7 @@ export function syncCalendar(ss, today = new Date()) {
     const d = createApi(store, { now: () => today }).dashboard({});
     const want = new Set(calendarEvents({
       plans: store.read(TABS.plans), recurringItems: d.recurring.items, cards: d.cards || [],
-      payday: Number(configValue(ss, 'payday_day')) || 28, today, lang: String(configValue(ss, 'language') || 'id'),
+      payday: Number(configValue(ss, 'payday_day')) || 28, today, lang: String(configValue(ss, 'language') || 'id'), claims: d.claims || [], warranties: d.warranties || [],
     }));
     const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
     const to = new Date(today.getFullYear(), today.getMonth(), today.getDate() + DAYS + 2);

@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 25; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at · 19: price_status · 20: notes by email, tag budgets, close the day, bill reminders · 21: paydays before weekends/holidays, cards, yearly plans, calendar · 22: phone notifications · 23: partner · 24: a partner with several Google accounts · 25: owner_email
+export const SETUP_VERSION = 26; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at · 19: price_status · 20: notes by email, tag budgets, close the day, bill reminders · 21: paydays before weekends/holidays, cards, yearly plans, calendar · 22: phone notifications · 23: partner · 24: a partner with several Google accounts · 25: owner_email · 26: warranty dates, insurance claims, yearly plans looked for again
 
 export const TABS = {
   transactions: 'Transactions',
@@ -29,7 +29,7 @@ export const OWED_HEADERS = ['id', 'tx_id', 'who', 'amount', 'note', 'date', 'st
 export const PLAN_HEADERS = ['id', 'name', 'amount', 'direction', 'stream', 'category', 'day', 'auto', 'last', 'active'];
 // What you own and owe beyond the accounts; price is a GOOGLEFINANCE formula when a ticker is set.
 // price and price_at (epoch ms) are written by the script from Yahoo / Google Finance (gas/prices.js).
-export const ASSET_HEADERS = ['id', 'name', 'kind', 'qty', 'unit_value', 'ticker', 'price', 'paid', 'notes', 'price_at'];
+export const ASSET_HEADERS = ['id', 'name', 'kind', 'qty', 'unit_value', 'ticker', 'price', 'paid', 'notes', 'price_at', 'warranty'];
 
 export const INBOX_LOG_HEADERS = ['gmail_id', 'received', 'from', 'subject', 'status', 'parser', 'reason', 'rows', 'gmail'];
 
@@ -105,6 +105,9 @@ export const CONFIG_KEYS = [
   { key: 'partner_bank_names', name: 'CFG_PARTNER_BANK_NAMES', note: 'Your partner\'s name as banks print it (comma-separated): money between you two is a transfer' },
   // Added in setup version 25.
   { key: 'owner_email', name: 'CFG_OWNER_EMAIL', note: 'Your Google account (written by your own sync): only it is shown as you in the app' },
+  // Added in setup version 26.
+  { key: 'claims', name: 'CFG_CLAIMS', note: 'Insurance claims to make (JSON: transaction id -> status and deadline; written by the app)' },
+  { key: 'claim_days', name: 'CFG_CLAIM_DAYS', note: 'Days after a payment to claim it from the insurer (default 30)' },
 ];
 
 export const STATUS = ['pending', 'approved', 'ignored'];
