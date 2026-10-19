@@ -221,16 +221,22 @@ describe('web app', () => {
     click(doc.querySelector('.trow[data-id=t3]'));
     await until(() => doc.querySelector('#claimBox'), 'claim box in the editor');
     expect(doc.querySelector('#claimBox').textContent).toContain('Klaim asuransi');
+    store.cfg.claim_days = 4; // a short window, so the deadline is near
     click(doc.querySelector('#claimBox [data-action=claim][data-status=open]'));
     await until(() => store.cfg.claims && JSON.parse(store.cfg.claims).t3, 'claim saved');
-    expect(JSON.parse(store.cfg.claims).t3).toEqual({ s: 'open', due: '2026-11-02' }); // 3 Oct + the default 30 days
+    expect(JSON.parse(store.cfg.claims).t3).toEqual({ s: 'open', due: '2026-10-07' }); // 3 Oct + 4 days
+    delete store.cfg.claim_days;
     await until(() => doc.querySelector('#claimBox [aria-pressed=true]'), 'the box shows the mark');
     expect(doc.querySelector('#claimBox').textContent).toContain('batas');
     click(doc.querySelector('#modal [data-action=close]'));
     await tab('dashboard', 'Klaim asuransi');
     const card = [...doc.querySelectorAll('#view section.card')].find((c) => c.querySelector('h2') && c.querySelector('h2').textContent === 'Klaim asuransi');
     expect(card.textContent).toContain('Tokopedia');
-    expect(card.textContent).toContain('28 hari lagi'); // 5 Oct to 2 Nov
+    expect(card.textContent).toContain('2 hari lagi'); // 5 Oct to 7 Oct
+    const attn = doc.querySelector('#view .attn'); // and at the top, under the greeting
+    expect(attn.querySelector('h2').textContent).toBe('Perlu perhatian');
+    expect(attn.textContent).toContain('Tokopedia');
+    expect(doc.querySelector('#view .hero').nextElementSibling).toBe(attn);
   });
 
   it('transactions are grouped by day, and the kind chips filter', async () => {

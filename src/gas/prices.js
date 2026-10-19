@@ -57,7 +57,10 @@ export function refreshPrices(ss, { maxAgeMs = 25 * 60000 } = {}) {
   for (const r of readTable(ss, TABS.assets)) {
     const isGold = r.kind === 'gold' && !r.ticker;
     if ((!r.ticker && !isGold) || (Number(r.price_at) && Date.now() - Number(r.price_at) < maxAgeMs)) continue;
-    if (isGold && gold === undefined) gold = fetchGold(); // one fetch for every gold item
+    if (isGold && gold === undefined) {
+      gold = fetchGold(); // one fetch for every gold item
+      if (!gold) problems.push('emas: harga Antam tidak terbaca dari harga-emas.org');
+    }
     tried += 1;
     const p = isGold ? gold : fetchPrice(r.ticker);
     if (!p) continue;

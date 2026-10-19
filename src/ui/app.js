@@ -334,7 +334,7 @@ function viewReview() {
     <header class="page-head"><div><h1>${esc(T.reviewTitle)}</h1><p class="sub">${esc(n ? T.reviewSub(n) : T.reviewSubNone)} · ${syncLine()}</p></div>
       <div class="tools"><button class="btn secondary small" data-action="sync">↻ ${esc(T.syncNow)}</button></div></header>
     <div class="split">
-      <section class="stack" aria-label="${esc(T.reviewTitle)}">${dayCard(r.day)}${salary}${cards || (salary ? '' : empty)}</section>
+      <section class="stack" aria-label="${esc(T.reviewTitle)}">${dayCard(r.day, !!(r.pending.length || (r.salary || []).length))}${salary}${cards || (salary ? '' : empty)}</section>
       <aside>
         ${errors ? `<h2 class="section-title">${esc(T.unreadTitle)}<small>${esc(T.unreadHint)}</small></h2><div class="card rows">${errors}</div>` : ''}
         ${recent ? `<h2 class="section-title">${esc(T.recentTitle)}<small>${esc(T.recentHint)}</small></h2><div class="card rows">${recent}</div>` : ''}
@@ -594,6 +594,7 @@ function overviewHtml(d) {
       ${today.length ? `<div class="rows">${today.slice(0, 3).map(lineRow).join('')}</div>${today.length > 3 ? `<button class="link" data-action="drillday" data-date="${esc(state.boot.today)}">${esc(T.moreN(today.length - 3))}</button>` : ''}` : ''}
     </section>` : '';
   return `${hero}
+    ${isNow ? attentionCard(d) : ''}
     <div class="ov-grid">
       <div class="stack">
         <section class="spend">
@@ -1060,14 +1061,14 @@ function assetsForm(s) {
       ${field(T.assetName, `<input data-a2="name" value="${esc(a.name)}" placeholder="${esc(T.assetNamePh)}">`)}
       ${field(T.assetKind, `<select data-a2="kind">${kinds.map((k) => `<option value="${k}" ${k === a.kind ? 'selected' : ''}>${esc(T[`kind_${k}`])}</option>`).join('')}</select>`)}
       ${field(T.assetQty, `<input data-a2="qty" inputmode="decimal" value="${esc(a.qty === '' || a.qty == null ? 1 : a.qty)}">`, { help: T.assetQtyHelp })}
-      ${field(T.assetValue, `<input data-a2="unit_value" class="calc-input" inputmode="decimal" value="${esc(a.unit_value || '')}"><em class="calc-out"></em>`, { help: price > 0 ? T.assetMarket(rp(price), Number(a.price_at) ? new Date(Number(a.price_at)).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '') : a.ticker || a.kind === 'gold' ? T.assetPriceSoon : T.assetValueHelp })}
+      ${field(T.assetValue, `<input data-a2="unit_value" class="calc-input" inputmode="decimal" value="${esc(a.unit_value || '')}"><em class="calc-out"></em>`, { help: price > 0 ? (Number(a.price_at) && Date.now() - Number(a.price_at) > 24 * 3600000 ? T.assetMarketStale : T.assetMarket)(rp(price), Number(a.price_at) ? new Date(Number(a.price_at)).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '') : a.ticker || a.kind === 'gold' ? T.assetPriceSoon : T.assetValueHelp })}
       ${field(T.assetTicker, `<input data-a2="ticker" value="${esc(a.ticker || '')}" placeholder="IDX:BBCA" autocapitalize="characters" spellcheck="false">`, { help: T.assetTickerHelp })}
       ${field(T.assetPaid, `<input data-a2="paid" class="calc-input" inputmode="decimal" value="${esc(a.paid || '')}"><em class="calc-out"></em>`, { help: T.optional })}
       ${field(T.assetWarranty, `<input data-a2="warranty" type="date" value="${esc(a.warranty || '')}">`, { help: T.assetWarrantyHelp })}
     </div>
     <div class="actions"><button class="btn danger small" type="button" data-action="delasset" data-i="${i}">${esc(T.assetDelete)}</button></div></fieldset>`;
   }).join('');
-  return `<form class="card" data-form="assets" novalidate><h2>${esc(T.assetsTitle)}</h2><p class="lead">${esc(T.assetsHint)}</p>${rows || `<p class="hint">${esc(T.noAssets)}</p>`}
+  return `<form class="card" data-form="assets" novalidate><h2>${esc(T.assetsTitle)}</h2><p class="lead">${esc(T.assetsHint)}</p>${s.prices && s.prices.failed ? `<p class="hint bad">⚠ ${esc(T.pricesFailed(s.prices.failed, s.prices.tried, s.prices.at, s.prices.reasons.join('; ')))}</p>` : ''}${rows || `<p class="hint">${esc(T.noAssets)}</p>`}
     <div class="actions"><button class="btn secondary left" type="button" data-action="addasset">＋ ${esc(T.addAsset)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveAssets)}</button></div></form>`;
 }
 const readAssets = (form) => $$('.asset-row', form).map((row, i) => ({
@@ -1131,15 +1132,18 @@ function openTagBudget(tag, budget) {
 }
 
 /** Review: today's box, to log what no email reports and close the day. */
-function dayCard(day) {
+function dayCard(day, compact = false) {
   if (!day) return '';
-  return `<section class="card day-card"><div class="row-top"><h2>${esc(T.dayTitle)}</h2>${day.streak ? `<span class="streak" title="${esc(T.streakHint)}">🔥 ${esc(T.streak(day.streak))}</span>` : ''}</div>
-    ${day.yesterday ? `<div class="yesterday"><p>${esc(T.dayYesterdayOpen)}</p><button class="btn secondary small" data-action="closeday" data-date="${esc(day.yesterday)}">${esc(T.dayCloseYesterday)}</button></div>` : ''}
-    ${day.closed ? `<p class="lead">✓ ${esc(T.dayClosed)}</p><div class="actions" style="justify-content:flex-start"><button class="btn plain small" data-action="reopenday">${esc(T.dayReopen)}</button></div>`
-    : `<p class="lead">${esc(day.byHand ? T.dayLogged(day.byHand) : T.dayAsk)}</p>
+  const streak = day.streak ? `<span class="streak" title="${esc(T.streakHint)}">🔥 ${esc(T.streak(day.streak))}</span>` : '';
+  const yesterday = day.yesterday ? `<div class="yesterday"><p>${esc(T.dayYesterdayOpen)}</p><button class="btn secondary small" data-action="closeday" data-date="${esc(day.yesterday)}">${esc(T.dayCloseYesterday)}</button></div>` : '';
+  // Closed: one quiet row.
+  if (day.closed) return `<section class="card day-card closed"><div class="row-top"><span class="what"><b>✓ ${esc(T.dayClosed)}</b></span>${streak}<button class="btn plain small" data-action="reopenday">${esc(T.dayReopen)}</button></div>${yesterday}</section>`;
+  const body = `<p class="lead">${esc(day.byHand ? T.dayLogged(day.byHand) : T.dayAsk)}</p>
       ${field(T.quickLabel, `<input id="quickDay" autocomplete="off" enterkeyhint="done" placeholder="${esc(T.quickPlaceholder)}">`, { help: T.dayQuickHelp })}
-      <div class="actions"><button class="btn secondary" data-action="closeday">${esc(T.dayClose)}</button></div>`}
-  </section>`;
+      <div class="actions"><button class="btn secondary" data-action="closeday">${esc(T.dayClose)}</button></div>`;
+  // While cards wait for a category, this box is folded, so they are the first thing you see.
+  if (compact) return `<details class="card day-card compact" ${state.dayOpen ? 'open' : ''}><summary><span class="what"><b>${esc(T.dayTitle)}</b><span class="meta">${esc(day.byHand ? T.dayLoggedShort(day.byHand) : T.dayAskShort)}</span></span>${streak}</summary>${yesterday}${body}</details>`;
+  return `<section class="card day-card"><div class="row-top"><h2>${esc(T.dayTitle)}</h2>${streak}</div>${yesterday}${body}</section>`;
 }
 /** A sentence typed in Review: saved straight away when complete, otherwise finished on Add. */
 function quickFromReview(text) {
@@ -1314,6 +1318,22 @@ function claimBox(x) {
   const btn = (v, label) => `<button type="button" class="chip-btn ${s === v ? 'on' : ''}" aria-pressed="${s === v}" data-action="claim" data-id="${esc(x.id)}" data-status="${s === v ? '' : v}">${esc(label)}</button>`;
   return `<div class="split-box" id="claimBox"><h3>${esc(T.claimTitle)}</h3><p class="hint">${esc(s === 'open' && x.claimDue ? T.claimOpenHint(dateLabel(x.claimDue, { weekday: false })) : T.claimHint)}</p>
     <div class="actions" style="justify-content:flex-start">${btn('open', T.claimOpen)}${btn('claimed', T.claimDone)}${btn('skip', T.claimSkip)}</div></div>`;
+}
+
+/** Overview, under the greeting: what has a deadline or needs a decision, nearest first. Nothing to show: no card. */
+function attentionCard(d) {
+  const rows = [];
+  for (const c of (d.claims || []).filter((x) => x.daysLeft <= 7)) rows.push({ icon: '💊', bad: c.daysLeft <= 3, title: T.attnClaim(c.description || '—', rp(c.amount)), meta: T.claimDue(dateLabel(c.due, { weekday: false }), c.daysLeft), act: `data-action="edit" data-id="${esc(c.id)}"` });
+  for (const w of (d.warranties || []).filter((x) => x.daysLeft <= 30)) rows.push({ icon: '🛡️', bad: w.daysLeft <= 7, title: T.attnWarranty(w.name), meta: T.warrantyLine(dateLabel(w.date, { weekday: false }), w.daysLeft), act: 'data-action="go" data-tab="settings" data-section="assets"' });
+  for (const i of ((d.recurring && d.recurring.items) || []).filter((x) => x.change === 'up' || x.change === 'late')) {
+    rows.push({ icon: '🔁', bad: false, title: i.change === 'up' ? T.attnSubUp(i.name, rp(i.was), rp(i.amount)) : T.attnSubLate(i.name), meta: T.attnSubMeta, act: 'data-action="subs"' });
+  }
+  for (const name of state.boot.notConnected || []) {
+    const mine = name === state.boot.me;
+    rows.push({ icon: '📧', bad: false, title: mine ? T.notifGmailMine : T.notifGmailOther(name), meta: mine ? T.notifGmailMineSub : T.notifGmailOtherSub, act: 'data-action="go" data-tab="settings" data-section="household"' });
+  }
+  if (!rows.length) return '';
+  return `<section class="card attn"><h2>${esc(T.attnTitle)}</h2><div class="rows">${rows.slice(0, 6).map((r) => `<button class="lrow" ${r.act}><span class="cat-ic ${r.bad ? 'c3' : 'c6'}" aria-hidden="true">${r.icon}</span><span class="what"><b>${esc(r.title)}</b><span class="meta">${esc(r.meta)}</span></span></button>`).join('')}</div></section>`;
 }
 
 /** Overview: claims still to make, nearest deadline first. */
@@ -1769,13 +1789,13 @@ const otherOwner = (x) => (x.owner && (state.boot.members || []).length > 1 && x
 function householdSection(s) {
   const h = s.household || {};
   const when = (c) => (c.at ? new Date(c.at).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
-  const card = (m) => {
+  const card = (m, i) => {
     const mine = m.role === h.myRole;
     return `<fieldset class="acct-row hh-member" data-role="${m.role}"><legend>${esc(m.name || T.hhNobody)}${mine ? ` · ${esc(T.hhYouTag)}` : ''}</legend>
       <div class="fields2">
         ${field(T.hhName, `<input name="${m.role}_name" autocomplete="off" value="${esc(m.name)}">`)}
-        ${field(T.hhEmail, `<input name="${m.role}_emails" type="email" multiple inputmode="email" autocomplete="off" spellcheck="false" value="${esc(m.emails.join(', '))}">`, { help: T.hhEmailHelp })}
-        ${field(T.hhBankNames, `<input name="${m.role}_bank" autocomplete="off" value="${esc(m.bankNames)}">`, { help: T.hhBankNamesHelp, wide: true })}
+        ${field(T.hhEmail, `<input name="${m.role}_emails" type="email" multiple inputmode="email" autocomplete="off" spellcheck="false" value="${esc(m.emails.join(', '))}">`, { help: i === 0 ? T.hhEmailHelp : '' })}
+        ${field(T.hhBankNames, `<input name="${m.role}_bank" autocomplete="off" value="${esc(m.bankNames)}">`, { help: i === 0 ? T.hhBankNamesHelp : '', wide: true })}
       </div>
       <p class="hint ${m.connected ? 'ok-text' : ''}">${esc(m.connected ? `✓ ${T.hhPartnerConnected(when(m.connected))}` : T.hhPartnerNotYet)}</p>
       ${mine && !h.myGmailConnected ? `<div class="actions" style="justify-content:flex-start"><button class="btn primary" type="button" data-action="connectme">${esc(T.hhConnect)}</button></div><p class="hint">${esc(T.hhConnectHint)}</p>` : ''}
@@ -1996,6 +2016,10 @@ function notifications() {
   const c = (state.boot.connections || [])[0];
   if (c && /^ERROR/.test(String(c.last_status || ''))) {
     out.push({ id: `sync:${c.last_sync}`, kind: 'bad', title: T.syncProblem, text: String(c.last_status).replace(/^ERROR:\s*/, '').split(' | ')[0], go: 'settings', section: 'sync', goLabel: T.notifOpenSettings });
+  }
+  for (const name of state.boot.notConnected || []) {
+    const mine = name === state.boot.me;
+    out.push({ id: `gmail:${name}`, kind: 'warn', title: mine ? T.notifGmailMine : T.notifGmailOther(name), text: mine ? T.notifGmailMineSub : T.notifGmailOtherSub, go: 'settings', section: 'household', goLabel: T.notifOpenSettings });
   }
   const month = currentMonth();
   const d = state.dashByMonth[month];
@@ -2664,6 +2688,7 @@ function applyLanguage(configured) {
 export async function start() {
   applyTheme(readTheme());
   document.addEventListener('click', onClick);
+  document.addEventListener('toggle', (e) => { if (e.target.matches && e.target.matches('details.day-card')) state.dayOpen = e.target.open; }, true); // stays open while you type
   document.addEventListener('error', (e) => { // load errors don't bubble, so this listens while capturing
     const box = e.target?.parentElement;
     if (e.target?.tagName === 'IMG' && box?.classList.contains('logo')) { box.classList.remove('logo'); box.textContent = box.dataset.fallback; }

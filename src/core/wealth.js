@@ -28,6 +28,17 @@ export function goldFromHargaEmas(html) {
   return v > 0 ? v : NaN;
 }
 
+/**
+ * The text of Config price_status ("2026-10-19 09:59 UTC: 0 of 1 priced; harga-emas.org HTTP 403") as numbers.
+ * failed: how many prices were asked for and not found.
+ */
+export function parsePriceStatus(text) {
+  const m = String(text || '').match(/^(\S+ \S+) UTC: (\d+) of (\d+) priced(?:; (.*))?$/);
+  if (!m) return null;
+  const [n, tried] = [Number(m[2]), Number(m[3])];
+  return { at: m[1], n, tried, failed: Math.max(0, tried - n), reasons: m[4] ? m[4].split('; ') : [] };
+}
+
 /** Yahoo Finance chart JSON -> the latest price (NaN when missing). */
 export function priceFromYahoo(json) {
   const v = Number(json && json.chart && json.chart.result && json.chart.result[0] && json.chart.result[0].meta && json.chart.result[0].meta.regularMarketPrice);

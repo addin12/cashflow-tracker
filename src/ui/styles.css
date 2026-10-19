@@ -683,3 +683,15 @@ button.rowi:hover { background: var(--zebra); }
 .under { margin: 4px 0 0; }
 .recap .rowi .what { flex: 1; min-width: 0; }
 .recap .amt { text-align: right; overflow-wrap: anywhere; }
+
+/* ---------------------------------------------------------------- small things */
+.day-card.compact summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; cursor: pointer; list-style: none; }
+.day-card.compact summary::-webkit-details-marker { display: none; }
+.day-card.compact summary::after { content: '›'; font-size: 22px; color: var(--muted); transition: transform .15s; }
+.day-card.compact[open] summary { margin-bottom: 12px; }
+.day-card.compact[open] summary::after { transform: rotate(90deg); }
+.day-card.closed .row-top { gap: 8px; }
+.day-card.closed .row-top .what { flex: 1; min-width: 0; }
+.attn h2 { margin-bottom: 8px; }
+.day-card.compact summary .what { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.day-card .streak { white-space: nowrap; }

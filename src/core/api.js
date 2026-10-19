@@ -22,7 +22,7 @@ import { compileRule } from './rules.js';
 import { recurringCharges, payee } from './recurring.js';
 import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth } from './salary.js';
 import { topPlaces, biggestExpenses, moneyFlow, spendingPattern, tagTotals, newPlaceIds, underBudget } from './insights.js';
-import { netWorth, assetProblems, ASSET_KINDS, duePlans, owedSummary, upcomingBills, financialHealth, warrantyEnds } from './wealth.js';
+import { netWorth, assetProblems, ASSET_KINDS, duePlans, owedSummary, upcomingBills, financialHealth, warrantyEnds, parsePriceStatus } from './wealth.js';
 import { markClaim, openClaims, CLAIM_STATUSES, DEFAULT_CLAIM_DAYS } from './claims.js';
 import { cardBills, cardProblems } from './cards.js';
 import { sptList } from './spt.js';
@@ -104,6 +104,13 @@ export function createApi(store, env) {
       return ids.has(String(r.id)) || m ? { ...r, ...(ids.has(String(r.id)) ? { first: true } : {}), ...(m ? { claim: m.s, claimDue: m.due } : {}) } : r;
     });
   };
+  /** One person of the household: name, Google accounts, bank names, and whether their Gmail is connected. */
+  const memberInfo = (role) => {
+    const p = role === 'partner' ? 'partner_' : 'owner_';
+    const emails = String(store.config(`${p}email`) || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+    const c = store.read(TABS.connections).find((x) => emails.includes(String(x.gmail).toLowerCase()));
+    return { role, name: String(store.config(`${p}name`) || ''), emails, bankNames: String(store.config(`${p}bank_names`) || ''), connected: c ? { at: c.last_sync || '', status: String(c.last_status || '') } : null };
+  };
   const claimDays = () => Math.min(365, Math.max(1, Number(store.config('claim_days')) || DEFAULT_CLAIM_DAYS));
   const salaryStream = () => String(store.config(mine('salary_stream')) || '');
   // The owner's salary of a month is "salary:YYYY-MM" (as always); the partner's has its own, so the two never clash.
@@ -179,6 +186,8 @@ export function createApi(store, env) {
         pendingCount: rows().filter((r) => r.status === 'pending').length,
         rules: store.read(TABS.rules).map((r) => ({ pattern: r.pattern, category: r.category })), // for typing a transaction as a sentence
         usual: usualEntries(rows(), { today: now() }),
+        // People whose Gmail isn't connected yet (so their bank emails aren't coming in).
+        notConnected: [memberInfo('owner'), memberInfo('partner')].filter((m) => m.name && m.emails.length && !m.connected).map((m) => m.name),
       };
     },
 
@@ -745,7 +754,7 @@ export function createApi(store, env) {
       const all = rows();
       return weeklySummary({
         rows: all, cats: cats(), budgets: store.read(TABS.budgets), recurring: recurring(all), today: now(), bigAmount: bigAmount(),
-        claims: openClaims(all, json('claims'), now()), warranties: warrantyEnds(store.read(TABS.assets), now(), 30),
+        claims: openClaims(all, json('claims'), now()), warranties: warrantyEnds(store.read(TABS.assets), now(), 30), members: members(),
       });
     },
 
@@ -775,20 +784,12 @@ export function createApi(store, env) {
         },
         balances: streamBalances(rows(), accounts(), { year: year(), asOf: isoDate(now()) }), lastChecks: lastChecks(rows()),
         imports: importHistory(), salaryStream: salaryStream(), plans: store.read(TABS.plans), assets: store.read(TABS.assets), assetKinds: ASSET_KINDS, cards: list('cards'),
+        prices: parsePriceStatus(store.config('price_status')),
         yearly: { found: list('yearly_subs').length, at: String(store.config(mine('yearly_scan')) || '') },
-        household: (() => {
-          const conns = store.read(TABS.connections);
-          const member = (role) => {
-            const p = role === 'partner' ? 'partner_' : 'owner_';
-            const emails = String(store.config(`${p}email`) || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-            const c = conns.find((x) => emails.includes(String(x.gmail).toLowerCase()));
-            return { role, name: String(store.config(`${p}name`) || ''), emails, bankNames: String(store.config(`${p}bank_names`) || ''), connected: c ? { at: c.last_sync || '', status: String(c.last_status || '') } : null };
-          };
-          return {
-            me: owner(), myRole: isOwner() ? 'owner' : 'partner', isOwner: isOwner(), members: [member('owner'), member('partner')],
-            myGmailConnected: !env.myEmail || conns.some((c) => String(c.gmail).toLowerCase() === env.myEmail),
-          };
-        })(),
+        household: {
+          me: owner(), myRole: isOwner() ? 'owner' : 'partner', isOwner: isOwner(), members: [memberInfo('owner'), memberInfo('partner')],
+          myGmailConnected: !env.myEmail || store.read(TABS.connections).some((c) => String(c.gmail).toLowerCase() === env.myEmail),
+        },
         push: env.push && env.push.site ? {
           site: env.push.site, events: pushEventsOf(store.config(mine('push_events'))), link: `${env.push.site}/notifikasi?n=${pushCode()}`,
           devices: list('push_devices').map((d) => ({ label: d.label || '', at: d.at || '', owner: d.owner || String(store.config('owner_name') || ''), mine: (d.owner || String(store.config('owner_name') || '')) === owner() })),

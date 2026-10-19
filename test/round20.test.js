@@ -6,7 +6,7 @@ import { filterTransactions, parseSearch } from '../src/core/app.js';
 import { claimDue, markClaim, openClaims } from '../src/core/claims.js';
 import { recurringCharges } from '../src/core/recurring.js';
 import { underBudget, categoryHabit } from '../src/core/insights.js';
-import { warrantyEnds, assetProblems } from '../src/core/wealth.js';
+import { warrantyEnds, assetProblems, parsePriceStatus } from '../src/core/wealth.js';
 import { findYearly } from '../src/core/yearly.js';
 import { weeklySummary, summaryEmail } from '../src/core/summary.js';
 import { monthlyEmail } from '../src/core/notices.js';
@@ -226,5 +226,40 @@ describe('emails and the calendar', () => {
     });
     expect(keys).toContain('2026-10-25|Batas klaim · Dokter Rp300.000');
     expect(keys).toContain('2026-11-02|Garansi habis · Laptop');
+  });
+});
+
+describe('the small things', () => {
+  it('the price status as numbers: how many were asked for, how many found, why not', () => {
+    expect(parsePriceStatus('2026-10-19 09:59 UTC: 0 of 1 priced')).toEqual({ at: '2026-10-19 09:59', n: 0, tried: 1, failed: 1, reasons: [] });
+    expect(parsePriceStatus('2026-10-19 09:59 UTC: 1 of 2 priced; emas: harga Antam tidak terbaca; harga-emas.org HTTP 403')).toMatchObject({ failed: 1, reasons: ['emas: harga Antam tidak terbaca', 'harga-emas.org HTTP 403'] });
+    expect(parsePriceStatus('2026-10-19 09:08 UTC: 1 of 1 priced').failed).toBe(0);
+    expect(parsePriceStatus('')).toBeNull();
+    expect(parsePriceStatus('something else')).toBeNull();
+  });
+  it('the API says who has not connected their Gmail, and how the last price run went', () => {
+    const store = memoryStore({ partner_name: 'Dewi', partner_email: 'dewi@example.com', owner_email: 'me@example.com', price_status: '2026-10-19 09:59 UTC: 0 of 1 priced; harga-emas.org HTTP 403' });
+    store.t[TABS.connections] = [{ gmail: 'me@example.com', last_sync: '2026-10-19T01:00:00.000Z', last_status: 'live ok' }];
+    const api = createApi(store, { now: () => oct19, myEmail: 'me@example.com' });
+    expect(api.bootstrap().notConnected).toEqual(['Dewi']);
+    expect(api.settings().prices).toMatchObject({ failed: 1, reasons: ['harga-emas.org HTTP 403'] });
+    store.t[TABS.connections].push({ gmail: 'dewi@example.com', last_sync: '2026-10-19T02:00:00.000Z', last_status: 'live ok' });
+    expect(api.bootstrap().notConnected).toEqual([]);
+    expect(createApi(memoryStore(), { now: () => oct19 }).bootstrap().notConnected).toEqual([]); // nobody with an address set: nothing to say
+  });
+  it('the weekly email shows what each person spent, only with two people', () => {
+    const rows = [
+      { id: 1, date: '2026-10-14', direction: 'out', amount: 100000, category: 'Makan', status: 'approved', owner: 'Me' },
+      { id: 2, date: '2026-10-15', direction: 'out', amount: 40000, category: 'Makan', status: 'approved', owner: 'Dewi' },
+      { id: 3, date: '2026-10-15', direction: 'in', amount: 500000, category: 'Gaji', status: 'approved', owner: 'Dewi' },
+    ];
+    const input = { rows, cats: { income: ['Gaji'], expense: ['Makan'] }, budgets: [], recurring: { items: [] }, today: oct19 };
+    const s = weeklySummary({ ...input, members: ['Me', 'Dewi'] });
+    expect(s.byPerson).toEqual([{ name: 'Me', spent: 100000, income: 0 }, { name: 'Dewi', spent: 40000, income: 500000 }]);
+    const html = summaryEmail(s, { lang: 'id' }).html;
+    expect(html).toContain('Per orang minggu lalu');
+    expect(html).toContain('Dewi');
+    expect(weeklySummary({ ...input, members: ['Me'] }).byPerson).toEqual([]);
+    expect(summaryEmail(weeklySummary(input), { lang: 'id' }).html).not.toContain('Per orang');
   });
 });
