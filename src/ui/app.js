@@ -1765,24 +1765,26 @@ function whoSeg() {
 }
 const otherOwner = (x) => (x.owner && (state.boot.members || []).length > 1 && x.owner !== state.boot.me ? ` · ${esc(x.owner)}` : '');
 
-/** Settings → Pasangan: the owner names the partner; the partner connects their own Gmail. */
+/** Settings → Pasangan: both of you, the same for each. Either of you can change any of it. */
 function householdSection(s) {
   const h = s.household || {};
-  const partner = h.partner || {};
-  if (!h.isOwner) {
-    return `<section class="card"><h2>${esc(T.hhTitle)}</h2><p class="lead">${esc(T.hhYou(h.me, h.ownerName))}</p>
-      ${h.myGmailConnected ? `<p class="hint ok-text">✓ ${esc(T.hhConnected)}</p>` : `<p>${esc(T.hhConnectHint)}</p><div class="actions" style="justify-content:flex-start"><button class="btn primary" type="button" data-action="connectme">${esc(T.hhConnect)}</button></div>`}
-      <p class="hint">${esc(T.hhAccountsHint)}</p></section>`;
-  }
-  const conn = (s.connections || []).find((c) => (partner.emails || []).includes(String(c.gmail).toLowerCase()));
+  const when = (c) => (c.at ? new Date(c.at).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
+  const card = (m) => {
+    const mine = m.role === h.myRole;
+    return `<fieldset class="acct-row hh-member" data-role="${m.role}"><legend>${esc(m.name || T.hhNobody)}${mine ? ` · ${esc(T.hhYouTag)}` : ''}</legend>
+      <div class="fields2">
+        ${field(T.hhName, `<input name="${m.role}_name" autocomplete="off" value="${esc(m.name)}">`)}
+        ${field(T.hhEmail, `<input name="${m.role}_emails" type="email" multiple inputmode="email" autocomplete="off" spellcheck="false" value="${esc(m.emails.join(', '))}">`, { help: T.hhEmailHelp })}
+        ${field(T.hhBankNames, `<input name="${m.role}_bank" autocomplete="off" value="${esc(m.bankNames)}">`, { help: T.hhBankNamesHelp, wide: true })}
+      </div>
+      <p class="hint ${m.connected ? 'ok-text' : ''}">${esc(m.connected ? `✓ ${T.hhPartnerConnected(when(m.connected))}` : T.hhPartnerNotYet)}</p>
+      ${mine && !h.myGmailConnected ? `<div class="actions" style="justify-content:flex-start"><button class="btn primary" type="button" data-action="connectme">${esc(T.hhConnect)}</button></div><p class="hint">${esc(T.hhConnectHint)}</p>` : ''}
+    </fieldset>`;
+  };
   return `<form class="card" data-form="household" novalidate><h2>${esc(T.hhTitle)}</h2><p class="lead">${esc(T.hhHint)}</p>
-    <div class="fields2">
-      ${field(T.hhName, `<input name="partner_name" autocomplete="off" value="${esc(partner.name)}">`)}
-      ${field(T.hhEmail, `<input name="partner_email" type="email" multiple inputmode="email" autocomplete="off" spellcheck="false" value="${esc(partner.email)}">`, { help: T.hhEmailHelp })}
-      ${field(T.hhBankNames, `<input name="partner_bank_names" autocomplete="off" value="${esc(partner.bankNames)}">`, { help: T.hhBankNamesHelp, wide: true })}
-    </div>
-    ${partner.email ? `<div class="rows"><div class="rowi"><span class="what"><b>${esc(partner.name || partner.email)}</b><span class="meta">${esc(conn ? T.hhPartnerConnected(conn.last_sync ? new Date(conn.last_sync).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—') : T.hhPartnerNotYet)}</span></span></div></div>
-      <details class="howto" ${conn ? '' : 'open'}><summary>${esc(T.hhStepsTitle)}</summary><ol>${T.hhSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></details>` : ''}
+    ${(h.members || []).map(card).join('')}
+    <details class="howto"><summary>${esc(T.hhStepsTitle)}</summary><ol>${T.hhSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></details>
+    <p class="hint">${esc(T.hhAccountsHint)}</p>
     <div class="actions"><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div></form>`;
 }
 
@@ -1791,8 +1793,8 @@ const NOTIF_EVENTS = ['new', 'big', 'bills', 'payday', 'close'];
 function notifSection(s) {
   const p = s.push;
   if (!p) return `<section class="card"><h2>${esc(T.notifTitle)}</h2><p class="lead">${esc(T.notifNotSetUp)}</p></section>`;
-  const devs = p.devices.map((d) => `<div class="rowi"><span class="what"><b>${esc(d.label || T.notifDevice)}</b><span class="meta">${esc(T.notifSince(d.at ? dateLabel(d.at.slice(0, 10), { weekday: false }) : '—'))}</span></span></div>`).join('');
-  return `<section class="card"><h2>${esc(T.notifTitle)}</h2><p class="lead">${esc(T.notifHint)}</p>
+  const devs = p.devices.sort((a, b) => Number(b.mine) - Number(a.mine)).map((d) => `<div class="rowi"><span class="what"><b>${esc(d.label || T.notifDevice)}</b><span class="meta">${esc([d.owner, T.notifSince(d.at ? dateLabel(d.at.slice(0, 10), { weekday: false }) : '—')].filter(Boolean).join(' · '))}</span></span></div>`).join('');
+  return `<section class="card"><h2>${esc(T.notifTitle)}</h2><p class="lead">${esc(T.notifPushHint)}</p>
       ${devs ? `<div class="rows">${devs}</div>` : `<p class="hint">${esc(T.notifNone)}</p>`}
       <div class="actions" style="justify-content:flex-start"><a class="btn primary" target="_top" href="${esc(p.link)}">${esc(T.notifAdd)}</a>${devs ? `<button class="btn secondary" type="button" data-action="pushtest">${esc(T.notifTest)}</button>` : ''}</div>
       <p class="hint">${esc(T.notifIphone)}</p></section>
@@ -1887,7 +1889,7 @@ async function viewSettings(local) {
       <form class="card" data-form="config" novalidate><h2>${esc(T.preferences)}</h2>
         <div class="fields2" style="margin-top:12px">
           ${field(T.language, `<select name="language"><option value="" ${!cfg.language ? 'selected' : ''}>${esc(T.languageAuto)}</option><option value="id" ${cfg.language === 'id' ? 'selected' : ''}>Bahasa Indonesia</option><option value="en" ${cfg.language === 'en' ? 'selected' : ''}>English</option></select>`)}
-          ${field(T.payday, `<input name="payday_day" type="number" min="1" max="31" value="${esc(cfg.payday_day)}">`, { help: T.paydayHelp })}
+          ${field(T.payday, `<input name="payday_day" type="number" min="1" max="31" value="${esc(cfg.payday_day)}">`, { help: s.household && !s.household.isOwner ? T.paydayHelpOwn : T.paydayHelp })}
           ${field(T.summaryPeriod, `<select name="summary_period"><option value="month" ${cfg.summary_period !== 'payday' ? 'selected' : ''}>${esc(T.periodMonth)}</option><option value="payday" ${cfg.summary_period === 'payday' ? 'selected' : ''}>${esc(T.periodPayday(Number(cfg.payday_day) || 28))}</option></select>`, { help: T.summaryPeriodHelp, wide: true })}
           ${field(T.claimDays, `<input name="claim_days" type="number" inputmode="numeric" min="1" max="365" value="${esc(cfg.claim_days)}">`, { help: T.claimDaysHelp })}
           ${field(T.bigAmount, `<input name="big_amount" type="number" inputmode="decimal" step="any" min="0" value="${esc(cfg.big_amount)}">`, { help: T.bigAmountHelp })}
@@ -1912,7 +1914,7 @@ async function viewSettings(local) {
     [T.setGroupRoutine, [['monthend', T.monthEnd, T.monthEndShort], ['import', T.importTitle, (s.imports || []).length ? T.importLast(new Date(s.imports[0].at).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })) : T.importNever], ['sync', T.settingsSync, syncNote]]],
     [T.setGroupMoney, [['accounts', T.accountsTitle, T.nAccounts(s.accounts.length)], ['budgets', T.budgetsTitle, T.nBudgets(s.budgets.length)], ['goals', T.goalsTitle, T.nGoals((s.goals || []).length)], ['assets', T.assetsTitle, T.nAssets((s.assets || []).length)], ['cards', T.cardsTitle, T.nCards((s.cards || []).length)]]],
     [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['plans', T.plansTitle, T.nPlans((s.plans || []).length)], ['emails', T.emailsTitle, T.nEmailsOn(emailsOn, 5)], ['notif', T.notifTitle, s.push ? T.nDevices(s.push.devices.length) : T.notifOff]]],
-    [T.setGroupApp, [['household', T.hhTitle, (s.household && s.household.partner && s.household.partner.name) || T.hhNone], ['prefs', T.preferences, T.prefSummary(lang, Number(cfg.payday_day) || 28)], ['more', T.more, T.moreSummary]]],
+    [T.setGroupApp, [['household', T.hhTitle, ((s.household && s.household.members.find((m) => m.role !== s.household.myRole)) || {}).name || T.hhNone], ['prefs', T.preferences, T.prefSummary(lang, Number(cfg.payday_day) || 28)], ['more', T.more, T.moreSummary]]],
   ];
   if (state.settingsSection && !sections[state.settingsSection]) state.settingsSection = null;
   const open = state.settingsSection || 'monthend';
@@ -2497,12 +2499,17 @@ function onSubmit(e) {
   }
   if (kind === 'household') {
     const v = (n) => form.querySelector(`[name=${n}]`).value.trim();
-    const email = v('partner_email').toLowerCase();
-    const emails = email.split(',').map((x) => x.trim()).filter(Boolean);
-    let ok = fieldMessage(form.querySelector('[name=partner_email]'), emails.every((x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)) ? '' : T.hhErrEmail);
-    ok = fieldMessage(form.querySelector('[name=partner_name]'), !email || v('partner_name') ? '' : T.hhErrName) && ok;
+    const emailsOf = (n) => v(n).toLowerCase().split(',').map((x) => x.trim()).filter(Boolean);
+    const valid = (x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x);
+    let ok = true;
+    for (const role of ['owner', 'partner']) {
+      ok = fieldMessage(form.querySelector(`[name=${role}_emails]`), emailsOf(`${role}_emails`).every(valid) ? '' : T.hhErrEmail) && ok;
+    }
+    ok = fieldMessage(form.querySelector('[name=owner_name]'), v('owner_name') ? '' : T.hhErrName) && ok;
+    ok = fieldMessage(form.querySelector('[name=partner_name]'), !emailsOf('partner_emails').length || v('partner_name') ? '' : T.hhErrName) && ok;
     if (!ok) return null;
-    return saveForm(form, 'saveConfig', { partner_name: v('partner_name'), partner_email: email, partner_bank_names: v('partner_bank_names') }, async () => { await refresh(); viewSettings(await call('settings')); });
+    const person = (role) => ({ name: v(`${role}_name`), emails: emailsOf(`${role}_emails`), bankNames: v(`${role}_bank`) });
+    return saveForm(form, 'saveHousehold', { owner: person('owner'), partner: person('partner') }, async () => { state.dashByMonth = {}; state.allStale = true; await refresh(); viewSettings(await call('settings')); });
   }
   if (kind === 'notif') {
     const events = NOTIF_EVENTS.filter((k) => form.querySelector(`[name=push_${k}]`).checked);

@@ -28,9 +28,25 @@ export function safeEqual(a, b) {
   return diff === 0;
 }
 
-/** The device list with this one first (one entry per endpoint, at most 5 devices). */
-export function addDevice(list, sub, label, at) {
-  return [{ ...sub, label: String(label || '').slice(0, 40), at }, ...list.filter((d) => d.endpoint !== sub.endpoint)].slice(0, 5);
+/** The device list with this one first (one entry per endpoint, at most 5 devices a person). */
+export function addDevice(list, sub, label, at, owner = '') {
+  const mine = (d) => (d.owner || '') === owner;
+  const next = [{ ...sub, label: String(label || '').slice(0, 40), at, owner }, ...list.filter((d) => d.endpoint !== sub.endpoint)];
+  const seen = new Map();
+  return next.filter((d) => { const n = seen.get(d.owner || '') || 0; seen.set(d.owner || '', n + 1); return n < 5 || !mine(d); });
+}
+
+/**
+ * The devices that should get a notification.
+ * @param {{endpoint, keys, owner?: string}[]} devices  owner: who joined it ('' = the first person, before there were two)
+ * @param {{defaultOwner: string, only?: string, event?: string, eventsOf: (name: string) => string[]}} opts
+ *   only: just that person's devices; event: skip people who have that event switched off
+ */
+export function pushTargets(devices, { defaultOwner, only = '', event = '', eventsOf }) {
+  return devices.filter((d) => {
+    const who = d.owner || defaultOwner;
+    return (!only || who === only) && (!event || eventsOf(who).includes(event));
+  });
 }
 
 /** What can send a notification; all but the 21:00 reminder are on by default. */

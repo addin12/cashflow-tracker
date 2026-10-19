@@ -5,8 +5,8 @@
 // Personal accounts get 90 minutes of trigger time a day: the quick look keeps us well under it.
 /* global SpreadsheetApp, LockService, ScriptApp, PropertiesService, Utilities */
 
-import { newRowsNotice, pushEventsOf } from '../core/push.js';
-import { sendPush, devices } from './push.js';
+import { newRowsNotice } from '../core/push.js';
+import { sendPush, devices, eventsOfPerson } from './push.js';
 import { TABS, TRANSACTION_HEADERS, CONNECTION_HEADERS, INBOX_LOG_HEADERS, RULE_HEADERS, SETUP_VERSION } from '../core/schema.js';
 import { parseEmail, SENDERS, backfillQuery } from '../core/parsers/index.js';
 import { planSync } from '../core/plan.js';
@@ -22,7 +22,7 @@ import { createApi } from '../core/api.js';
 import { sheetStore } from './sheetstore.js';
 import { installMailTriggers, scheduleSelfTest, sendSyncAlert } from './weekly.js';
 import { rolloverYear } from './rollover.js';
-import { memberName, bankNames, isOwnerEmail, ownerEmail, sharePartner, rememberMember } from './members.js';
+import { memberName, bankNames, isOwnerEmail, ownerEmails, sharePartner, rememberMember } from './members.js';
 
 const OVERLAP_MS = 2 * 24 * 3600 * 1000;
 const TIME_BUDGET_MS = 4.5 * 60 * 1000; // Apps Script stops a run at 6 minutes
@@ -166,15 +166,15 @@ function syncOnce(opts) {
     const me = myAddress();
     const owner = isOwnerEmail(ss, me);
     // The owner's own sync records whose account the owner is (who the app calls "Addin").
-    if (owner && !ownerEmail(ss)) setConfigValue(ss, 'owner_email', me.toLowerCase());
+    if (owner && !ownerEmails(ss).length) setConfigValue(ss, 'owner_email', me.toLowerCase());
     if ((Number(configValue(ss, 'setup_version')) || 0) < SETUP_VERSION) {
       runSetup(ss, opts.seed);
-      // After an upgrade: make sure the triggers exist (the emails are the owner's), and check the reports again.
-      try { installTrigger(); if (owner) { installMailTriggers(); scheduleSelfTest(); } } catch (e) { /* tried again at the next upgrade */ }
-      // The partner (Config partner_email) can open the spreadsheet, and so the app.
-      try { if (owner) sharePartner(ss); } catch (e) { /* Settings shows it; tried again at the next upgrade */ }
+      // After an upgrade: make sure this person's triggers exist, and (the owner's) check the reports again.
+      try { installTrigger(); installMailTriggers(); if (owner) scheduleSelfTest(); } catch (e) { /* tried again at the next upgrade */ }
+      // Everyone listed in Settings → Pasangan can open the spreadsheet, and so the app.
+      try { sharePartner(ss); } catch (e) { /* Settings shows who is connected; tried again at the next upgrade */ }
     }
-    if (owner) rememberMember(me);
+    rememberMember(me);
     const mode = modeOf(ss, opts.defaultMode || 'preview');
     let yearNote = '';
     if (mode === 'live') {
@@ -266,7 +266,7 @@ function syncOnce(opts) {
       try {
         const noteIds = listMessageIds(`${NOTE_QUERY} after:${Math.floor(sinceMs / 1000)}`, 50).filter((id) => !inTransactions.has(id) && !latest.has(String(id)));
         if (noteIds.length) {
-          const notesApi = createApi(sheetStore(ss), { now: () => new Date(), meName: memberName(ss, gmail) });
+          const notesApi = createApi(sheetStore(ss), { now: () => new Date(), meName: memberName(ss, gmail), isOwner: owner, myEmail: gmail.toLowerCase() });
           const lines = [];
           for (const id of noteIds) {
             const e = getEmail(id);
@@ -280,11 +280,11 @@ function syncOnce(opts) {
         }
       } catch (e) { note = note ? `${note}; notes: ${e.message}` : `notes: ${e.message}`; }
     }
-    // Market prices of the Aset tab's stocks (Yahoo / Google Finance), at most every 25 minutes (the owner's sync).
-    try { if (mode === 'live' && owner) refreshPrices(ss); } catch (e) { /* tried again next run */ }
+    // Market prices of the Aset tab's stocks (Yahoo / Google Finance), at most every 25 minutes (either sync).
+    try { if (mode === 'live') refreshPrices(ss); } catch (e) { /* tried again next run */ }
     // Planned transactions (rent, cash bills) that are due go to Review; the daily trigger does this too.
     try { if (mode === 'live') createApi(sheetStore(ss), { now: () => new Date() }).createDuePlanned(); } catch (e) { /* tried again next run */ }
-    try { if (mode === 'live') refreshInit(ss); } catch (e) { /* the page then fetches its data itself */ }
+    try { if (mode === 'live') refreshInit(ss, { name: memberName(ss, gmail), owner, email: gmail.toLowerCase() }); } catch (e) { /* the page then fetches its data itself */ }
     const newest = emails.reduce((m, e) => Math.max(m, e.epochMs), Number(conn.checkpoint) || 0);
     const summary = {
       status: complete ? 'ok' : 'partial', mode, gmail, ...counts, added: plan.add.length, updated: plan.update.length,
@@ -341,20 +341,24 @@ export function installTrigger() {
 export function connect(seed, defaultMode) {
   const ss = appSpreadsheet();
   installTrigger();
+  try { installMailTriggers(); } catch (e) { /* the next upgrade tries again */ } // your own weekly, daily and evening jobs
   const gmail = myAddress();
   upsertConnection(ss, gmail, { method: 'own trigger', connected_at: new Date() });
   return runSync({ seed, defaultMode });
 }
 
-/** A phone notification about new rows (when notifications are set up); a failure never stops the sync. */
+/** A phone notification about new rows: each person hears about the rows of their own accounts. */
 function notifyNewRows(ss, rows) {
   if (!rows.length || !devices(ss).length) return;
   try {
     const big = String(configValue(ss, 'big_amount') ?? '').trim();
-    const notice = newRowsNotice(rows, {
-      bigAmount: big === '' ? 1000000 : Number(big) || 0, events: pushEventsOf(configValue(ss, 'push_events')),
-      lang: String(configValue(ss, 'language') || 'id') === 'en' ? 'en' : 'id',
-    });
-    if (notice) sendPush(ss, notice);
+    const lang = String(configValue(ss, 'language') || 'id') === 'en' ? 'en' : 'id';
+    const first = String(configValue(ss, 'owner_name') || '');
+    const byPerson = new Map();
+    rows.forEach((r) => { const who = r.owner || first; byPerson.set(who, [...(byPerson.get(who) || []), r]); });
+    for (const [who, list] of byPerson) {
+      const notice = newRowsNotice(list, { bigAmount: big === '' ? 1000000 : Number(big) || 0, events: eventsOfPerson(ss, who), lang });
+      if (notice) sendPush(ss, notice, { only: who });
+    }
   } catch (e) { /* the rows are saved; only the notification is lost */ }
 }

@@ -23,14 +23,21 @@ export function activeEmail() {
     return email;
   } catch (e) { return ''; }
 }
-/** The partner's Google addresses (Config partner_email, comma-separated: one person may use two). */
-export const partnerEmails = (ss) => String(configValue(ss, 'partner_email') || '').split(',').map(norm).filter(Boolean);
+const listOf = (ss, key) => String(configValue(ss, key) || '').split(',').map(norm).filter(Boolean);
+/** Each person's Google addresses (Config owner_email / partner_email, comma-separated: one person may use two). */
+export const ownerEmails = (ss) => listOf(ss, 'owner_email');
+export const partnerEmails = (ss) => listOf(ss, 'partner_email');
 export const isPartner = (ss, email) => !!email && partnerEmails(ss).includes(norm(email));
+/** Is this the owner? Unknown (''): yes, as only people the spreadsheet is shared with get this far. Until an owner address is known, anyone who isn't the partner. */
+export const isOwnerEmail = (ss, email) => !norm(email) || (ownerEmails(ss).length ? ownerEmails(ss).includes(norm(email)) : !isPartner(ss, email));
 
-/** The owner's Google account (Config owner_email, written by the owner's own sync). */
-export const ownerEmail = (ss) => norm(configValue(ss, 'owner_email'));
-/** Is this the owner? Until owner_email is known, anyone who isn't the partner (as before it existed). */
-export const isOwnerEmail = (ss, email) => (ownerEmail(ss) ? norm(email) === ownerEmail(ss) : !isPartner(ss, email));
+/** Who is using the app (or whose trigger is running), as the API wants to know. */
+export function whoAmI(ss) {
+  const email = activeEmail();
+  return { email, name: memberName(ss, email), owner: isOwnerEmail(ss, email) };
+}
+/** A setting that each of the two has: the owner's key, or the partner's twin behind "partner_". */
+export const roleKey = (ss, base) => (isOwnerEmail(ss, activeEmail()) ? base : `partner_${base}`);
 
 /**
  * The short name rows of this person carry (owner_name or partner_name); '' for anyone else.
@@ -60,10 +67,10 @@ export function rememberMember(email) {
   props.setProperty(MEMBERS, JSON.stringify([...new Set([...list, norm(email)])].slice(-10)));
 }
 
-/** Owner only: the partner can open the spreadsheet (and so the app). No email is sent by Google. */
+/** Everyone listed can open the spreadsheet (and so the app). No email is sent by Google. */
 export function sharePartner(ss) {
   const editors = new Set(ss.getEditors().map((u) => norm(u.getEmail())));
-  const add = partnerEmails(ss).filter((e) => !editors.has(e));
+  const add = [...ownerEmails(ss), ...partnerEmails(ss)].filter((e) => !editors.has(e));
   add.forEach((e) => ss.addEditor(e));
   return { shared: add.length };
 }

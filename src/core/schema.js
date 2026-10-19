@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 26; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at · 19: price_status · 20: notes by email, tag budgets, close the day, bill reminders · 21: paydays before weekends/holidays, cards, yearly plans, calendar · 22: phone notifications · 23: partner · 24: a partner with several Google accounts · 25: owner_email · 26: warranty dates, insurance claims, yearly plans looked for again
+export const SETUP_VERSION = 27; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at · 19: price_status · 20: notes by email, tag budgets, close the day, bill reminders · 21: paydays before weekends/holidays, cards, yearly plans, calendar · 22: phone notifications · 23: partner · 24: a partner with several Google accounts · 25: owner_email · 26: warranty dates, insurance claims, yearly plans looked for again · 27: the partner's own settings
 
 export const TABS = {
   transactions: 'Transactions',
@@ -109,6 +109,18 @@ export const CONFIG_KEYS = [
   { key: 'claims', name: 'CFG_CLAIMS', note: 'Insurance claims to make (JSON: transaction id -> status and deadline; written by the app)' },
   { key: 'claim_days', name: 'CFG_CLAIM_DAYS', note: 'Days after a payment to claim it from the insurer (default 30)' },
 ];
+
+// Settings each of the two people has for themselves. The owner's are the plain keys; the partner's
+// are the same key behind "partner_" (added in setup version 27, after every other key so the rows
+// of the earlier ones don't move).
+export const PERSONAL_KEYS = [
+  'payday_day', 'salary_stream', 'salary_amount', 'salary_skipped', 'closed_days', 'calendar_sync', 'calendar_id', 'calendar_status',
+  'yearly_scan', 'push_events', 'weekly_email', 'monthly_email', 'payday_email', 'bill_email', 'close_email',
+];
+for (const key of PERSONAL_KEYS) {
+  const base = CONFIG_KEYS.find((k) => k.key === key);
+  CONFIG_KEYS.push({ key: `partner_${key}`, name: `CFG_PARTNER_${key.toUpperCase()}`, note: `Your partner's own: ${base.note}` });
+}
 
 export const STATUS = ['pending', 'approved', 'ignored'];
 export const DIRECTION = ['in', 'out'];

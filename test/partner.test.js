@@ -60,7 +60,7 @@ function memoryStore(cfgExtra = {}) {
     t, cfg,
     read: (tab) => (t[tab] || []).map((r) => ({ ...r })),
     append: (tab, r) => { t[tab].push(...r.map((x) => ({ ...x }))); },
-    update() {}, remove() {}, replace: (tab, r) => { t[tab] = r.map((x) => ({ ...x })); },
+    update: (tab, ups) => ups.forEach(({ id, changes }) => Object.assign(t[tab].find((r) => r.id === id) || {}, changes)), remove() {}, replace: (tab, r) => { t[tab] = r.map((x) => ({ ...x })); },
     config: (k) => cfg[k] ?? '', setConfig: (k, v) => { cfg[k] = v; }, slots: () => slots, setSlots() {},
   };
 }
@@ -83,23 +83,34 @@ describe('Kita / Aku / Dia', () => {
   });
 });
 
-describe('naming the partner', () => {
-  it('only the owner, with a real email and a name; sharing follows', () => {
-    const store = memoryStore({ partner_email: '', partner_name: '' });
+describe('the household', () => {
+  const seat = (extra) => memoryStore({ partner_email: '', partner_name: '', owner_email: 'me@example.com', ...extra });
+  it('names, emails and the rest are checked, and you cannot lock yourself out', () => {
+    const store = seat();
     let shared = 0;
-    const owner = createApi(store, { now: oct16, isOwner: true, share: () => { shared += 1; } });
-    expect(() => owner.saveConfig({ partner_email: 'not-an-email', partner_name: 'Dewi' })).toThrow(/not an email/);
-    expect(() => owner.saveConfig({ partner_email: 'dewi@example.com', partner_name: '' })).toThrow(/required/);
-    expect(() => owner.saveConfig({ partner_email: 'dewi@example.com', partner_name: 'Me' })).toThrow(/differ/);
-    owner.saveConfig({ partner_email: ' Dewi@Example.com ', partner_name: 'Dewi', partner_bank_names: 'DEWI LESTARI' });
-    expect(store.cfg).toMatchObject({ partner_email: 'dewi@example.com', partner_name: 'Dewi', partner_bank_names: 'DEWI LESTARI' });
+    const me = createApi(store, { now: oct16, isOwner: true, myEmail: 'me@example.com', share: () => { shared += 1; } });
+    const ok = { name: 'Me', emails: 'me@example.com' };
+    expect(() => me.saveHousehold({ owner: ok, partner: { name: 'Dewi', emails: 'not-an-email' } })).toThrow(/not an email/);
+    expect(() => me.saveHousehold({ owner: ok, partner: { name: '', emails: 'dewi@example.com' } })).toThrow(/partner name: required/);
+    expect(() => me.saveHousehold({ owner: ok, partner: { name: 'me', emails: 'dewi@example.com' } })).toThrow(/must differ/);
+    expect(() => me.saveHousehold({ owner: ok, partner: { name: 'Dewi', emails: 'me@example.com' } })).toThrow(/one person only/);
+    expect(() => me.saveHousehold({ owner: { name: 'Me', emails: 'other@example.com' }, partner: { name: 'Dewi', emails: 'dewi@example.com' } })).toThrow(/lose your own access/);
+    expect(() => me.saveHousehold({ owner: { name: '', emails: 'me@example.com' }, partner: {} })).toThrow(/owner name: required/);
+    me.saveHousehold({ owner: { ...ok, bankNames: 'BUDI SANTOSO' }, partner: { name: 'Dewi', emails: ' Dewi@Example.com, dewi.work@example.com, dewi@example.com', bankNames: 'DEWI LESTARI' } });
+    expect(store.cfg).toMatchObject({ owner_email: 'me@example.com', owner_bank_names: 'BUDI SANTOSO', partner_name: 'Dewi', partner_email: 'dewi@example.com, dewi.work@example.com', partner_bank_names: 'DEWI LESTARI' });
     expect(shared).toBe(1);
-    owner.saveConfig({ partner_email: 'dewi@example.com, Dewi.Work@Example.com, dewi@example.com' });
-    expect(store.cfg.partner_email).toBe('dewi@example.com, dewi.work@example.com'); // two accounts, one person
-    expect(owner.settings().household.partner.emails).toEqual(['dewi@example.com', 'dewi.work@example.com']);
-    expect(() => owner.saveConfig({ partner_email: 'dewi@example.com, nope' })).toThrow(/"nope" is not/);
-    const partner = createApi(store, { now: oct16, isOwner: false, meName: 'Dewi' });
-    expect(() => partner.saveConfig({ partner_email: 'someone@example.com' })).toThrow(/only the owner/);
-    expect(partner.settings().household).toMatchObject({ me: 'Dewi', isOwner: false, ownerName: 'Me' });
+    const h = me.settings().household;
+    expect(h).toMatchObject({ me: 'Me', myRole: 'owner' });
+    expect(h.members.map((m) => [m.role, m.name, m.emails.length])).toEqual([['owner', 'Me', 1], ['partner', 'Dewi', 2]]);
+  });
+  it('either of you can change it; a new name carries the rows and accounts along', () => {
+    const store = seat({ partner_email: 'dewi@example.com', partner_name: 'Dewi' });
+    const she = createApi(store, { now: oct16, isOwner: false, meName: 'Dewi', myEmail: 'dewi@example.com' });
+    const r = she.saveHousehold({ owner: { name: 'Budi', emails: 'me@example.com' }, partner: { name: 'Dewi', emails: 'dewi@example.com' } });
+    expect(r).toEqual({ ok: true, renamed: 1 });
+    expect(store.t[TABS.transactions].map((x) => [x.id, x.owner])).toEqual([['a', 'Budi'], ['b', 'Dewi']]);
+    expect(store.t[TABS.accounts].map((x) => [x.stream, x.owner])).toEqual([['BCA', 'Budi'], ['GoPay', 'Budi'], ['BCA Dewi', 'Dewi']]);
+    expect(store.cfg.owner_name).toBe('Budi');
+    expect(she.settings().household).toMatchObject({ me: 'Dewi', myRole: 'partner', isOwner: false });
   });
 });

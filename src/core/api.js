@@ -44,6 +44,11 @@ export function createApi(store, env) {
   // The person using the app (each of you when two share it); the owner when the script runs by itself.
   const owner = () => String(env.meName || store.config('owner_name') || '');
   const members = () => [store.config('owner_name'), store.config('partner_email') ? store.config('partner_name') : ''].map((s) => String(s || '')).filter(Boolean);
+  const isOwner = () => env.isOwner !== false;
+  /** Each person's own setting: the owner's key, or the partner's twin behind "partner_". */
+  const mine = (key) => (isOwner() ? key : `partner_${key}`);
+  /** Money belongs to the person whose account it is (the one using the app when the account is nobody's). */
+  const ownerOfStream = (stream) => (store.read(TABS.accounts).find((a) => a.stream === stream) || {}).owner || owner();
   // The two fixed categories (CASHFLOW K39/K40); the transfer one can be renamed (setting cat_transfer).
   const fixedNames = () => [FIXED_CATEGORIES.adjustment, String(store.config('cat_transfer') || FIXED_CATEGORIES.transfer)];
   const cats = () => categoryLists(store.slots(), fixedNames());
@@ -58,7 +63,9 @@ export function createApi(store, env) {
   const allCategories = () => { const c = cats(); return new Set([...c.income, ...c.expense, ...c.fixed]); };
   const touch = (changes) => ({ ...changes, updated_by: owner() || 'app', updated_at: nowIso() });
   const onOff = (key) => (String(store.config(key) || 'on').toLowerCase() === 'off' ? 'off' : 'on');
-  const payday = () => Number(store.config('payday_day')) || 28;
+  // Your own payday; the partner has none until they set one, and then the household's is used for the day count.
+  const ownPayday = () => Number(store.config(mine('payday_day'))) || 0;
+  const payday = () => ownPayday() || Number(store.config('payday_day')) || 28;
   const start = () => String(store.config('start_date') || '');
   const lines = (key, sep = '\n') => String(store.config(key) || '').split(sep).map((s) => s.trim()).filter(Boolean);
   const byPayday = () => String(store.config('summary_period') || '') === 'payday';
@@ -98,10 +105,12 @@ export function createApi(store, env) {
     });
   };
   const claimDays = () => Math.min(365, Math.max(1, Number(store.config('claim_days')) || DEFAULT_CLAIM_DAYS));
-  const salaryStream = () => String(store.config('salary_stream') || '');
-  const salaries = (all) => missingSalaries(all, {
-    start: start(), today: now(), payday: payday(), category: salaryCategory(cats().income),
-    skipped: lines('salary_skipped', ','), expected: Number(store.config('salary_amount')) || 0,
+  const salaryStream = () => String(store.config(mine('salary_stream')) || '');
+  // The owner's salary of a month is "salary:YYYY-MM" (as always); the partner's has its own, so the two never clash.
+  const salaryRef = (month) => (isOwner() ? `salary:${month}` : `salary:${month}:p`);
+  const salaries = (all) => missingSalaries(all.filter((r) => !r.owner || r.owner === owner()), {
+    start: start(), today: now(), payday: isOwner() ? payday() : ownPayday(), category: salaryCategory(cats().income),
+    skipped: lines(mine('salary_skipped'), ','), expected: Number(store.config(mine('salary_amount'))) || 0, refOf: salaryRef,
   }).map((s) => ({ ...s, stream: salaryStream() }));
   const lastDayIso = (ym) => { const [y, mo] = ym.split('-').map(Number); return isoDate(new Date(y, mo, 0)); };
   /** The dates a month stands for: the calendar month, or its payday period. */
@@ -133,7 +142,7 @@ export function createApi(store, env) {
       .sort((a, b) => String(b.last).localeCompare(String(a.last)));
   };
   /** "Tutup hari": is today closed, how many days in a row, and was anything logged by hand today. */
-  const closedDays = () => String(store.config('closed_days') || '').split(',').map((d) => d.trim()).filter(Boolean);
+  const closedDays = () => String(store.config(mine('closed_days')) || '').split(',').map((d) => d.trim()).filter(Boolean);
   const dayState = (all) => {
     const t = isoDate(now());
     const days = new Set(closedDays());
@@ -141,7 +150,7 @@ export function createApi(store, env) {
     const d = new Date(now().getFullYear(), now().getMonth(), now().getDate());
     if (!days.has(t)) d.setDate(d.getDate() - 1); // an open today doesn't break yesterday's streak
     while (days.has(isoDate(d))) { streak += 1; d.setDate(d.getDate() - 1); }
-    const byHand = all.filter((r) => String(r.date).slice(0, 10) === t && ['manual', 'note'].includes(r.source) && r.status !== 'ignored').length;
+    const byHand = all.filter((r) => String(r.date).slice(0, 10) === t && ['manual', 'note'].includes(r.source) && r.status !== 'ignored' && (!r.owner || r.owner === owner())).length;
     // Until 12:00 a streak can still be kept by closing yesterday.
     const day = (k) => isoDate(new Date(now().getFullYear(), now().getMonth(), now().getDate() - k));
     const late = now().getHours() < 12 && !days.has(day(1)) && days.has(day(2));
@@ -192,9 +201,9 @@ export function createApi(store, env) {
       if (!accounts().some((a) => a.stream === stream)) throw new Error('choose an account');
       const category = salaryCategory(cats().income);
       if (!category) throw new Error('add an income category for salary first');
-      if (rows().some((r) => r.ref_no === `salary:${month}` && r.status !== 'ignored')) throw new Error('the salary of this month is already recorded');
-      const [row] = manualRows({ kind: 'in', amount: value, date, stream, category, description: category, details: `Gaji ${month}` }, { owner: owner(), nowIso: nowIso() });
-      row.ref_no = `salary:${month}`;
+      if (rows().some((r) => r.ref_no === salaryRef(month) && r.status !== 'ignored')) throw new Error('the salary of this month is already recorded');
+      const [row] = manualRows({ kind: 'in', amount: value, date, stream, category, description: category, details: `Gaji ${month}` }, { owner: ownerOfStream(stream), nowIso: nowIso() });
+      row.ref_no = salaryRef(month);
       store.append(TABS.transactions, [row]);
       let openingChange = 0;
       const checked = openingChecks()[stream];
@@ -202,21 +211,21 @@ export function createApi(store, env) {
         store.replace(TABS.accounts, accounts().map((a) => (a.stream === stream ? { ...a, opening_balance: Math.round((Number(a.opening_balance || 0) - value) * 100) / 100 } : a)));
         openingChange = -value;
       }
-      store.setConfig('salary_amount', value);
-      if (stream !== salaryStream()) store.setConfig('salary_stream', stream);
+      store.setConfig(mine('salary_amount'), value);
+      if (stream !== salaryStream()) store.setConfig(mine('salary_stream'), stream);
       return { ok: true, id: row.id, openingChange };
     },
 
     /** "No salary this month": the card for that payday goes away. */
     skipSalary({ month }) {
       if (!/^\d{4}-\d{2}$/.test(String(month || ''))) throw new Error('month must be YYYY-MM');
-      store.setConfig('salary_skipped', [...new Set([...lines('salary_skipped', ','), month])].join(', '));
+      store.setConfig(mine('salary_skipped'), [...new Set([...lines(mine('salary_skipped'), ','), month])].join(', '));
       return { ok: true };
     },
 
     /** Undo of skipSalary. */
     unskipSalary({ month }) {
-      store.setConfig('salary_skipped', lines('salary_skipped', ',').filter((m) => m !== month).join(', '));
+      store.setConfig(mine('salary_skipped'), lines(mine('salary_skipped'), ',').filter((m) => m !== month).join(', '));
       return { ok: true };
     },
 
@@ -346,6 +355,7 @@ export function createApi(store, env) {
       const valid = new Set(accounts().map((a) => a.stream));
       if (!valid.has(input.stream) || (input.kind === 'transfer' && !valid.has(input.toStream))) throw new Error('choose an account');
       const added = manualRows(input, { owner: owner(), nowIso: nowIso(), transferCategory: String(store.config('cat_transfer') || 'trf ke bank lain') });
+      added.forEach((r) => { r.owner = ownerOfStream(r.stream); }); // a transfer between you two has a leg of each
       store.append(TABS.transactions, added);
       return { ok: true, ids: added.map((r) => r.id) };
     },
@@ -432,15 +442,52 @@ export function createApi(store, env) {
       return env.connect();
     },
 
+    /**
+     * Who is in the household: each person's name, Google accounts (a person may have several) and bank
+     * names. Either of you can change it. Renaming a person carries their rows and accounts along; the
+     * spreadsheet is shared with every account listed. You can't remove your own access.
+     */
+    saveHousehold({ owner: o, partner: p }) {
+      const emailsOf = (v) => (Array.isArray(v) ? v : String(v || '').split(',')).map((e) => String(e).trim().toLowerCase()).filter(Boolean);
+      const clean = (m, label) => {
+        const emails = [...new Set(emailsOf(m && m.emails))];
+        const bad = emails.find((e) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+        if (bad) throw new Error(`${label} email: "${bad}" is not an email address`);
+        return { name: String((m && m.name) || '').trim(), emails, bankNames: String((m && m.bankNames) || '').trim() };
+      };
+      const a = clean(o, 'owner');
+      const b = clean(p, 'partner');
+      if (!a.name) throw new Error('owner name: required');
+      if (b.emails.length && !b.name) throw new Error('partner name: required');
+      if (b.name && b.name.toLowerCase() === a.name.toLowerCase()) throw new Error('the two names must differ');
+      if (a.emails.some((e) => b.emails.includes(e))) throw new Error('an email can belong to one person only');
+      if (env.myEmail && (a.emails.length || b.emails.length) && ![...a.emails, ...b.emails].includes(env.myEmail)) throw new Error('you would lose your own access: keep your Google account');
+      const was = { a: String(store.config('owner_name') || ''), b: String(store.config('partner_name') || '') };
+      const renames = { ...(was.a && was.a !== a.name ? { [was.a]: a.name } : {}), ...(was.b && b.name && was.b !== b.name ? { [was.b]: b.name } : {}) };
+      if (Object.keys(renames).length) {
+        store.update(TABS.transactions, rows().filter((r) => renames[r.owner]).map((r) => ({ id: r.id, changes: { owner: renames[r.owner] } })));
+        store.replace(TABS.accounts, accounts().map((x) => (renames[x.owner] ? { ...x, owner: renames[x.owner] } : x)));
+      }
+      store.setConfig('owner_name', a.name);
+      store.setConfig('owner_email', a.emails.join(', '));
+      store.setConfig('owner_bank_names', a.bankNames);
+      store.setConfig('partner_name', b.name);
+      store.setConfig('partner_email', b.emails.join(', '));
+      store.setConfig('partner_bank_names', b.bankNames);
+      if (env.share) { try { env.share(); } catch (e) { /* Google may not let you share; the Settings screen says who is connected */ } }
+      return { ok: true, renamed: Object.keys(renames).length };
+    },
+
     /** A test notification to every phone that joined. */
     pushTest() {
       if (!env.push) throw new Error('notifications are not set up');
-      return env.push.send(testNotice(String(store.config('language') || 'id') === 'en' ? 'en' : 'id'));
+      return env.push.send(testNotice(String(store.config('language') || 'id') === 'en' ? 'en' : 'id'), { only: owner() }); // your own devices
     },
 
     /** Forgets every phone (they stop getting notifications). */
     pushForget() {
-      store.setConfig('push_devices', '[]');
+      const first = String(store.config('owner_name') || '');
+      store.setConfig('push_devices', JSON.stringify(list('push_devices').filter((d) => (d.owner || first) !== owner())));
       return { ok: true };
     },
 
@@ -521,7 +568,9 @@ export function createApi(store, env) {
       const day = isoDate(new Date(Number(sentMs) || now().getTime()));
       const c = cats();
       const salaryCat = salaryCategory(c.income);
-      const ctx = { accounts: accounts(), rules: store.read(TABS.rules), today: day, salaryCategory: salaryCat };
+      // "kopi 28rb bca" means your own BCA when you have one.
+      const own = accounts().filter((a) => a.owner === owner());
+      const ctx = { accounts: own.length ? own : accounts(), rules: store.read(TABS.rules), today: day, salaryCategory: salaryCat };
       const added = [];
       const skipped = [];
       (notes || []).forEach((text, i) => {
@@ -529,7 +578,7 @@ export function createApi(store, env) {
         if (!(p.amount > 0)) { skipped.push(text); return; }
         const fits = p.category && (p.direction === 'in' ? c.income : c.expense).includes(p.category);
         added.push({
-          id: `n_${gmailId}_${i}`, date: p.date, time: '', owner: owner(), stream: p.stream, direction: p.direction, amount: Math.round(p.amount * 100) / 100,
+          id: `n_${gmailId}_${i}`, date: p.date, time: '', owner: ownerOfStream(p.stream), stream: p.stream, direction: p.direction, amount: Math.round(p.amount * 100) / 100,
           category: fits ? p.category : '', description: p.description ? p.description[0].toUpperCase() + p.description.slice(1) : text,
           details: ['Catatan', ...p.tags.map((t) => `#${t}`)].join(' '), source: 'note', sender: '', gmail: '', gmail_id: gmailId, ref_no: '',
           status: fits && p.stream ? 'approved' : 'pending', transfer_id: '', rule_id: '', updated_by: owner() || 'note', updated_at: nowIso(),
@@ -554,12 +603,12 @@ export function createApi(store, env) {
     /** "Tutup hari": today (or another day) is done; undone with reopenDay. */
     closeDay({ date }) {
       const d = /^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) ? date : isoDate(now());
-      store.setConfig('closed_days', [d, ...closedDays().filter((x) => x !== d)].sort().reverse().slice(0, 120).join(','));
+      store.setConfig(mine('closed_days'), [d, ...closedDays().filter((x) => x !== d)].sort().reverse().slice(0, 120).join(','));
       return { ok: true, ...dayState(rows()) };
     },
     reopenDay({ date }) {
       const d = /^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) ? date : isoDate(now());
-      store.setConfig('closed_days', closedDays().filter((x) => x !== d).join(','));
+      store.setConfig(mine('closed_days'), closedDays().filter((x) => x !== d).join(','));
       return { ok: true, ...dayState(rows()) };
     },
 
@@ -626,7 +675,7 @@ export function createApi(store, env) {
       const due = duePlans(plans, rows(), now());
       if (!due.length) return { created: 0 };
       const added = due.map(({ plan, month, date }) => ({
-        ...manualRows({ kind: plan.direction, amount: plan.amount, date, stream: plan.stream, category: plan.category || '-', description: plan.name, details: 'Rutin' }, { owner: owner(), nowIso: nowIso() })[0],
+        ...manualRows({ kind: plan.direction, amount: plan.amount, date, stream: plan.stream, category: plan.category || '-', description: plan.name, details: 'Rutin' }, { owner: ownerOfStream(plan.stream), nowIso: nowIso() })[0],
         category: plan.category || '', ref_no: `plan:${plan.id}:${month}`, source: 'plan', status: plan.auto && plan.category ? 'approved' : 'pending',
       }));
       store.append(TABS.transactions, added);
@@ -712,25 +761,33 @@ export function createApi(store, env) {
       return {
         accounts: accounts(), rules: store.read(TABS.rules), budgets: store.read(TABS.budgets), goals: store.read(TABS.goals), categories: cats(),
         config: {
-          payday_day: store.config('payday_day'), language: store.config('language'), owner_name: store.config('owner_name'),
-          owner_bank_names: store.config('owner_bank_names'), start_date: store.config('start_date'),
-          weekly_email: onOff('weekly_email'), monthly_email: onOff('monthly_email'), payday_email: onOff('payday_email'),
-          bill_email: onOff('bill_email'), close_email: String(store.config('close_email') || 'off') === 'on' ? 'on' : 'off',
-          calendar_sync: String(store.config('calendar_sync') || 'off') === 'on' ? 'on' : 'off', calendar_status: String(store.config('calendar_status') || ''),
-          summary_period: byPayday() ? 'payday' : 'month', salary_stream: salaryStream(), salary_amount: Number(store.config('salary_amount')) || '',
+          payday_day: store.config(mine('payday_day')), language: store.config('language'), owner_name: store.config('owner_name'),
+          owner_bank_names: store.config(isOwner() ? 'owner_bank_names' : 'partner_bank_names'), start_date: store.config('start_date'),
+          weekly_email: onOff(mine('weekly_email')), monthly_email: onOff(mine('monthly_email')), payday_email: onOff(mine('payday_email')),
+          bill_email: onOff(mine('bill_email')), close_email: String(store.config(mine('close_email')) || 'off') === 'on' ? 'on' : 'off',
+          calendar_sync: String(store.config(mine('calendar_sync')) || 'off') === 'on' ? 'on' : 'off', calendar_status: String(store.config(mine('calendar_status')) || ''),
+          summary_period: byPayday() ? 'payday' : 'month', salary_stream: salaryStream(), salary_amount: Number(store.config(mine('salary_amount'))) || '',
           big_amount: bigAmount(), claim_days: claimDays(),
         },
         balances: streamBalances(rows(), accounts(), { year: year(), asOf: isoDate(now()) }), lastChecks: lastChecks(rows()),
         imports: importHistory(), salaryStream: salaryStream(), plans: store.read(TABS.plans), assets: store.read(TABS.assets), assetKinds: ASSET_KINDS, cards: list('cards'),
-        yearly: { found: list('yearly_subs').length, at: String(store.config('yearly_scan') || '') },
-        household: {
-          me: owner(), isOwner: env.isOwner !== false, ownerName: String(store.config('owner_name') || ''),
-          partner: { emails: String(store.config('partner_email') || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean), email: String(store.config('partner_email') || ''), name: String(store.config('partner_name') || ''), bankNames: String(store.config('partner_bank_names') || '') },
-          myGmailConnected: !env.myEmail || store.read(TABS.connections).some((c) => String(c.gmail).toLowerCase() === env.myEmail),
-        },
+        yearly: { found: list('yearly_subs').length, at: String(store.config(mine('yearly_scan')) || '') },
+        household: (() => {
+          const conns = store.read(TABS.connections);
+          const member = (role) => {
+            const p = role === 'partner' ? 'partner_' : 'owner_';
+            const emails = String(store.config(`${p}email`) || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+            const c = conns.find((x) => emails.includes(String(x.gmail).toLowerCase()));
+            return { role, name: String(store.config(`${p}name`) || ''), emails, bankNames: String(store.config(`${p}bank_names`) || ''), connected: c ? { at: c.last_sync || '', status: String(c.last_status || '') } : null };
+          };
+          return {
+            me: owner(), myRole: isOwner() ? 'owner' : 'partner', isOwner: isOwner(), members: [member('owner'), member('partner')],
+            myGmailConnected: !env.myEmail || conns.some((c) => String(c.gmail).toLowerCase() === env.myEmail),
+          };
+        })(),
         push: env.push && env.push.site ? {
-          site: env.push.site, events: pushEventsOf(store.config('push_events')), link: `${env.push.site}/notifikasi?n=${pushCode()}`,
-          devices: list('push_devices').map((d) => ({ label: d.label || '', at: d.at || '' })),
+          site: env.push.site, events: pushEventsOf(store.config(mine('push_events'))), link: `${env.push.site}/notifikasi?n=${pushCode()}`,
+          devices: list('push_devices').map((d) => ({ label: d.label || '', at: d.at || '', owner: d.owner || String(store.config('owner_name') || ''), mine: (d.owner || String(store.config('owner_name') || '')) === owner() })),
         } : null,
         budgetSuggestions: suggestBudgets(rows(), cats(), { start: start(), today: now() }),
         archives: String(store.config('archives') || '').split('\n').filter(Boolean)
@@ -803,32 +860,20 @@ export function createApi(store, env) {
 
     saveConfig(values) {
       if ('payday_day' in values) {
-        const d = Number(values.payday_day);
-        if (!Number.isInteger(d) || d < 1 || d > 31) throw new Error('payday must be a day 1-31');
-        store.setConfig('payday_day', d);
+        const raw = String(values.payday_day ?? '').trim();
+        if (raw === '' && !isOwner()) store.setConfig(mine('payday_day'), ''); // the partner may not know their payday yet
+        else {
+          const d = Number(raw);
+          if (!Number.isInteger(d) || d < 1 || d > 31) throw new Error('payday must be a day 1-31');
+          store.setConfig(mine('payday_day'), d);
+        }
       }
       if ('language' in values) {
         if (!['', 'id', 'en'].includes(values.language)) throw new Error('language must be id or en');
         store.setConfig('language', values.language);
       }
-      if ('owner_bank_names' in values) store.setConfig('owner_bank_names', String(values.owner_bank_names || ''));
-      // The partner: only the owner sets who it is (it decides who can open the spreadsheet).
-      if (['partner_email', 'partner_name', 'partner_bank_names'].some((k) => k in values)) {
-        if (env.isOwner === false) throw new Error('only the owner can change the partner');
-        // One partner may use several Google accounts: a comma-separated list.
-        const emails = String(values.partner_email ?? store.config('partner_email') ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-        const bad = emails.find((e) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
-        if (bad) throw new Error(`partner email: "${bad}" is not an email address`);
-        const email = [...new Set(emails)].join(', ');
-        const name = String(values.partner_name ?? store.config('partner_name') ?? '').trim();
-        if (email && !name) throw new Error('partner name: required');
-        if (name && name === String(store.config('owner_name') || '')) throw new Error('partner name: must differ from yours');
-        store.setConfig('partner_email', email);
-        store.setConfig('partner_name', name);
-        if ('partner_bank_names' in values) store.setConfig('partner_bank_names', String(values.partner_bank_names || '').trim());
-        if (email && env.share) env.share();
-      }
-      for (const key of ['weekly_email', 'monthly_email', 'payday_email', 'bill_email', 'close_email', 'calendar_sync']) if (key in values) store.setConfig(key, values[key] === 'off' ? 'off' : 'on');
+      if ('owner_bank_names' in values) store.setConfig(isOwner() ? 'owner_bank_names' : 'partner_bank_names', String(values.owner_bank_names || '')); // your own, whichever of you you are
+      for (const key of ['weekly_email', 'monthly_email', 'payday_email', 'bill_email', 'close_email', 'calendar_sync']) if (key in values) store.setConfig(mine(key), values[key] === 'off' ? 'off' : 'on');
       // Switching the calendar on fills it straight away (gas/calendar.js); its result is shown in Settings.
       if (values.calendar_sync === 'on' && env.syncCalendar) {
         try { return { ok: true, calendar: env.syncCalendar() }; } catch (e) { return { ok: true, calendar: { error: e.message } }; }
@@ -836,11 +881,11 @@ export function createApi(store, env) {
       if ('summary_period' in values) store.setConfig('summary_period', values.summary_period === 'payday' ? 'payday' : 'month');
       if ('push_events' in values) {
         const ev = (Array.isArray(values.push_events) ? values.push_events : String(values.push_events || '').split(',')).filter((x) => PUSH_EVENTS.includes(x));
-        store.setConfig('push_events', ev.length ? ev.join(',') : 'none');
+        store.setConfig(mine('push_events'), ev.length ? ev.join(',') : 'none');
       }
       if ('salary_stream' in values) {
         if (values.salary_stream && !accounts().some((a) => a.stream === values.salary_stream)) throw new Error('unknown account');
-        store.setConfig('salary_stream', String(values.salary_stream || ''));
+        store.setConfig(mine('salary_stream'), String(values.salary_stream || ''));
       }
       if ('claim_days' in values) {
         const n = Math.round(Number(values.claim_days));
@@ -855,7 +900,7 @@ export function createApi(store, env) {
       if ('salary_amount' in values) {
         const n = Number(values.salary_amount || 0);
         if (!(n >= 0)) throw new Error('salary must be a number');
-        store.setConfig('salary_amount', n || '');
+        store.setConfig(mine('salary_amount'), n || '');
       }
       return { ok: true };
     },
@@ -958,5 +1003,5 @@ export const API_METHODS = [
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
   'yearly', 'importStatement', 'undoImport', 'updateMany', 'tagih', 'owedSet', 'owedRemove', 'savePlans', 'saveAssets', 'markRecurring',
-  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe', 'markClaim',
+  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe', 'markClaim', 'saveHousehold',
 ];

@@ -10,6 +10,7 @@ import { upcomingBills } from '../core/wealth.js';
 import { nextPayday } from '../core/payday.js';
 import { sheetStore } from './sheetstore.js';
 import { configValue, setConfigValue } from './setup.js';
+import { whoAmI, roleKey } from './members.js';
 
 const MARK = '[cashflow]';
 const DAYS = 45;
@@ -33,20 +34,22 @@ export function calendarEvents({ plans, recurringItems, cards, payday, today, la
 }
 
 export function syncCalendar(ss, today = new Date()) {
-  if (String(configValue(ss, 'calendar_sync') || 'off') !== 'on') return { skipped: 'off' };
+  const key = (base) => roleKey(ss, base); // the owner's setting, or the partner's own
+  if (String(configValue(ss, key('calendar_sync')) || 'off') !== 'on') return { skipped: 'off' };
   const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
   try {
-    const id = String(configValue(ss, 'calendar_id') || '');
+    const id = String(configValue(ss, key('calendar_id')) || '');
     let cal = id ? CalendarApp.getCalendarById(id) : null;
     if (!cal) {
       cal = CalendarApp.createCalendar('Cashflow', { summary: 'Tagihan, langganan dan gajian dari aplikasi Cashflow' });
-      setConfigValue(ss, 'calendar_id', cal.getId());
+      setConfigValue(ss, key('calendar_id'), cal.getId());
     }
     const store = sheetStore(ss);
-    const d = createApi(store, { now: () => today }).dashboard({});
+    const w = whoAmI(ss);
+    const d = createApi(store, { now: () => today, meName: w.name, isOwner: w.owner, myEmail: w.email }).dashboard({});
     const want = new Set(calendarEvents({
       plans: store.read(TABS.plans), recurringItems: d.recurring.items, cards: d.cards || [],
-      payday: Number(configValue(ss, 'payday_day')) || 28, today, lang: String(configValue(ss, 'language') || 'id'), claims: d.claims || [], warranties: d.warranties || [],
+      payday: Number(configValue(ss, key('payday_day'))) || Number(configValue(ss, 'payday_day')) || 28, today, lang: String(configValue(ss, 'language') || 'id'), claims: d.claims || [], warranties: d.warranties || [],
     }));
     const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
     const to = new Date(today.getFullYear(), today.getMonth(), today.getDate() + DAYS + 2);
@@ -67,10 +70,10 @@ export function syncCalendar(ss, today = new Date()) {
       ev.addPopupReminder(15 * 60); // all-day events start at 00:00: 15 hours before is 09:00 the day before
       added += 1;
     }
-    setConfigValue(ss, 'calendar_status', `${stamp} ok: ${want.size} events (+${added} −${removed})`);
+    setConfigValue(ss, key('calendar_status'), `${stamp} ok: ${want.size} events (+${added} −${removed})`);
     return { events: want.size, added, removed };
   } catch (e) {
-    setConfigValue(ss, 'calendar_status', `${stamp} ERROR: ${e.message}`);
+    setConfigValue(ss, key('calendar_status'), `${stamp} ERROR: ${e.message}`);
     throw e;
   }
 }

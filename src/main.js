@@ -12,7 +12,7 @@ import { createApi, API_METHODS } from './core/api.js';
 import { scanYearly } from './gas/yearly.js';
 import { syncCalendar } from './gas/calendar.js';
 import { pushSite, sendPush, acceptDevice } from './gas/push.js';
-import { activeEmail, isMember, rememberMember, isOwnerEmail, memberName, sharePartner } from './gas/members.js';
+import { activeEmail, isMember, rememberMember, isOwnerEmail, memberName, sharePartner, roleKey } from './gas/members.js';
 import { sendWeeklySummary, clearSelfTestTrigger, runDaily, scheduleSelfTest, sendSyncAlert, installMailTriggers, runEvening } from './gas/weekly.js';
 import { refreshPrices } from './gas/prices.js';
 
@@ -90,9 +90,9 @@ export function doGet(e) {
   const p = (e && e.parameter) || {};
   // ?tab= opens a screen (the site's short links /tambah, /cek ...); ?push= is a phone joining notifications.
   const tab = TABS_OPENABLE.includes(p.tab) ? p.tab : '';
-  const push = p.push ? (acceptDevice(who.ss, p.push, p.n, p.label) ? 'ok' : 'bad') : '';
+  const push = p.push ? (acceptDevice(who.ss, p.push, p.n, p.label, who.name) ? 'ok' : 'bad') : '';
   // The cached first-screen data goes into the page itself, so it paints without a round trip.
-  const init = cachedInit();
+  const init = cachedInit(who.name);
   const start = `window.__TAB__=${JSON.stringify(tab)};window.__PUSH__=${JSON.stringify(push)};window.__ME__=${JSON.stringify(who.name).replace(/</g, '\\u003c')};`;
   const html = HtmlService.createHtmlOutputFromFile('index').getContent()
     .replace('window.__INIT__=null;', () => start + (init ? `window.__INIT__=${init.replace(/</g, '\\u003c').replace(/\//g, '\\/')};` : 'window.__INIT__=null;'));
@@ -132,11 +132,11 @@ export function api(name, payloadJson) {
       sync: () => runSync({ seed: SEED, defaultMode: SYNC_DEFAULT }),
       sheetUrl: ss.getUrl(),
       sendSummary: () => sendWeeklySummary(ss, { force: true }),
-      // The owner's own things (their Gmail, their calendar); the partner has their own sync instead.
-      ...(who.owner ? { scanYearly: () => scanYearly(ss), syncCalendar: () => syncCalendar(ss), share: () => sharePartner(ss) } : {}),
+      // Your own Gmail and your own calendar: each of you has the same, as yourself.
+      scanYearly: () => scanYearly(ss), syncCalendar: () => syncCalendar(ss), share: () => sharePartner(ss),
       connect: () => connect(SEED, SYNC_DEFAULT),
       meName: who.name, isOwner: who.owner, myEmail: who.email,
-      push: pushSite() ? { site: pushSite(), token: () => Utilities.getUuid().replace(/-/g, ''), send: (notice) => sendPush(ss, notice) } : null,
+      push: pushSite() ? { site: pushSite(), token: () => Utilities.getUuid().replace(/-/g, ''), send: (notice, opts) => sendPush(ss, notice, opts) } : null,
     });
     const lock = READ_ONLY.has(name) || name === 'syncNow' ? null : LockService.getScriptLock();
     if (lock && !lock.tryLock(20000)) {
@@ -151,7 +151,7 @@ export function api(name, payloadJson) {
       if (name === 'saveAssets' && data.fetch) try { refreshPrices(ss); } catch (e) { /* the sync fetches it later */ }
       const json = JSON.stringify({ data });
       if (name === 'init') {
-        storeInit(JSON.stringify(data));
+        storeInit(JSON.stringify(data), who.name);
         if (!payload.refresh) recordStartup({ open_ms: t1 - t0, work_ms: Date.now() - t1, ...(payload.lastLoad || {}) });
       }
       return json;
@@ -226,7 +226,7 @@ export function connectCalendar() {
   installTrigger();
   installMailTriggers();
   const ss = appSpreadsheet();
-  setConfigValue(ss, 'calendar_sync', 'on');
+  setConfigValue(ss, roleKey(ss, 'calendar_sync'), 'on'); // yours, whichever of you runs it
   return syncCalendar(ss);
 }
 export function setup() { return runSetup(appSpreadsheet(), SEED); }

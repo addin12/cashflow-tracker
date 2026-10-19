@@ -35,7 +35,7 @@ export function salaryCategory(incomeCategories) {
  * within 10 days of that payday, or carries ref_no "salary:YYYY-MM".
  * @returns {{month: string, date: string, amount: number}[]} oldest first; amount = suggested
  */
-export function missingSalaries(rows, { start, today, payday, category, skipped = [], expected = 0 }) {
+export function missingSalaries(rows, { start, today, payday, category, skipped = [], expected = 0, refOf = (m) => `salary:${m}` }) {
   if (!start || !category || !payday) return [];
   const todayIso = iso(today);
   const skip = new Set(skipped);
@@ -50,7 +50,7 @@ export function missingSalaries(rows, { start, today, payday, category, skipped 
     if (date < String(start).slice(0, 10) || skip.has(m)) continue;
     const from = dayShift(date, -10);
     const to = dayShift(date, 10);
-    if (salaries.some((s) => s.ref === `salary:${m}` || (s.date >= from && s.date <= to))) continue;
+    if (salaries.some((s) => s.ref === refOf(m) || (s.date >= from && s.date <= to))) continue;
     out.push({ month: m, date, amount: Number(expected) || last });
   }
   return out;

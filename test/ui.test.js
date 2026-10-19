@@ -54,6 +54,7 @@ const click = (el) => el.dispatchEvent(new dom.window.MouseEvent('click', { bubb
 const tab = async (name, text) => { click(doc.querySelector(`.nav [data-tab=${name}]`)); await until(() => view().includes(text), `${name} tab`); };
 const section = async (key, sel) => { await until(() => doc.querySelector(`[data-action=setsection][data-section=${key}]`), `${key} button`); click(doc.querySelector(`[data-action=setsection][data-section=${key}]`)); await until(() => doc.querySelector(sel), `${key} section`); };
 const status = (id) => store.t[TABS.transactions].find((r) => r.id === id).status;
+const state_reset = () => { /* the last test: nothing after it reads the household */ };
 
 beforeAll(async () => {
   store = memoryStore();
@@ -645,6 +646,30 @@ describe('web app', () => {
     for (let i = 0; i < 200 && !/\d+s/.test(d4.querySelector('#view').textContent); i += 1) await new Promise((res) => setTimeout(res, 5));
     expect(d4.querySelector('#view').textContent).toMatch(/Memuat… \d+s/);
     fourth.window.close();
+  });
+
+  it('Settings → Pasangan shows both people, either editable; saving a partner brings the Kita / Aku / Dewi switch', async () => {
+    click(doc.querySelector('.nav [data-tab=settings]'));
+    await section('household', 'form[data-form=household]');
+    const form = doc.querySelector('form[data-form=household]');
+    expect([...form.querySelectorAll('.hh-member legend')].map((l) => l.textContent.trim())).toEqual(['Me · you', 'No name yet']); // the language test before this one left the page in English
+    expect(form.querySelector('[name=owner_name]').value).toBe('Me');
+    const put = (name, value) => { form.querySelector(`[name=${name}]`).value = value; };
+    put('partner_emails', 'not-an-email');
+    form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+    expect(form.querySelector('[name=partner_emails]').getAttribute('aria-invalid') || form.textContent).toMatch(/true|Not an email address/);
+    put('partner_name', 'Dewi');
+    put('partner_emails', 'dewi@example.com, dewi.work@example.com');
+    put('partner_bank', 'DEWI LESTARI');
+    form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+    await until(() => store.cfg.partner_name === 'Dewi', 'household saved');
+    expect(store.cfg).toMatchObject({ partner_email: 'dewi@example.com, dewi.work@example.com', partner_bank_names: 'DEWI LESTARI' });
+    await tab('dashboard', 'Summary');
+    await until(() => doc.querySelector('.seg.who'), 'the Us / Me / Dewi switch');
+    expect([...doc.querySelectorAll('.seg.who button')].map((b) => b.textContent.trim())).toEqual(['Us', 'Me', 'Dewi']);
+    // Put the household back as it was, for anything after this.
+    Object.assign(store.cfg, { partner_name: '', partner_email: '', partner_bank_names: '' });
+    state_reset();
   });
 
   it('the page has no references to outside scripts or styles', async () => {

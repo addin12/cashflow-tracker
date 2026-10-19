@@ -52,6 +52,16 @@ export function findYearly(charges, { today }) {
 }
 
 /**
+ * The stored plans after `by` scanned: theirs are replaced by `found`, the other person's stay. Plans stored
+ * before there were two people have no `by` and belong to `firstPerson`.
+ */
+export function mergeYearly(stored, found, { by, firstPerson }) {
+  const keep = stored.filter((p) => (p.by || firstPerson) !== by);
+  const have = new Set(keep.map((p) => p.key));
+  return [...keep, ...found.filter((f) => !have.has(f.key)).map((f) => ({ ...f, by }))];
+}
+
+/**
  * Yearly plans as subscription items: a charge seen since (from 30 days before the renewal date)
  * means it renewed, and the next renewal is a year later.
  */
