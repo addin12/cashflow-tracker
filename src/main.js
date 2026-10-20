@@ -12,6 +12,7 @@ import { createApi, API_METHODS } from './core/api.js';
 import { scanYearly } from './gas/yearly.js';
 import { syncCalendar } from './gas/calendar.js';
 import { pushSite, sendPush, acceptDevice } from './gas/push.js';
+import { tokenSet, saveToken, removeToken } from './gas/telegram.js';
 import { activeEmail, isMember, rememberMember, isOwnerEmail, memberName, sharePartner, roleKey } from './gas/members.js';
 import { sendWeeklySummary, clearSelfTestTrigger, runDaily, scheduleSelfTest, sendSyncAlert, installMailTriggers, runEvening } from './gas/weekly.js';
 import { refreshPrices } from './gas/prices.js';
@@ -136,6 +137,7 @@ export function api(name, payloadJson) {
       scanYearly: () => scanYearly(ss), syncCalendar: () => syncCalendar(ss), share: () => sharePartner(ss),
       connect: () => connect(SEED, SYNC_DEFAULT),
       meName: who.name, isOwner: who.owner, myEmail: who.email,
+      telegram: { configured: tokenSet, save: saveToken, remove: removeToken, token: () => Utilities.getUuid().replace(/-/g, '') },
       push: pushSite() ? { site: pushSite(), token: () => Utilities.getUuid().replace(/-/g, ''), send: (notice, opts) => sendPush(ss, notice, opts) } : null,
     });
     const lock = READ_ONLY.has(name) || name === 'syncNow' ? null : LockService.getScriptLock();

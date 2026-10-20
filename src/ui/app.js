@@ -13,6 +13,8 @@ import { parseStatement, matchStatement } from '../core/statement.js';
 import { parseQuick, evalAmount } from '../core/quick.js';
 import { interestCompare } from '../core/wealth.js';
 import { toCsv } from '../core/csv.js';
+import { isShared, toggleSharedTag } from '../core/shared.js';
+import { validToken } from '../core/telegram.js';
 import { categoryHabit } from '../core/insights.js';
 
 const state = {
@@ -621,6 +623,7 @@ function overviewHtml(d) {
         ${goalsCard(d.goals)}
         ${recurringCard(d.recurring)}
         ${eventsCard(d.events)}
+        ${sharedCard(d.shared)}
         ${claimsCard(d.claims)}
         ${warrantiesCard(d.warranties)}
         ${cardsCard(d.cards)}
@@ -1336,6 +1339,23 @@ function attentionCard(d) {
   return `<section class="card attn"><h2>${esc(T.attnTitle)}</h2><div class="rows">${rows.slice(0, 6).map((r) => `<button class="lrow" ${r.act}><span class="cat-ic ${r.bad ? 'c3' : 'c6'}" aria-hidden="true">${r.icon}</span><span class="what"><b>${esc(r.title)}</b><span class="meta">${esc(r.meta)}</span></span></button>`).join('')}</div></section>`;
 }
 
+/** The tag button on a payment's notes: shared by the two of you (#bersama). Only with two people. */
+const sharedToggle = (details) => ((state.boot.members || []).length > 1
+  ? `<div class="actions" style="justify-content:flex-start"><button type="button" class="chip-btn ${isShared({ details }) ? 'on' : ''}" aria-pressed="${isShared({ details })}" data-action="toggleshared">${esc(T.sharedToggle)}</button></div>` : '');
+
+/** Overview: what the two of you share (#bersama), who paid and who owes whom, with "Tandai lunas". */
+function sharedCard(sh) {
+  if (!sh) return '';
+  const [a, b] = sh.people;
+  const history = sh.settlements.length ? `<h3 class="sub-title">${esc(T.sharedHistory)}</h3><div class="rows">${sh.settlements.slice(0, 3).map((s, i) => `<div class="rowi"><span class="what"><b>${esc(T.sharedLine(dateLabel(s.date, { weekday: false }), s.from, s.to, rp(s.amount)))}</b></span>${i === 0 ? `<button class="btn plain small" data-action="unsettle" data-id="${esc(s.id)}">${esc(T.sharedUndo)}</button>` : ''}</div>`).join('')}</div>` : '';
+  if (!sh.count) return `<section class="card shared"><h2>${esc(T.sharedTitle)}</h2><p class="lead">${esc(T.sharedHint)}</p>${history}</section>`;
+  const row = (p) => `<div class="rowi"><span class="what"><b>${esc(p.name)}</b><span class="meta">${esc(T.sharedPart(p.pct, rp(p.share)))}</span></span><span class="amt">${esc(T.sharedPaid(rp(p.paid)))}</span></div>`;
+  return `<section class="card shared"><h2>${esc(T.sharedTitle)}</h2><p class="lead">${esc(T.sharedTotal(rp(sh.total), rp(sh.monthTotal)))}</p>
+    <div class="rows">${row(a)}${row(b)}</div>
+    ${sh.owes ? `<p class="lead"><b>${esc(T.sharedOwes(sh.owes.from, sh.owes.to, rp(sh.owes.amount)))}</b></p><div class="actions" style="justify-content:flex-start"><button class="btn secondary" data-action="settle" data-amount="${esc(sh.owes.amount)}">${esc(T.sharedSettle)}</button></div>` : `<p class="lead">✓ ${esc(T.sharedEven)}</p>`}
+    ${history}</section>`;
+}
+
 /** Overview: claims still to make, nearest deadline first. */
 function claimsCard(list) {
   if (!list || !list.length) return '';
@@ -1585,6 +1605,7 @@ function openEditor(id) {
         ${field(T.status, `<select name="status">${statuses}</select>`, { help: T.statusHelp })}
       </div>
       ${field(T.notes, `<input name="details" value="${esc(x.details)}">`, { help: T.notesTagHelp })}
+      ${sharedToggle(x.details)}
       <div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.cancel)}</button><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div>
     </form>
     ${parentId ? `<div class="split-box"><p>${esc(T.isSplitPart)}</p><button class="btn secondary" type="button" data-action="edit" data-id="${esc(parentId)}">${esc(T.openSplitParent)}</button></div>`
@@ -1721,6 +1742,7 @@ function viewAdd() {
       </div>
       ${field(T.description, `<input name="description" autocomplete="off" value="${esc(pre.description || '')}">`, { help: T.descriptionHelp })}
       ${field(T.notes, `<input name="details" autocomplete="off" value="${esc(pre.details || '')}">`, { help: T.notesTagHelp })}
+      ${sharedToggle(pre.details || '')}
       <div id="addDup"></div>
       <div class="actions"><span class="state" id="addState" role="status"></span><button class="btn primary" type="submit">${esc(T.saveTransaction)}</button></div>
     </form></div>`);
@@ -1785,6 +1807,25 @@ function whoSeg() {
 }
 const otherOwner = (x) => (x.owner && (state.boot.members || []).length > 1 && x.owner !== state.boot.me ? ` · ${esc(x.owner)}` : '');
 
+/** Settings → Telegram: your own bot, and which chats may log by it. */
+function telegramSection(s) {
+  const t = s.telegram;
+  if (!t) return `<section class="card"><h2>${esc(T.tgTitle)}</h2><p class="lead">${esc(T.tgNotSetUp)}</p></section>`;
+  if (!t.configured) {
+    return `<form class="card" data-form="telegramtoken" novalidate><h2>${esc(T.tgTitle)}</h2><p class="lead">${esc(T.tgIntro)}</p>
+      <ol>${T.tgSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>
+      ${field(T.tgToken, '<input name="token" type="password" autocomplete="off" spellcheck="false" placeholder="123456789:AAH…">', { help: T.tgTokenHelp })}
+      <div class="actions"><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.tgSave)}</button></div></form>`;
+  }
+  const mine = t.chats.some((c) => c.mine);
+  const chats = t.chats.map((c) => `<div class="rowi"><span class="what"><b>${esc(c.label)}</b><span class="meta">${esc([c.owner, c.at ? T.notifSince(dateLabel(c.at.slice(0, 10), { weekday: false })) : ''].filter(Boolean).join(' · '))}</span></span></div>`).join('');
+  return `<section class="card"><h2>${esc(T.tgTitle)}</h2><p class="lead">${esc(T.tgBot(t.username))}</p>
+      ${chats ? `<div class="rows">${chats}</div>` : `<p class="hint">${esc(T.tgNoChats)}</p>`}
+      <div class="actions" style="justify-content:flex-start">${t.link ? `<a class="btn primary" target="_blank" rel="noopener" href="${esc(t.link)}">${esc(mine ? T.tgLinkAgain : T.tgLinkBtn)}</a>` : ''}${mine ? `<button class="btn secondary" type="button" data-action="tgunlink">${esc(T.tgUnlink)}</button>` : ''}</div>
+      <p class="hint">${esc(T.tgLinkHint)}</p><h3 class="sub-title">${esc(T.tgUsageTitle)}</h3><p class="hint pre">${esc(T.tgUsage)}</p></section>
+    <section class="card"><div class="actions" style="justify-content:flex-start"><button class="btn danger" type="button" data-action="tgremove">${esc(T.tgRemove)}</button></div><p class="hint">${esc(T.tgRemoveHint)}</p></section>`;
+}
+
 /** Settings → Pasangan: both of you, the same for each. Either of you can change any of it. */
 function householdSection(s) {
   const h = s.household || {};
@@ -1803,6 +1844,7 @@ function householdSection(s) {
   };
   return `<form class="card" data-form="household" novalidate><h2>${esc(T.hhTitle)}</h2><p class="lead">${esc(T.hhHint)}</p>
     ${(h.members || []).map(card).join('')}
+    ${(h.members || []).length > 1 && (h.members[1].emails || []).length ? field(T.hhSplit(h.members[0].name), `<input name="split" type="number" min="1" max="99" inputmode="numeric" value="${esc(h.split || 50)}">`, { help: T.hhSplitHelp }) : ''}
     <details class="howto"><summary>${esc(T.hhStepsTitle)}</summary><ol>${T.hhSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></details>
     <p class="hint">${esc(T.hhAccountsHint)}</p>
     <div class="actions"><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div></form>`;
@@ -1874,6 +1916,7 @@ async function viewSettings(local) {
     assets: assetsForm(s),
     cards: cardsForm(s),
     notif: notifSection(s),
+    telegram: telegramSection(s),
     household: householdSection(s),
     sync: `
       <section class="card"><h2>${esc(T.settingsSync)}</h2><p class="lead">${esc(T.settingsSyncHint)}</p><div class="rows">${conns}</div>
@@ -1933,7 +1976,7 @@ async function viewSettings(local) {
   const groups = [
     [T.setGroupRoutine, [['monthend', T.monthEnd, T.monthEndShort], ['import', T.importTitle, (s.imports || []).length ? T.importLast(new Date(s.imports[0].at).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })) : T.importNever], ['sync', T.settingsSync, syncNote]]],
     [T.setGroupMoney, [['accounts', T.accountsTitle, T.nAccounts(s.accounts.length)], ['budgets', T.budgetsTitle, T.nBudgets(s.budgets.length)], ['goals', T.goalsTitle, T.nGoals((s.goals || []).length)], ['assets', T.assetsTitle, T.nAssets((s.assets || []).length)], ['cards', T.cardsTitle, T.nCards((s.cards || []).length)]]],
-    [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['plans', T.plansTitle, T.nPlans((s.plans || []).length)], ['emails', T.emailsTitle, T.nEmailsOn(emailsOn, 5)], ['notif', T.notifTitle, s.push ? T.nDevices(s.push.devices.length) : T.notifOff]]],
+    [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['plans', T.plansTitle, T.nPlans((s.plans || []).length)], ['emails', T.emailsTitle, T.nEmailsOn(emailsOn, 5)], ['notif', T.notifTitle, s.push ? T.nDevices(s.push.devices.length) : T.notifOff], ['telegram', T.tgTitle, s.telegram && s.telegram.configured ? T.nChats(s.telegram.chats.length) : T.tgOff]]],
     [T.setGroupApp, [['household', T.hhTitle, ((s.household && s.household.members.find((m) => m.role !== s.household.myRole)) || {}).name || T.hhNone], ['prefs', T.preferences, T.prefSummary(lang, Number(cfg.payday_day) || 28)], ['more', T.more, T.moreSummary]]],
   ];
   if (state.settingsSection && !sections[state.settingsSection]) state.settingsSection = null;
@@ -2228,6 +2271,27 @@ function onClick(e) {
     return null;
   }
   if (a === 'interest') return openInterest();
+  if (a === 'tgunlink' || a === 'tgremove') {
+    if (a === 'tgremove' && !window.confirm(T.tgRemoveAsk)) return null;
+    return call(a === 'tgunlink' ? 'telegramUnlink' : 'telegramRemove').then(async () => { toast(a === 'tgunlink' ? T.tgUnlinked : T.tgRemoved); viewSettings(await call('settings')); })
+      .catch((err) => toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }));
+  }
+  if (a === 'toggleshared') {
+    const input = el.closest('form') && el.closest('form').querySelector('[name=details]');
+    if (input) {
+      input.value = toggleSharedTag(input.value);
+      const on = isShared({ details: input.value });
+      el.classList.toggle('on', on);
+      el.setAttribute('aria-pressed', String(on));
+    }
+    return null;
+  }
+  if (a === 'settle' || a === 'unsettle') {
+    el.disabled = true;
+    return save(a === 'settle' ? 'settleUp' : 'undoSettlement', a === 'settle' ? { amount: el.dataset.amount } : { id: el.dataset.id })
+      .then(() => { state.dashByMonth = {}; toast(a === 'settle' ? T.sharedSettled : T.sharedUndone); if (state.tab === 'dashboard') viewDashboard(); })
+      .catch((err) => { el.disabled = false; toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }); });
+  }
   if (a === 'claim') {
     const id = el.dataset.id;
     const status = el.dataset.status;
@@ -2531,9 +2595,16 @@ function onSubmit(e) {
     }
     ok = fieldMessage(form.querySelector('[name=owner_name]'), v('owner_name') ? '' : T.hhErrName) && ok;
     ok = fieldMessage(form.querySelector('[name=partner_name]'), !emailsOf('partner_emails').length || v('partner_name') ? '' : T.hhErrName) && ok;
+    const splitInput = form.querySelector('[name=split]');
+    if (splitInput) ok = fieldMessage(splitInput, Number(splitInput.value) >= 1 && Number(splitInput.value) <= 99 ? '' : T.hhErrSplit) && ok;
     if (!ok) return null;
     const person = (role) => ({ name: v(`${role}_name`), emails: emailsOf(`${role}_emails`), bankNames: v(`${role}_bank`) });
-    return saveForm(form, 'saveHousehold', { owner: person('owner'), partner: person('partner') }, async () => { state.dashByMonth = {}; state.allStale = true; await refresh(); viewSettings(await call('settings')); });
+    return saveForm(form, 'saveHousehold', { owner: person('owner'), partner: person('partner'), ...(splitInput ? { split: Number(splitInput.value) } : {}) }, async () => { state.dashByMonth = {}; state.allStale = true; await refresh(); viewSettings(await call('settings')); });
+  }
+  if (kind === 'telegramtoken') {
+    const token = form.querySelector('[name=token]').value.trim();
+    if (!fieldMessage(form.querySelector('[name=token]'), validToken(token) ? '' : T.tgBad)) return null;
+    return saveForm(form, 'saveTelegramToken', { token }, async () => { viewSettings(await call('settings')); });
   }
   if (kind === 'notif') {
     const events = NOTIF_EVENTS.filter((k) => form.querySelector(`[name=push_${k}]`).checked);

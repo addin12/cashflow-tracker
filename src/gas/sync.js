@@ -22,6 +22,7 @@ import { createApi } from '../core/api.js';
 import { sheetStore } from './sheetstore.js';
 import { installMailTriggers, scheduleSelfTest, sendSyncAlert } from './weekly.js';
 import { rolloverYear } from './rollover.js';
+import { pollTelegram } from './telegram.js';
 import { memberName, bankNames, isOwnerEmail, ownerEmails, sharePartner, rememberMember } from './members.js';
 
 const OVERLAP_MS = 2 * 24 * 3600 * 1000;
@@ -133,6 +134,8 @@ function upsertConnection(ss, gmail, changes) {
 export function runSync(opts = {}) {
   // The every-minute trigger: nothing new in Gmail means nothing to do.
   if (opts.quick) {
+    // Messages to the Telegram bot become transactions; the spreadsheet is opened only when there are any.
+    try { pollTelegram(() => appSpreadsheet(), { onChange: () => PropertiesService.getScriptProperties().setProperty(P.stamp, String(Date.now())) }); } catch (e) { /* tried again next minute */ }
     try { if (!needsFullRun(PropertiesService.getUserProperties())) return { status: 'idle' }; } catch (e) { /* look properly instead */ }
   }
   const lock = LockService.getScriptLock();

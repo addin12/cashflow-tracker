@@ -24,6 +24,8 @@ import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth } fro
 import { topPlaces, biggestExpenses, moneyFlow, spendingPattern, tagTotals, newPlaceIds, underBudget } from './insights.js';
 import { netWorth, assetProblems, ASSET_KINDS, duePlans, owedSummary, upcomingBills, financialHealth, warrantyEnds, parsePriceStatus } from './wealth.js';
 import { markClaim, openClaims, CLAIM_STATUSES, DEFAULT_CLAIM_DAYS } from './claims.js';
+import { sharedBalance } from './shared.js';
+import { validToken, makeNonce, parseNonce, unlinkOwner } from './telegram.js';
 import { cardBills, cardProblems } from './cards.js';
 import { sptList } from './spt.js';
 import { yearlyItems, YEARLY_WORDS } from './yearly.js';
@@ -110,6 +112,19 @@ export function createApi(store, env) {
     const emails = String(store.config(`${p}email`) || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
     const c = store.read(TABS.connections).find((x) => emails.includes(String(x.gmail).toLowerCase()));
     return { role, name: String(store.config(`${p}name`) || ''), emails, bankNames: String(store.config(`${p}bank_names`) || ''), connected: c ? { at: c.last_sync || '', status: String(c.last_status || '') } : null };
+  };
+  /** What the two of you share (#bersama): who paid, who owes whom. Null with one person. */
+  const sharedNow = (range) => {
+    const people = members();
+    if (people.length < 2) return null;
+    return sharedBalance({ rows: rows(), people, pct: Number(store.config('shared_split')) || 50, settlements: list('settlements'), range });
+  };
+  const telegramCode = () => {
+    const n = parseNonce(store.config('telegram_nonce'));
+    if (n && n.name === owner() && now().getTime() - n.at < 20 * 60000) return n.code;
+    const fresh = env.telegram.token();
+    store.setConfig('telegram_nonce', makeNonce(fresh, now().getTime(), owner()));
+    return fresh;
   };
   const claimDays = () => Math.min(365, Math.max(1, Number(store.config('claim_days')) || DEFAULT_CLAIM_DAYS));
   const salaryStream = () => String(store.config(mine('salary_stream')) || '');
@@ -400,6 +415,7 @@ export function createApi(store, env) {
         daily,
         under: underBudget(daily, { today: isoDate(today), from: start(), allowance: budgetTotal ? budgetTotal / Math.max(1, daily.length) : 0 }),
         claims: openClaims(all, json('claims'), today),
+        shared: sharedNow(spanOf(m)),
         warranties: warrantyEnds(store.read(TABS.assets), today, 60),
         prevDaily: dailySpending(all, c, spanOf(monthAdd(m, -1))),
         // Today's payments (also the ones still waiting for a category) and the latest rows.
@@ -456,7 +472,7 @@ export function createApi(store, env) {
      * names. Either of you can change it. Renaming a person carries their rows and accounts along; the
      * spreadsheet is shared with every account listed. You can't remove your own access.
      */
-    saveHousehold({ owner: o, partner: p }) {
+    saveHousehold({ owner: o, partner: p, split }) {
       const emailsOf = (v) => (Array.isArray(v) ? v : String(v || '').split(',')).map((e) => String(e).trim().toLowerCase()).filter(Boolean);
       const clean = (m, label) => {
         const emails = [...new Set(emailsOf(m && m.emails))];
@@ -481,6 +497,11 @@ export function createApi(store, env) {
         store.update(TABS.transactions, rows().filter((r) => renames[r.owner]).map((r) => ({ id: r.id, changes: { owner: renames[r.owner] } })));
         store.replace(TABS.accounts, accounts().map((x) => (renames[x.owner] ? { ...x, owner: renames[x.owner] } : x)));
       }
+      if (split !== undefined && split !== null && split !== '') {
+        const n = Math.round(Number(split));
+        if (!(n >= 1 && n <= 99)) throw new Error('the split must be 1-99 percent');
+        store.setConfig('shared_split', n);
+      }
       store.setConfig('owner_name', a.name);
       store.setConfig('owner_email', a.emails.join(', '));
       store.setConfig('owner_bank_names', a.bankNames);
@@ -489,6 +510,50 @@ export function createApi(store, env) {
       store.setConfig('partner_bank_names', b.bankNames);
       if (env.share) { try { env.share(); } catch (e) { /* Google may not let you share; the Settings screen says who is connected */ } }
       return { ok: true, renamed: Object.keys(renames).length };
+    },
+
+    /** The bot's token from BotFather: checked with Telegram, kept out of the sheet. */
+    saveTelegramToken({ token }) {
+      if (!env.telegram) throw new Error('Telegram is not available here');
+      const t = String(token || '').trim();
+      if (!validToken(t)) throw new Error('that does not look like a bot token (it looks like 123456:ABC…)');
+      const r = env.telegram.save(t);
+      store.setConfig('telegram_username', r.username);
+      return { ok: true, username: r.username };
+    },
+
+    /** Your chat stops logging (the bot and the other person's chat stay). */
+    telegramUnlink() {
+      store.setConfig('telegram_chats', JSON.stringify(unlinkOwner(list('telegram_chats'), owner())));
+      return { ok: true };
+    },
+
+    /** The bot goes away for both of you. */
+    telegramRemove() {
+      if (!env.telegram) throw new Error('Telegram is not available here');
+      env.telegram.remove();
+      ['telegram_chats', 'telegram_nonce', 'telegram_username'].forEach((k) => store.setConfig(k, ''));
+      return { ok: true };
+    },
+
+    /** "Tandai lunas": the one who owes pays the other (all of it, or `amount`); it counts against what is owed. */
+    settleUp({ amount } = {}) {
+      const bal = sharedNow(null);
+      if (!bal) throw new Error('there is no partner to settle with');
+      if (!bal.owes) throw new Error('nothing to settle: you are even');
+      const v = amount === undefined || amount === null || amount === '' ? bal.owes.amount : Math.round(Math.abs(Number(amount)) * 100) / 100;
+      if (!(v > 0) || v > bal.owes.amount + 0.005) throw new Error(`the amount must be above 0 and at most ${bal.owes.amount}`);
+      const entry = { id: newId('s'), date: isoDate(now()), from: bal.owes.from, to: bal.owes.to, amount: v, by: owner() };
+      store.setConfig('settlements', JSON.stringify([...list('settlements'), entry].slice(-100)));
+      return { ok: true, id: entry.id };
+    },
+
+    /** Takes a settle-up back out (a mistake). */
+    undoSettlement({ id }) {
+      const all = list('settlements');
+      if (!all.some((s) => s.id === id)) throw new Error('settle-up not found');
+      store.setConfig('settlements', JSON.stringify(all.filter((s) => s.id !== id)));
+      return { ok: true };
     },
 
     /** A test notification to every phone that joined. */
@@ -598,7 +663,10 @@ export function createApi(store, env) {
         });
       });
       if (added.length) store.append(TABS.transactions, added);
-      return { added: added.length, pending: added.filter((r) => r.status === 'pending').length, skipped };
+      return {
+        added: added.length, pending: added.filter((r) => r.status === 'pending').length, skipped,
+        rows: added.map((r) => ({ description: r.description, amount: r.amount, direction: r.direction, stream: r.stream, category: r.category, status: r.status })),
+      };
     },
 
     /** A budget for a #tag (a trip, an event); 0 removes it. */
@@ -784,10 +852,18 @@ export function createApi(store, env) {
         },
         balances: streamBalances(rows(), accounts(), { year: year(), asOf: isoDate(now()) }), lastChecks: lastChecks(rows()),
         imports: importHistory(), salaryStream: salaryStream(), plans: store.read(TABS.plans), assets: store.read(TABS.assets), assetKinds: ASSET_KINDS, cards: list('cards'),
+        telegram: env.telegram ? (() => {
+          const configured = env.telegram.configured();
+          const username = String(store.config('telegram_username') || '');
+          return {
+            configured, username, link: configured && username ? `https://t.me/${username}?start=${telegramCode()}` : '',
+            chats: list('telegram_chats').map((c) => ({ label: c.label || 'Telegram', owner: c.owner, at: c.at || '', mine: c.owner === owner() })),
+          };
+        })() : null,
         prices: parsePriceStatus(store.config('price_status')),
         yearly: { found: list('yearly_subs').length, at: String(store.config(mine('yearly_scan')) || '') },
         household: {
-          me: owner(), myRole: isOwner() ? 'owner' : 'partner', isOwner: isOwner(), members: [memberInfo('owner'), memberInfo('partner')],
+          me: owner(), myRole: isOwner() ? 'owner' : 'partner', isOwner: isOwner(), members: [memberInfo('owner'), memberInfo('partner')], split: Number(store.config('shared_split')) || 50,
           myGmailConnected: !env.myEmail || store.read(TABS.connections).some((c) => String(c.gmail).toLowerCase() === env.myEmail),
         },
         push: env.push && env.push.site ? {
@@ -1008,5 +1084,5 @@ export const API_METHODS = [
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
   'yearly', 'importStatement', 'undoImport', 'updateMany', 'tagih', 'owedSet', 'owedRemove', 'savePlans', 'saveAssets', 'markRecurring',
-  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe', 'markClaim', 'saveHousehold',
+  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe', 'markClaim', 'saveHousehold', 'settleUp', 'undoSettlement', 'saveTelegramToken', 'telegramUnlink', 'telegramRemove',
 ];

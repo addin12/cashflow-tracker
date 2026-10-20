@@ -48,7 +48,8 @@ describe('notes become transactions', () => {
     const store = memoryStore();
     const api = createApi(store, { now: oct16 });
     const r = api.addNotes({ gmailId: 'g9', sentMs: new Date(2026, 9, 16, 12).getTime(), notes: ['kopi 28rb gopay #pagi', 'bensin 50rb', 'kemarin parkir 5rb cash', 'halo'] });
-    expect(r).toEqual({ added: 3, pending: 2, skipped: ['halo'] });
+    expect(r).toMatchObject({ added: 3, pending: 2, skipped: ['halo'] });
+    expect(r.rows.map((x) => [x.description, x.status])).toEqual([['Kopi', 'approved'], ['Bensin', 'pending'], ['Parkir', 'pending']]);
     const rows = store.t[TABS.transactions].filter((x) => x.gmail_id === 'g9');
     expect(rows.map((x) => [x.description, x.amount, x.stream, x.category, x.status, x.date, x.source])).toEqual([
       ['Kopi', 28000, 'GoPay', 'Makan', 'approved', '2026-10-16', 'note'],

@@ -695,3 +695,7 @@ button.rowi:hover { background: var(--zebra); }
 .attn h2 { margin-bottom: 8px; }
 .day-card.compact summary .what { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .day-card .streak { white-space: nowrap; }
+
+.shared .rowi .amt { white-space: nowrap; }
+
+.hint.pre { white-space: pre-line; }
