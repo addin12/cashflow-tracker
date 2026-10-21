@@ -225,6 +225,8 @@ function syncOnce(opts) {
       } catch (err) {
         // Gmail's per-minute quota: keep what we have; the next run continues from here.
         if (/quota|rate limit|too many/i.test(err.message)) { complete = false; note = 'Gmail rate limit, continuing next run'; break; }
+        // Deleted or trashed between the list and the fetch: nothing to read, and one gone email must not stop the whole run.
+        if (/not found/i.test(err.message)) { note = note || 'an email was deleted before it could be read'; continue; }
         throw err;
       }
       emails.push({ id: e.id, from: e.from, subject: e.subject, epochMs: e.epochMs, gmail, result: parseEmail(e) });
@@ -272,7 +274,8 @@ function syncOnce(opts) {
           const notesApi = createApi(sheetStore(ss), { now: () => new Date(), meName: memberName(ss, gmail), isOwner: owner, myEmail: gmail.toLowerCase() });
           const lines = [];
           for (const id of noteIds) {
-            const e = getEmail(id);
+            let e;
+            try { e = getEmail(id); } catch (err) { if (/not found/i.test(err.message)) continue; throw err; }
             if (!String(e.from).toLowerCase().includes(gmail.toLowerCase())) continue; // only notes from yourself
             const notes = notesFromEmail(e.subject, bodyToTokens(e.body || '', e.isHtml).join('\n'));
             const r = notes.length ? notesApi.addNotes({ gmailId: e.id, sentMs: e.epochMs, notes }) : { added: 0, skipped: [] };
