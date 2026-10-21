@@ -47,7 +47,7 @@ const calls = [];
 const tick = () => new Promise((r) => setTimeout(r, 0));
 async function until(fn, what) {
   for (let i = 0; i < 200; i += 1) { if (fn()) return; await new Promise((r) => setTimeout(r, 5)); }
-  throw new Error(`timed out waiting for ${what}\n${doc.querySelector('#view').innerHTML.slice(0, 500)}`);
+  throw new Error(`timed out waiting for ${what}\nserver calls so far: ${calls.join(' ')}\n${doc.querySelector('#view').innerHTML.slice(0, 500)}`);
 }
 const view = () => doc.querySelector('#view').textContent;
 const click = (el) => el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
