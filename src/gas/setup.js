@@ -9,6 +9,7 @@ import {
 import { templatePatches, isOpenEnded } from '../core/formulas.js';
 import { validateSeed } from '../core/seed.js';
 import { accountFixes } from '../core/datafix.js';
+import { sharePartner } from './members.js';
 import { changeCategorySlots, renameCategoryEverywhere } from '../core/api.js';
 import { slotsAfterChanges } from '../core/categories.js';
 import { sheetStore } from './sheetstore.js';
@@ -341,6 +342,8 @@ export function runSetup(ss, seedRaw) {
 
   formatTabs(ss);
   setConfigValue(ss, 'setup_version', SETUP_VERSION);
+  // Everyone listed in Settings → Partner (and the seed's extra addresses) may open the spreadsheet. Only an editor can share.
+  try { const r = sharePartner(ss); if (r.shared) log.push(`Shared the spreadsheet with ${r.shared} more account(s)`); } catch (e) { log.push(`Could not share the spreadsheet from this account: ${e.message}`); }
   SpreadsheetApp.flush();
   log.push('Done');
   return log;

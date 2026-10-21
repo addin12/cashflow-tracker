@@ -1,7 +1,7 @@
 // Layout of the tabs the app owns, and the fixed coordinates of the template.
 // Everything that touches a cell address goes through this file.
 
-export const SETUP_VERSION = 29; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at · 19: price_status · 20: notes by email, tag budgets, close the day, bill reminders · 21: paydays before weekends/holidays, cards, yearly plans, calendar · 22: phone notifications · 23: partner · 24: a partner with several Google accounts · 25: owner_email · 26: warranty dates, insurance claims, yearly plans looked for again · 27: the partner's own settings · 28: shared costs, Telegram · 29: data fixes can add accounts and fill rows' accounts
+export const SETUP_VERSION = 30; // 10: formulas under en_US · 11: Goals tab, move_to_opening · 12: unmerge the ledger area · 13: salary, seed config · 14: every-minute sync trigger · 15: balance_checks, big_amount · 16: imports · 17: Tagih, Rutin, Aset tabs · 18: Aset.price_at · 19: price_status · 20: notes by email, tag budgets, close the day, bill reminders · 21: paydays before weekends/holidays, cards, yearly plans, calendar · 22: phone notifications · 23: partner · 24: a partner with several Google accounts · 25: owner_email · 26: warranty dates, insurance claims, yearly plans looked for again · 27: the partner's own settings · 28: shared costs, Telegram · 29: data fixes can add accounts and fill rows' accounts · 30: setup shares the spreadsheet with everyone listed
 
 export const TABS = {
   transactions: 'Transactions',
