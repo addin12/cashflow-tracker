@@ -207,7 +207,10 @@ function syncOnce(opts) {
     const latest = new Map();
     logged.forEach((r) => latest.set(String(r.gmail_id), r.status));
     const again = (s) => s === 'error' || s === 'waiting';
-    const failed = new Set([...latest].filter(([id, s]) => again(s) && !inTransactions.has(id)).map(([id]) => id));
+    // Retried only from the mailbox they came from: another account's email id is "not found" in this one.
+    const latestMine = new Map();
+    logged.filter((r) => !r.gmail || String(r.gmail).toLowerCase() === gmail.toLowerCase()).forEach((r) => latestMine.set(String(r.gmail_id), r.status));
+    const failed = new Set([...latestMine].filter(([id, s]) => again(s) && !inTransactions.has(id)).map(([id]) => id));
     const done = new Set([...inTransactions, ...[...latest].filter(([, s]) => !again(s)).map(([id]) => id)]);
     const backfill = backfillQuery(Math.floor(startMs / 1000));
     const listed = [...new Set([...listMessageIds(query, 2000), ...listMessageIds(backfill, 500)])]
