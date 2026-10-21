@@ -95,7 +95,8 @@ const TEMPLATE = new URL('../template/Template Cashflow 2025, V.1.xlsx', import.
 describe.skipIf(!existsSync(TEMPLATE))('patches against the template file', async () => {
   const { default: ExcelJS } = await import('exceljs');
   const wb = new ExcelJS.Workbook();
-  await wb.xlsx.readFile(decodeURIComponent(TEMPLATE.pathname.replace(/^\/([A-Za-z]:)/, '$1')));
+  // skipIf doesn't stop this body from running while tests are collected: without the file (CI) don't read it.
+  if (existsSync(TEMPLATE)) await wb.xlsx.readFile(decodeURIComponent(TEMPLATE.pathname.replace(/^\/([A-Za-z]:)/, '$1')));
 
   const cells = [];
   for (const p of patches) {

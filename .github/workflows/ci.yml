@@ -1,0 +1,38 @@
+# Every push and pull request: build the Apps Script bundle (with the example seed, as the real seed is private)
+# and run the checks that don't need Google or a browser.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # GitHub runners are in UTC, this app's owners are in Asia/Jakarta: the tests must hold in both.
+      TZ: UTC
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build (fails on a bad seed or a bundling error)
+        run: npm run build
+      - name: Every UI text exists in both languages
+        run: node scripts/check-strings.mjs
+      - name: No comment markers or placeholders left in the served page
+        run: node scripts/check-dist-comments.mjs
+      - name: Unit and UI tests
+        run: npx vitest run
+      - name: Tests again in the owners' time zone
+        run: npx vitest run
+        env:
+          TZ: Asia/Jakarta
