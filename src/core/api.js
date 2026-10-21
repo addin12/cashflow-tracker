@@ -18,7 +18,7 @@ import {
   categoryLists, summarizeMonth, streamBalances, budgetPerDay, reviewItems, ruleFromApproval, pendingMatching,
   manualRows, balanceCorrection, renamedCategories, budgetUsage, filterTransactions, isoDate, newId, suggestBudgets, bigSpends, newestFromEmail, dailySpending, rowView,
 } from './app.js';
-import { compileRule } from './rules.js';
+import { compileRule, ruleUpdates } from './rules.js';
 import { recurringCharges, payee } from './recurring.js';
 import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth, paydayOf } from './salary.js';
 import { daysUntilPayday } from './payday.js';
@@ -112,8 +112,15 @@ export function createApi(store, env) {
   const memberInfo = (role) => {
     const p = role === 'partner' ? 'partner_' : 'owner_';
     const emails = String(store.config(`${p}email`) || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-    const c = store.read(TABS.connections).find((x) => emails.includes(String(x.gmail).toLowerCase()));
-    return { role, name: String(store.config(`${p}name`) || ''), emails, bankNames: String(store.config(`${p}bank_names`) || ''), connected: c ? { at: c.last_sync || '', status: String(c.last_status || '') } : null };
+    const conns = store.read(TABS.connections);
+    const c = conns.find((x) => emails.includes(String(x.gmail).toLowerCase()));
+    // Each Google account is its own inbox: connected or not, when it was last read, and whether the last read went wrong.
+    const gmails = emails.map((email) => {
+      const x = conns.find((y) => String(y.gmail).toLowerCase() === email);
+      const status = x ? String(x.last_status || '') : '';
+      return { email, connected: !!x, at: x ? x.last_sync || '' : '', problem: /^ERROR/.test(status) ? status.replace(/^ERROR:\s*/, '').split(' | ')[0].slice(0, 160) : '' };
+    });
+    return { role, name: String(store.config(`${p}name`) || ''), emails, bankNames: String(store.config(`${p}bank_names`) || ''), connected: c ? { at: c.last_sync || '', status: String(c.last_status || '') } : null, gmails };
   };
   /** "Hari gajian": on your payday and the two days after, what the salary has to cover until the next one. */
   const paydayNow = (recItems, cardList, goals, today) => {
@@ -222,7 +229,12 @@ export function createApi(store, env) {
         rules: store.read(TABS.rules).map((r) => ({ pattern: r.pattern, category: r.category })), // for typing a transaction as a sentence
         usual: usualEntries(rows(), { today: now() }),
         // Your own first steps (the two of you are new to the app one at a time): accounts of yours, a payday of yours.
-        setup: { accounts: accounts().filter((a) => a.owner === owner()).length, payday: isOwner() || ownPayday() > 0 },
+        setup: {
+          accounts: accounts().filter((a) => a.owner === owner()).length, payday: isOwner() || ownPayday() > 0,
+          // Spending accounts of yours with transactions but no balance check and an opening balance of 0: the balance can't be right yet.
+          unchecked: accounts().filter((a) => a.owner === owner() && a.type === 'Spending' && !openingChecks()[a.stream] && !Number(a.opening_balance) && !/manual/i.test(a.match_hint || '')
+            && rows().some((r) => r.stream === a.stream)).map((a) => a.stream),
+        },
         // People whose Gmail isn't connected yet (so their bank emails aren't coming in).
         notConnected: [memberInfo('owner'), memberInfo('partner')].filter((m) => m.name && m.emails.length && !m.connected).map((m) => m.name),
       };
@@ -231,7 +243,23 @@ export function createApi(store, env) {
     review() {
       const all = rows();
       const r = reviewItems(all, store.read(TABS.inboxLog), { today: now() });
-      return { ...r, pending: withFirst(r.pending, firstIds(all)), salary: salaries(all), day: dayState(all) };
+      return { ...r, pending: withFirst(r.pending, firstIds(all)), salary: salaries(all), day: dayState(all), ruleable: ruleUpdates(all, store.read(TABS.rules)).length };
+    },
+
+    /** Runs the rules over the pending rows that have an account: categories filled, auto-approving rules approve. */
+    applyRules() {
+      const updates = ruleUpdates(rows(), store.read(TABS.rules));
+      if (updates.length) store.update(TABS.transactions, updates.map((u) => ({ id: u.id, changes: touch(u.changes) })));
+      return { ok: true, changed: updates.length };
+    },
+
+    /** An email that can't be read and isn't a transaction: its log line becomes "skip", so it is not shown or tried again. */
+    dismissEmail({ gmailId }) {
+      const log = store.read(TABS.inboxLog).filter((l) => String(l.gmail_id) === String(gmailId));
+      const last = log[log.length - 1];
+      if (!last) throw new Error('unknown email');
+      store.append(TABS.inboxLog, [{ gmail_id: last.gmail_id, received: last.received, from: last.from, subject: last.subject, status: 'skip', parser: last.parser, reason: `dismissed by ${owner() || 'app'}`, rows: 0, gmail: last.gmail }]);
+      return { ok: true };
     },
 
     /**
@@ -1139,5 +1167,5 @@ export const API_METHODS = [
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
   'yearly', 'importStatement', 'undoImport', 'updateMany', 'tagih', 'owedSet', 'owedRemove', 'savePlans', 'saveAssets', 'markRecurring',
-  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe', 'markClaim', 'saveHousehold', 'settleUp', 'undoSettlement', 'saveTelegramToken', 'telegramUnlink', 'telegramRemove', 'restoreBackup',
+  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe', 'markClaim', 'saveHousehold', 'settleUp', 'undoSettlement', 'saveTelegramToken', 'telegramUnlink', 'telegramRemove', 'restoreBackup', 'applyRules', 'dismissEmail',
 ];

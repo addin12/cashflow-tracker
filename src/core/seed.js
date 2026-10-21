@@ -45,6 +45,9 @@ export function validateSeed(seed) {
       if (!Array.isArray(m) || m.length !== 3 || !Number.isFinite(Number(m[2]))) errors.push(`data_fixes[${i}].move_to_opening[${j}]: must be [id, stream, amount]`);
     });
     try { validateAccounts(f.add_accounts || []); } catch (e) { errors.push(`data_fixes[${i}].add_accounts: ${e.message}`); }
+    (f.set_hints || []).forEach((x, j) => {
+      if (!x.stream || x.match_hint === undefined) errors.push(`data_fixes[${i}].set_hints[${j}]: stream and match_hint are required`);
+    });
     (f.fill_stream || []).forEach((x, j) => {
       if (!x.owner || !x.sender || !x.stream) errors.push(`data_fixes[${i}].fill_stream[${j}]: owner, sender and stream are required`);
     });

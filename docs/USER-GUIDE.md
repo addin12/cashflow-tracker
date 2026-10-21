@@ -93,6 +93,8 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 
 > **Payday plan:** on your payday and the two days after, the Summary shows **Hari gajian**: your salary, the bills until the next payday, what each savings goal asks this month, what is left and what that is per day. **Restore from backup** (Settings → Import): pick the CSV from the monthly email; it adds only the transactions that are missing and never overwrites or removes anything. The editor says who changed a transaction last and when. A newcomer sees **first steps** in "Perlu perhatian" until their own accounts and payday are set. Reports → Yearly follows Us / Me / Them.
 
+> **Review:** when your rules fit waiting transactions (for example a newcomer's first emails), a card offers **Terapkan aturan / Apply rules**. An email that is not a transaction can be dismissed (**Abaikan**). The overview card "Perlu perhatian" also names unreadable emails and accounts that still need an opening balance. **Settings → Pasangan** shows, for each Google account of a person, whether it is connected and when it was last read.
+
 ## Akhir bulan / Month end (±5 menit)
 
 0. Di tanggal gajian: catat dulu **gaji** di **Cek**, baru cek saldo (kalau tidak, gajinya tercatat sebagai Penyesuaian).

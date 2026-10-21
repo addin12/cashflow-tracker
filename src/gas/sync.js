@@ -15,6 +15,7 @@ import { listMessageIds, getEmail, myAddress } from './gmail.js';
 import { notesFromEmail } from '../core/quick.js';
 import { bodyToTokens } from '../core/text.js';
 import { configValue, setConfigValue, runSetup } from './setup.js';
+import { retryable } from '../core/retry.js';
 import { flushStartupTimings } from './perf.js';
 import { refreshInit } from './initcache.js';
 import { refreshPrices } from './prices.js';
@@ -205,13 +206,14 @@ function syncOnce(opts) {
     // isn't in yet) are tried again.
     const inTransactions = new Set(existing.map((r) => String(r.gmail_id)).filter(Boolean));
     const latest = new Map();
-    logged.forEach((r) => latest.set(String(r.gmail_id), r.status));
-    const again = (s) => s === 'error' || s === 'waiting';
+    const latestRow = new Map();
+    logged.forEach((r) => { latest.set(String(r.gmail_id), r.status); latestRow.set(String(r.gmail_id), r); });
+    const nowMs = Date.now();
+    const again = (r) => retryable(r.status, Date.parse(r.received) || 0, nowMs);
     // Retried only from the mailbox they came from: another account's email id is "not found" in this one.
-    const latestMine = new Map();
-    logged.filter((r) => !r.gmail || String(r.gmail).toLowerCase() === gmail.toLowerCase()).forEach((r) => latestMine.set(String(r.gmail_id), r.status));
-    const failed = new Set([...latestMine].filter(([id, s]) => again(s) && !inTransactions.has(id)).map(([id]) => id));
-    const done = new Set([...inTransactions, ...[...latest].filter(([, s]) => !again(s)).map(([id]) => id)]);
+    const isMine = (r) => !r.gmail || String(r.gmail).toLowerCase() === gmail.toLowerCase();
+    const failed = new Set([...latestRow].filter(([id, r]) => isMine(r) && again(r) && !inTransactions.has(id)).map(([id]) => id));
+    const done = new Set([...inTransactions, ...[...latestRow].filter(([, r]) => !again(r)).map(([id]) => id)]);
     const backfill = backfillQuery(Math.floor(startMs / 1000));
     const listed = [...new Set([...listMessageIds(query, 2000), ...listMessageIds(backfill, 500)])]
       .filter((id) => !done.has(id) && !failed.has(id)).reverse(); // oldest first (roughly: two lists)

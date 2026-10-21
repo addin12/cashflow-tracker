@@ -7,6 +7,8 @@ import { createApi } from '../src/core/api.js';
 import { buildCategorySlots } from '../src/core/categories.js';
 import { TABS } from '../src/core/schema.js';
 import { accountFixes } from '../src/core/datafix.js';
+import { ruleUpdates } from '../src/core/rules.js';
+import { retryable } from '../src/core/retry.js';
 
 describe('reading CSV', () => {
   it('quotes, doubled quotes, commas and line breaks inside quotes, both kinds of line end, a BOM', () => {
@@ -93,11 +95,11 @@ describe('the payday plan on the overview', () => {
 describe('first steps for someone new', () => {
   it('your accounts and a payday of your own', () => {
     const store = memoryStore();
-    expect(me(store, at(10, 21)).bootstrap().setup).toEqual({ accounts: 2, payday: true });
-    expect(she(store, at(10, 21)).bootstrap().setup).toEqual({ accounts: 1, payday: false });
+    expect(me(store, at(10, 21)).bootstrap().setup).toEqual({ accounts: 2, payday: true, unchecked: [] });
+    expect(she(store, at(10, 21)).bootstrap().setup).toEqual({ accounts: 1, payday: false, unchecked: [] });
     store.cfg.partner_payday_day = 25;
     store.t[TABS.accounts] = store.t[TABS.accounts].filter((a) => a.owner !== 'Dewi');
-    expect(she(store, at(10, 21)).bootstrap().setup).toEqual({ accounts: 0, payday: true });
+    expect(she(store, at(10, 21)).bootstrap().setup).toEqual({ accounts: 0, payday: true, unchecked: [] });
   });
 });
 
@@ -155,5 +157,73 @@ describe('seed data fixes that add accounts', () => {
   });
   it('leaves rows alone when the account is not there', () => {
     expect(accountFixes({ accounts, rows, fixes: [{ fill_stream: fixes[0].fill_stream }] }).updates).toEqual([]);
+  });
+});
+
+describe('rules over waiting rows', () => {
+  const rules = [{ id: 'r1', field: 'description', pattern: 'SHOPEE', category: 'Belanja Online', auto_approve: true }, { id: 'r2', field: 'description', pattern: 'WARUNG', category: 'Makan', auto_approve: false }];
+  const row = (o) => ({ status: 'pending', stream: 'BCA', category: '', rule_id: '', ...o });
+  it('categorises, approves only what the rule auto-approves, and leaves rows with no account alone', () => {
+    const rows = [row({ id: 'a', description: 'Top-up ShopeePay' }), row({ id: 'b', description: 'WARUNG X' }), row({ id: 'c', description: 'OVO' }), row({ id: 'd', description: 'SHOPEE', stream: '' })];
+    expect(ruleUpdates(rows, rules)).toEqual([
+      { id: 'a', changes: { category: 'Belanja Online', rule_id: 'r1', status: 'approved' } },
+      { id: 'b', changes: { category: 'Makan', rule_id: 'r2' } },
+    ]);
+  });
+  it('a fee row that already has a category is approved; a categorised row of a manual rule is not touched', () => {
+    const rows = [row({ id: 't_1_fee', category: 'Biaya Admin', description: 'Biaya: x' }), row({ id: 'e', category: 'Makan', description: 'zzz' })];
+    expect(ruleUpdates(rows, rules)).toEqual([{ id: 't_1_fee', changes: { status: 'approved' } }]);
+  });
+});
+
+describe('which emails are tried again', () => {
+  const day = 86400000;
+  it('errors always; waiting only for 14 days', () => {
+    expect(retryable('error', 1, 100 * day)).toBe(true);
+    expect(retryable('waiting', 90 * day, 100 * day)).toBe(true);
+    expect(retryable('waiting', 80 * day, 100 * day)).toBe(false);
+    expect(retryable('waiting', 0, 100 * day)).toBe(true);
+    expect(retryable('ok', 90 * day, 100 * day)).toBe(false);
+  });
+});
+
+describe('Review: rules button, dismissing an email, balance steps, one line per inbox', () => {
+  it('applyRules settles the waiting rows and review counts them first', () => {
+    const rows = [{ id: 'w1', date: '2026-10-05', direction: 'out', amount: 5, stream: 'BCA', category: '', status: 'pending', description: 'SHOPEE X', owner: 'Me' }];
+    const store = memoryStore({}, rows);
+    store.t[TABS.rules] = [{ id: 'r1', field: 'description', pattern: 'SHOPEE', category: 'Makan', auto_approve: true }];
+    store.update = (tab, ups) => ups.forEach(({ id, changes }) => Object.assign(store.t[tab].find((r) => r.id === id), changes));
+    const api = me(store, at(10, 21));
+    expect(api.review().ruleable).toBe(1);
+    expect(api.applyRules()).toEqual({ ok: true, changed: 1 });
+    expect(store.t[TABS.transactions][0]).toMatchObject({ category: 'Makan', status: 'approved', rule_id: 'r1', updated_by: 'Me' });
+    expect(api.review().ruleable).toBe(0);
+  });
+  it('dismissing an unreadable email turns its latest log line into a skip', () => {
+    const store = memoryStore();
+    store.t[TABS.inboxLog] = [{ gmail_id: 'g1', received: '2026-10-05', from: 'bank', subject: 'Transfer', status: 'error', parser: 'livin', reason: 'no amount', rows: 0, gmail: 'dewi@example.com' }];
+    const api = she(store, at(10, 21));
+    expect(api.review().errors).toHaveLength(1);
+    expect(api.dismissEmail({ gmailId: 'g1' })).toEqual({ ok: true });
+    expect(api.review().errors).toHaveLength(0);
+    expect(() => api.dismissEmail({ gmailId: 'nope' })).toThrow(/unknown email/);
+  });
+  it('an account with transactions, no balance check and an opening of 0 asks for its balance', () => {
+    const rows = [{ id: 'z', date: '2026-10-05', direction: 'out', amount: 5, stream: 'Mandiri Dewi', category: 'Makan', status: 'pending', description: 'x', owner: 'Dewi' }];
+    const store = memoryStore({}, rows);
+    store.t[TABS.accounts].push({ stream: 'Mandiri Dewi', type: 'Spending', owner: 'Dewi', match_hint: '0202', opening_balance: 0 }, { stream: 'Cash Dewi', type: 'Spending', owner: 'Dewi', match_hint: 'manual', opening_balance: 0 });
+    expect(she(store, at(10, 21)).bootstrap().setup.unchecked).toEqual(['Mandiri Dewi']);
+    store.cfg.opening_checks = JSON.stringify({ 'Mandiri Dewi': '2026-10-01' });
+    expect(she(store, at(10, 21)).bootstrap().setup.unchecked).toEqual([]);
+  });
+  it('settings tell, per Google account, whether it is connected and whether the last read went wrong', () => {
+    const store = memoryStore();
+    store.cfg.partner_email = 'dewi@example.com, dewi2@example.com, dewi3@example.com';
+    store.t[TABS.connections] = [
+      { gmail: 'dewi@example.com', last_sync: '2026-10-21', last_status: 'live ok: +0 rows' },
+      { gmail: 'dewi3@example.com', last_sync: '2026-10-21', last_status: 'ERROR: Quota hit | stack' },
+    ];
+    const g = me(store, at(10, 21)).settings().household.members[1].gmails;
+    expect(g.map((x) => [x.email, x.connected, x.problem])).toEqual([['dewi@example.com', true, ''], ['dewi2@example.com', false, ''], ['dewi3@example.com', true, 'Quota hit']]);
   });
 });

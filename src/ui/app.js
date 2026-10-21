@@ -329,14 +329,16 @@ function viewReview() {
   const errors = r.errors.map((x) => `
     <div class="rowi"><div class="what"><b>${esc(x.subject || x.from)}</b><div class="meta">${esc(x.reason)}</div>
       <div class="actions" style="justify-content:flex-start;margin-top:8px"><a class="btn secondary small" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/#all/${esc(x.gmail_id)}">${esc(T.openGmail)} ↗</a>
-      <button class="btn plain small" data-action="go" data-tab="add">${esc(T.enterManually)}</button></div></div></div>`).join('');
+      <button class="btn plain small" data-action="go" data-tab="add">${esc(T.enterManually)}</button>
+      <button class="btn plain small" data-action="dismissmail" data-id="${esc(x.gmail_id)}">${esc(T.dismissMail)}</button></div></div></div>`).join('');
+  const rulesCard = r.ruleable ? `<div class="card rowi"><span class="what"><b>${esc(T.rulesWaiting(r.ruleable))}</b></span><button class="btn secondary small" data-action="applyrules">${esc(T.rulesApply)}</button></div>` : '';
   const recent = r.recentAuto.slice(0, 30).map((x) => `
     <button class="rowi" data-action="edit" data-id="${esc(x.id)}"><span class="what"><b>${esc(x.description)}</b><span class="meta">${tag(x.category)} · ${esc(x.stream)} · ${esc(dateLabel(x.date))}</span></span><span class="amt ${esc(x.direction)}">${signed(x)}</span></button>`).join('');
   setView(`
     <header class="page-head"><div><h1>${esc(T.reviewTitle)}</h1><p class="sub">${esc(n ? T.reviewSub(n) : T.reviewSubNone)} · ${syncLine()}</p></div>
       <div class="tools"><button class="btn secondary small" data-action="sync">↻ ${esc(T.syncNow)}</button></div></header>
     <div class="split">
-      <section class="stack" aria-label="${esc(T.reviewTitle)}">${dayCard(r.day, !!(r.pending.length || (r.salary || []).length))}${salary}${cards || (salary ? '' : empty)}</section>
+      <section class="stack" aria-label="${esc(T.reviewTitle)}">${rulesCard}${dayCard(r.day, !!(r.pending.length || (r.salary || []).length))}${salary}${cards || (salary ? '' : empty)}</section>
       <aside>
         ${errors ? `<h2 class="section-title">${esc(T.unreadTitle)}<small>${esc(T.unreadHint)}</small></h2><div class="card rows">${errors}</div>` : ''}
         ${recent ? `<h2 class="section-title">${esc(T.recentTitle)}<small>${esc(T.recentHint)}</small></h2><div class="card rows">${recent}</div>` : ''}
@@ -1342,6 +1344,10 @@ function attentionCard(d) {
     if (!su.accounts) rows.push({ icon: '🏦', bad: false, title: T.stepAccounts, meta: T.stepAccountsMeta, act: 'data-action="go" data-tab="settings" data-section="accounts"' });
     if (!su.payday) rows.push({ icon: '💼', bad: false, title: T.stepPayday, meta: T.stepPaydayMeta, act: 'data-action="go" data-tab="settings" data-section="prefs"' });
   }
+  for (const a of ((su && su.unchecked) || []).slice(0, 2)) rows.push({ icon: '⚖️', bad: false, title: T.stepBalance(a), meta: T.stepBalanceMeta, act: 'data-action="go" data-tab="settings" data-section="monthend"' });
+  const rv = state.review || {};
+  for (const e of (rv.errors || []).slice(0, 2)) rows.push({ icon: '✉️', bad: false, title: T.attnUnread(e.subject || e.from), meta: T.attnUnreadMeta, act: 'data-action="go" data-tab="review"' });
+  if (rv.ruleable) rows.push({ icon: '🏷️', bad: false, title: T.attnRules(rv.ruleable), meta: T.attnRulesMeta, act: 'data-action="go" data-tab="review"' });
   if (!rows.length) return '';
   return `<section class="card attn"><h2>${esc(T.attnTitle)}</h2><div class="rows">${rows.slice(0, 6).map((r) => `<button class="lrow" ${r.act}><span class="cat-ic ${r.bad ? 'c3' : 'c6'}" aria-hidden="true">${r.icon}</span><span class="what"><b>${esc(r.title)}</b><span class="meta">${esc(r.meta)}</span></span></button>`).join('')}</div></section>`;
 }
@@ -1900,7 +1906,7 @@ function householdSection(s) {
         ${field(T.hhEmail, `<input name="${m.role}_emails" type="email" multiple inputmode="email" autocomplete="off" spellcheck="false" value="${esc(m.emails.join(', '))}">`, { help: i === 0 ? T.hhEmailHelp : '' })}
         ${field(T.hhBankNames, `<input name="${m.role}_bank" autocomplete="off" value="${esc(m.bankNames)}">`, { help: i === 0 ? T.hhBankNamesHelp : '', wide: true })}
       </div>
-      <p class="hint ${m.connected ? 'ok-text' : ''}">${esc(m.connected ? `✓ ${T.hhPartnerConnected(when(m.connected))}` : T.hhPartnerNotYet)}</p>
+      ${(m.gmails || []).length ? m.gmails.map((g) => `<p class="hint ${g.connected && !g.problem ? 'ok-text' : ''}">${esc(!g.connected ? T.hhGmailNo(g.email) : g.problem ? T.hhGmailProblem(g.email, g.problem) : T.hhGmailOk(g.email, when(g)))}</p>`).join('') : `<p class="hint">${esc(T.hhPartnerNotYet)}</p>`}
       ${mine && !h.myGmailConnected ? `<div class="actions" style="justify-content:flex-start"><button class="btn primary" type="button" data-action="connectme">${esc(T.hhConnect)}</button></div><p class="hint">${esc(T.hhConnectHint)}</p>` : ''}
     </fieldset>`;
   };
@@ -2471,6 +2477,8 @@ function onClick(e) {
   if (a === 'hiderec') return hideRecurring(el.dataset.name);
   if (a === 'fillbudgets') return fillBudgets(el.closest('form'));
   if (a === 'ignore') return ignore(card);
+  if (a === 'applyrules') { el.disabled = true; return call('applyRules').then((r) => { toast(T.rulesApplied(r.changed)); return refresh(); }).catch((err) => { el.disabled = false; toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }); }); }
+  if (a === 'dismissmail') { el.disabled = true; return call('dismissEmail', { gmailId: el.dataset.id }).then(() => { toast(T.mailDismissed); return refresh(); }).catch((err) => { el.disabled = false; toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }); }); }
   if (a === 'delete') {
     if (!window.confirm(T.confirmDelete)) return null;
     const id = el.dataset.id;

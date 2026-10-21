@@ -9,6 +9,7 @@ import {
 import { templatePatches, isOpenEnded } from '../core/formulas.js';
 import { validateSeed } from '../core/seed.js';
 import { accountFixes } from '../core/datafix.js';
+import { ruleUpdates } from '../core/rules.js';
 import { sharePartner } from './members.js';
 import { changeCategorySlots, renameCategoryEverywhere } from '../core/api.js';
 import { slotsAfterChanges } from '../core/categories.js';
@@ -130,6 +131,7 @@ function applyCategoryChanges(ss, seed, log, fromVersion) {
  * corrects, so a category the owner changed since is left alone.
  *   { since, transactions: [[id, fromCategory, toCategory]], rules: [{ pattern, from, to } | { pattern, id }],
  *     add_accounts: [{ stream, type, owner, institution, match_hint, opening_balance }]   added when the name is new
+ *     set_hints: [{ stream, match_hint }]   an account's hint written again as text (digits keep their zeros)
  *     fill_stream: [{ owner, sender, stream }]   rows of that owner with no account whose sender contains the text
  *     move_to_opening: [[id, stream, amount]] }   an adjustment row that was really the opening balance:
  *     removed, and its amount (+ in / - out) added to that account's opening balance, as one step
@@ -152,6 +154,11 @@ function applyDataFixes(ss, seed, log, fromVersion) {
   const af = accountFixes({ accounts: store.read(TABS.accounts), rows: [...rows.values()], fixes });
   if (af.added.length) store.append(TABS.accounts, af.added.map((a) => Object.fromEntries(ACCOUNT_HEADERS.map((h) => [h, a[h] ?? (h === 'opening_balance' ? 0 : '')]))));
   if (af.updates.length) store.update(TABS.transactions, af.updates);
+  // Account hints that lost their leading zeros (a number cell): written again as text.
+  const hintFixes = fixes.flatMap((f) => f.set_hints || []);
+  if (hintFixes.length) {
+    store.replace(TABS.accounts, store.read(TABS.accounts).map((a) => { const h = hintFixes.find((x) => x.stream === a.stream); return h ? { ...a, match_hint: h.match_hint } : a; }));
+  }
   // Adjustments that were really opening balances: only while the row is still exactly as recorded.
   let moved = 0;
   const accts = store.read(TABS.accounts);
@@ -182,6 +189,14 @@ function applyDataFixes(ss, seed, log, fromVersion) {
     }
   });
   log.push(`Data fixes: ${updates.length} transaction(s), ${af.added.length} account(s) added, ${af.updates.length} row(s) put on an account, ${ruleFixes} rule change(s), ${moved} moved to opening balances${skipped ? `, ${skipped} skipped (already changed)` : ''}`);
+}
+
+/** Pending rows that waited for an account (a newcomer's first emails): the rules settle them, as at sync time. */
+function reapplyRules(ss, log) {
+  const store = sheetStore(ss);
+  const updates = ruleUpdates(store.read(TABS.transactions), store.read(TABS.rules));
+  if (updates.length) store.update(TABS.transactions, updates.map((u) => ({ id: u.id, changes: { ...u.changes, updated_by: 'sync', updated_at: new Date().toISOString() } })));
+  log.push(`Rules applied to ${updates.length} waiting transaction(s)`);
 }
 
 /**
@@ -265,6 +280,7 @@ function formatTabs(ss) {
   const acc = ss.getSheetByName(TABS.accounts);
   acc.getRange('B2:B').setDataValidation(listRule(ACCOUNT_TYPES));
   acc.getRange('F2:F').setNumberFormat('#,##0');
+  acc.getRange('E2:E').setNumberFormat('@'); // account numbers keep their leading zeros
 
   const cf = ss.getSheetByName(CF.sheet);
   cf.getRange(`B${CF.firstDataRow}:B`).setNumberFormat('d mmm yyyy');
@@ -304,7 +320,9 @@ export function runSetup(ss, seedRaw) {
   seedRules(ss, seed, log, fromVersion);
   if (!firstRun && fromVersion < 2) migrateAccountHints(ss, seed, log);
   if (!firstRun) applyCategoryChanges(ss, seed, log, fromVersion);
+  acc.sheet.getRange('E2:E').setNumberFormat('@'); // before any fix writes a hint like 0202
   if (!firstRun) applyDataFixes(ss, seed, log, fromVersion);
+  if (!firstRun && fromVersion < 31) reapplyRules(ss, log);
   if (!firstRun && fromVersion < 26) setConfigValue(ss, 'yearly_scan', ''); // the yearly-plan rule changed: look again
 
   if (firstRun) {
