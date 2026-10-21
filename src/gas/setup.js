@@ -8,6 +8,7 @@ import {
 } from '../core/schema.js';
 import { templatePatches, isOpenEnded } from '../core/formulas.js';
 import { validateSeed } from '../core/seed.js';
+import { accountFixes } from '../core/datafix.js';
 import { changeCategorySlots, renameCategoryEverywhere } from '../core/api.js';
 import { slotsAfterChanges } from '../core/categories.js';
 import { sheetStore } from './sheetstore.js';
@@ -127,6 +128,8 @@ function applyCategoryChanges(ss, seed, log, fromVersion) {
  * ids stay out of the public code). Each fix applies only while the row still holds the value it
  * corrects, so a category the owner changed since is left alone.
  *   { since, transactions: [[id, fromCategory, toCategory]], rules: [{ pattern, from, to } | { pattern, id }],
+ *     add_accounts: [{ stream, type, owner, institution, match_hint, opening_balance }]   added when the name is new
+ *     fill_stream: [{ owner, sender, stream }]   rows of that owner with no account whose sender contains the text
  *     move_to_opening: [[id, stream, amount]] }   an adjustment row that was really the opening balance:
  *     removed, and its amount (+ in / - out) added to that account's opening balance, as one step
  */
@@ -144,6 +147,10 @@ function applyDataFixes(ss, seed, log, fromVersion) {
     }
   }
   if (updates.length) store.update(TABS.transactions, updates);
+  // Accounts to add, and the rows that waited for them.
+  const af = accountFixes({ accounts: store.read(TABS.accounts), rows: [...rows.values()], fixes });
+  if (af.added.length) store.append(TABS.accounts, af.added.map((a) => Object.fromEntries(ACCOUNT_HEADERS.map((h) => [h, a[h] ?? (h === 'opening_balance' ? 0 : '')]))));
+  if (af.updates.length) store.update(TABS.transactions, af.updates);
   // Adjustments that were really opening balances: only while the row is still exactly as recorded.
   let moved = 0;
   const accts = store.read(TABS.accounts);
@@ -173,7 +180,7 @@ function applyDataFixes(ss, seed, log, fromVersion) {
       }
     }
   });
-  log.push(`Data fixes: ${updates.length} transaction(s), ${ruleFixes} rule change(s), ${moved} moved to opening balances${skipped ? `, ${skipped} skipped (already changed)` : ''}`);
+  log.push(`Data fixes: ${updates.length} transaction(s), ${af.added.length} account(s) added, ${af.updates.length} row(s) put on an account, ${ruleFixes} rule change(s), ${moved} moved to opening balances${skipped ? `, ${skipped} skipped (already changed)` : ''}`);
 }
 
 /**

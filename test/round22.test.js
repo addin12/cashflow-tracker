@@ -6,6 +6,7 @@ import { paydayPlan } from '../src/core/paydayplan.js';
 import { createApi } from '../src/core/api.js';
 import { buildCategorySlots } from '../src/core/categories.js';
 import { TABS } from '../src/core/schema.js';
+import { accountFixes } from '../src/core/datafix.js';
 
 describe('reading CSV', () => {
   it('quotes, doubled quotes, commas and line breaks inside quotes, both kinds of line end, a BOM', () => {
@@ -135,5 +136,24 @@ describe('restoring from a backup', () => {
     expect(store.t[TABS.transactions]).toHaveLength(1);
     expect(() => api.restoreBackup({ rows: [] })).toThrow(/nothing to restore/);
     expect(() => api.restoreBackup({ rows: Array.from({ length: 5001 }, (_, i) => ({ ...lost, id: `n${i}` })) })).toThrow(/max 5000/);
+  });
+});
+
+describe('seed data fixes that add accounts', () => {
+  const accounts = [{ stream: 'BCA', owner: 'Me' }];
+  const rows = [
+    { id: 'a', owner: 'Dewi', stream: '', sender: '"Livin\'" <noreply@bank.example>' },
+    { id: 'b', owner: 'Dewi', stream: '', sender: 'Shopee <info@shop.example>' },
+    { id: 'c', owner: 'Me', stream: '', sender: 'Livin' },
+    { id: 'd', owner: 'Dewi', stream: 'BCA', sender: 'Livin' },
+  ];
+  const fixes = [{ add_accounts: [{ stream: 'Mandiri Dewi', type: 'Spending', owner: 'Dewi' }, { stream: 'BCA', type: 'Spending', owner: 'Dewi' }], fill_stream: [{ owner: 'Dewi', sender: 'livin', stream: 'Mandiri Dewi' }] }];
+  it('adds only new account names, and puts only that person\'s unassigned rows from that sender on it', () => {
+    const { added, updates } = accountFixes({ accounts, rows, fixes });
+    expect(added.map((a) => a.stream)).toEqual(['Mandiri Dewi']);
+    expect(updates).toEqual([{ id: 'a', changes: { stream: 'Mandiri Dewi' } }]);
+  });
+  it('leaves rows alone when the account is not there', () => {
+    expect(accountFixes({ accounts, rows, fixes: [{ fill_stream: fixes[0].fill_stream }] }).updates).toEqual([]);
   });
 });

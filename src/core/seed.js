@@ -44,6 +44,10 @@ export function validateSeed(seed) {
     (f.move_to_opening || []).forEach((m, j) => {
       if (!Array.isArray(m) || m.length !== 3 || !Number.isFinite(Number(m[2]))) errors.push(`data_fixes[${i}].move_to_opening[${j}]: must be [id, stream, amount]`);
     });
+    try { validateAccounts(f.add_accounts || []); } catch (e) { errors.push(`data_fixes[${i}].add_accounts: ${e.message}`); }
+    (f.fill_stream || []).forEach((x, j) => {
+      if (!x.owner || !x.sender || !x.stream) errors.push(`data_fixes[${i}].fill_stream[${j}]: owner, sender and stream are required`);
+    });
     (f.rules || []).forEach((r, j) => {
       if (!r.pattern) errors.push(`data_fixes[${i}].rules[${j}]: pattern is required`);
       if (r.to && !known.has(r.to)) errors.push(`data_fixes[${i}].rules[${j}]: "${r.to}" is not a category`);
