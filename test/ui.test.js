@@ -359,9 +359,10 @@ describe('web app', () => {
 
   it('warns before saving what looks recorded already, and saves only when asked', async () => {
     await until(() => calls.filter((c) => c === 'add').length === 1 && !doc.querySelector('#stale.show:not(.done)'), 'first add done');
-    const lists = calls.filter((c) => c === 'list').length;
-    await tab('add', 'Simpan transaksi'); // the Add screen refreshes the list (now with the cash expense) for this check
-    await until(() => calls.filter((c) => c === 'list').length > lists, 'list refreshed');
+    const addAt = calls.lastIndexOf('add');
+    await tab('add', 'Simpan transaksi'); // the Add screen (or the refresh after the add) loads the list, now with the cash expense
+    // Which of the two comes first depends on the machine's speed, so look for any list call after the add.
+    await until(() => calls.indexOf('list', addAt) > -1, 'list refreshed after the add');
     await tick(); await tick();
     const form = doc.querySelector('form[data-form=add]');
     const fill = (stream, name) => {

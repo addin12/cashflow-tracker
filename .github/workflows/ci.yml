@@ -18,8 +18,8 @@ jobs:
       # GitHub runners are in UTC, this app's owners are in Asia/Jakarta: the tests must hold in both.
       TZ: UTC
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
