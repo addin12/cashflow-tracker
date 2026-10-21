@@ -91,6 +91,8 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 
 > Shop receipts name the APPLE.COM/BILL, Tokopedia, Shopee, Xendit and foreign shop charges with the shop and items. **Split** a payment into parts with their own category (Transactions → tap the row → Split this transaction). **Subscriptions & regular bills** in Summary. Pick a category in Transactions to see its 6-month trend. Edit **automatic rules** in Settings with a live preview. A **weekly summary** email arrives every Monday at 07:00 (Settings → Weekly summary).
 
+> **Payday plan:** on your payday and the two days after, the Summary shows **Hari gajian**: your salary, the bills until the next payday, what each savings goal asks this month, what is left and what that is per day. **Restore from backup** (Settings → Import): pick the CSV from the monthly email; it adds only the transactions that are missing and never overwrites or removes anything. The editor says who changed a transaction last and when. A newcomer sees **first steps** in "Perlu perhatian" until their own accounts and payday are set. Reports → Yearly follows Us / Me / Them.
+
 ## Akhir bulan / Month end (±5 menit)
 
 0. Di tanggal gajian: catat dulu **gaji** di **Cek**, baru cek saldo (kalau tidak, gajinya tercatat sebagai Penyesuaian).

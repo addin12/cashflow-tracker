@@ -12,7 +12,7 @@ function memoryStore() {
     [TABS.transactions]: [
       { id: 't1', date: '2026-10-04', time: '09:00:00', owner: 'Me', stream: 'BCA', direction: 'out', amount: 25000, category: '', description: 'WARUNG BU SITI', details: 'QRIS', status: 'pending', gmail_id: 'g1', updated_by: 'sync' },
       { id: 't2', date: '2026-10-04', time: '12:00:00', owner: 'Me', stream: 'BCA', direction: 'out', amount: 30000, category: '', description: 'WARUNG BU SITI', details: '', status: 'pending', gmail_id: 'g2', updated_by: 'sync' },
-      { id: 't3', date: '2026-10-03', time: '10:00:00', owner: 'Me', stream: 'BCA', direction: 'out', amount: 300000, category: 'Belanja Online', description: 'Tokopedia', details: '', status: 'approved', gmail_id: 'g3', rule_id: 'r1', updated_by: 'sync' },
+      { id: 't3', date: '2026-10-03', time: '10:00:00', owner: 'Me', stream: 'BCA', direction: 'out', amount: 300000, category: 'Belanja Online', description: 'Tokopedia', details: '', status: 'approved', gmail_id: 'g3', rule_id: 'r1', updated_by: 'sync', updated_at: '2026-10-03T03:00:00.000Z' },
       { id: 't4', date: '2026-09-28', time: '08:00:00', owner: 'Me', stream: 'BCA', direction: 'in', amount: 8000000, category: 'gaji', description: 'Gaji', details: '', status: 'approved', gmail_id: '', updated_by: 'Me' },
     ],
     [TABS.accounts]: [
@@ -247,6 +247,8 @@ describe('web app', () => {
     await until(() => doc.querySelector('.day-head'), 'day headings');
     expect(doc.querySelectorAll('.day-head').length).toBeGreaterThan(1);
     expect(doc.querySelector('.day-head').textContent).toMatch(/^(Hari ini|Kemarin|.*Okt).*−Rp/); // the day, and what went out that day
+    expect(doc.querySelector('[role=table], [role=row]')).toBeNull(); // a plain list: screen readers get headings, not a fake table
+    expect(doc.querySelector('.day-head').getAttribute('role')).toBe('heading');
     click(doc.querySelector('[data-action=kindchip][data-k=in]'));
     await until(() => !view().includes('WARUNG'), 'income only');
     expect(doc.querySelector('[data-action=kindchip][data-k=in]').getAttribute('aria-pressed')).toBe('true');
@@ -293,6 +295,10 @@ describe('web app', () => {
   it('editing a row changes it on screen at once and on the server', async () => {
     click(doc.querySelector('.trow[data-id="t3"]'));
     const form = doc.querySelector('form[data-form=edit]');
+    expect(form.textContent).toMatch(/Terakhir diubah oleh sinkron otomatis/);
+    await until(() => doc.querySelector('#modal').getAttribute('aria-labelledby'), 'the dialog gets a name');
+    const named = doc.getElementById(doc.querySelector('#modal').getAttribute('aria-labelledby'));
+    expect(named && named.textContent.trim()).not.toBe('');
     form.querySelector('[name=amount]').value = '320000';
     form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
     expect(doc.querySelector('#modal').classList.contains('open')).toBe(false);

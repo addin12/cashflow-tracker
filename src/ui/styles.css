@@ -2,8 +2,8 @@
    "UI rules for real users": 16px+ text, labels above fields, 44px targets, one accent colour,
    meaning never shown by colour alone. Phone: bottom tab bar. PC (900px+): sidebar. */
 :root {
-  --bg: #f5f5f7; --card: #ffffff; --ink: #1d1d1f; --ink-2: #424245; --muted: #6e6e73; --line: #e3e3e6; --line-soft: #f0f0f2;
-  --accent: #0066cc; --accent-press: #0057ad; --accent-soft: #e8f1fb; --on-accent: #ffffff;
+  --bg: #f5f5f7; --card: #ffffff; --ink: #1d1d1f; --ink-2: #424245; --muted: #66666b; --line: #e3e3e6; --line-soft: #f0f0f2;
+  --accent: #0066cc; --accent-press: #0057ad; --accent-soft: #e8f1fb; --on-accent: #ffffff; --accent-btn: #0066cc; --accent-btn-press: #0057ad;
   --success: #1a7f37; --success-soft: #e4f4e8; --warning: #8a5300; --warning-soft: #fff3d6; --critical: #c9252c; --critical-soft: #fdecec;
   --field: #ffffff; --field-line: #c8c8cd; --zebra: #fafafb; --frost: rgba(245, 245, 247, .82); --shadow-modal: 0 16px 48px -8px rgba(0, 0, 0, .25);
   --t0: #e6e0f5; --t0i: #3d2a73; --t1: #dcecfa; --t1i: #0b4a7d; --t2: #d9f3e1; --t2i: #11602b; --t3: #ffe8d4; --t3i: #7a3a00;
@@ -14,7 +14,7 @@
 /* Dark: chosen in the app (data-theme="dark"), or the device is dark and light wasn't chosen. */
 :root[data-theme="dark"] {
   --bg: #000000; --card: #1c1c1e; --ink: #f5f5f7; --ink-2: #d1d1d6; --muted: #a1a1a6; --line: #38383a; --line-soft: #2c2c2e;
-  --accent: #2997ff; --accent-press: #4aa8ff; --accent-soft: #10263f; --on-accent: #ffffff;
+  --accent: #2997ff; --accent-press: #4aa8ff; --accent-soft: #10263f; --on-accent: #ffffff; --accent-btn: #0a67cf; --accent-btn-press: #0a58b0;
   --success: #4cc76c; --success-soft: #11301b; --warning: #f0b44c; --warning-soft: #3a2a0c; --critical: #ff6b6b; --critical-soft: #3d1414;
   --field: #2c2c2e; --field-line: #48484a; --zebra: #222224; --frost: rgba(22, 22, 24, .82);
   --t0: #2e2647; --t0i: #d7cdfa; --t1: #15324a; --t1i: #b9dcfa; --t2: #163a22; --t2i: #b5ecc5; --t3: #43290f; --t3i: #ffd3ad;
@@ -24,7 +24,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #000000; --card: #1c1c1e; --ink: #f5f5f7; --ink-2: #d1d1d6; --muted: #a1a1a6; --line: #38383a; --line-soft: #2c2c2e;
-    --accent: #2997ff; --accent-press: #4aa8ff; --accent-soft: #10263f; --on-accent: #ffffff;
+    --accent: #2997ff; --accent-press: #4aa8ff; --accent-soft: #10263f; --on-accent: #ffffff; --accent-btn: #0a67cf; --accent-btn-press: #0a58b0;
     --success: #4cc76c; --success-soft: #11301b; --warning: #f0b44c; --warning-soft: #3a2a0c; --critical: #ff6b6b; --critical-soft: #3d1414;
     --field: #2c2c2e; --field-line: #48484a; --zebra: #222224; --frost: rgba(22, 22, 24, .82);
     --t0: #2e2647; --t0i: #d7cdfa; --t1: #15324a; --t1i: #b9dcfa; --t2: #163a22; --t2i: #b5ecc5; --t3: #43290f; --t3i: #ffd3ad;
@@ -76,7 +76,7 @@ button, input, select, textarea { font: inherit; letter-spacing: inherit; color:
   .nav .brand { display: flex; align-items: center; gap: 12px; padding: 4px 10px 22px; }
   .nav .brand b { display: block; font-size: 19px; }
   .nav .brand small { display: block; color: var(--muted); font-size: 14px; }
-  .logo { width: 40px; height: 40px; border-radius: 12px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; font-size: 15px; }
+  .logo { width: 40px; height: 40px; border-radius: 12px; background: var(--accent-btn); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; font-size: 15px; }
   .nav button { flex: 0 0 auto; flex-direction: row; justify-content: flex-start; gap: 12px; min-height: 44px; padding: 0 12px; color: var(--ink-2); }
   .nav button b { font-size: 16px; font-weight: 500; }
   .nav button.on { background: var(--accent-soft); color: var(--accent); }
@@ -135,8 +135,8 @@ button, input, select, textarea { font: inherit; letter-spacing: inherit; color:
   transition: transform .1s ease, background-color .15s ease;
 }
 .btn:active { transform: scale(.97); }
-.btn.primary { background: var(--accent); color: var(--on-accent); }
-.btn.primary:hover { background: var(--accent-press); }
+.btn.primary { background: var(--accent-btn); color: var(--on-accent); }
+.btn.primary:hover { background: var(--accent-btn-press); }
 .btn.secondary { background: var(--card); color: var(--accent); border-color: var(--field-line); }
 .btn.plain { background: transparent; color: var(--accent); padding: 0 12px; }
 .btn.danger { background: transparent; color: var(--critical); border-color: var(--field-line); }
@@ -364,7 +364,7 @@ button.rowi:hover { background: var(--zebra); }
   height: 56px; padding: 0 12px 0 16px; background: var(--frost); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 1px solid var(--line); }
 .appbar-brand { display: flex; align-items: center; gap: 10px; font-size: 17px; }
-.appbar-brand .logo { width: 32px; height: 32px; border-radius: 10px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
+.appbar-brand .logo { width: 32px; height: 32px; border-radius: 10px; background: var(--accent-btn); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
 .appbar-actions { display: flex; gap: 4px; margin-left: auto; }
 .iconbtn { position: relative; width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
 .iconbtn:hover { background: var(--line-soft); }
@@ -419,14 +419,16 @@ button.rowi:hover { background: var(--zebra); }
 .settings .set-back { min-height: 44px; padding: 0; margin: 16px 0 4px; font-size: 17px; }
 .settings .set-detail > .card, .settings .set-detail > form { margin-top: 8px; }
 .settings:not(.show-detail) .set-detail { display: none; }
-.settings.show-detail .set-head, .settings.show-detail .set-index { display: none; }
+.settings.show-detail .set-index { display: none; }
+/* the heading stays for screen readers while a section is open */
+.settings.show-detail .set-head { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (min-width: 900px) {
   .settings { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 0 24px; align-items: start; max-width: 1180px; }
   .settings .set-head { grid-column: 1 / -1; }
   .settings .set-index, .settings.show-detail .set-index { display: block; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; padding-bottom: 16px; }
   .settings .set-index .set-group:first-child { margin-top: 8px; }
   .settings .set-detail, .settings:not(.show-detail) .set-detail { display: block; padding-top: 8px; }
-  .settings.show-detail .set-head { display: flex; }
+  .settings.show-detail .set-head { display: flex; position: static; width: auto; height: auto; overflow: visible; clip: auto; white-space: normal; }
   .settings .set-back { display: none; }
   .settings .set-row.on { background: var(--accent-soft); }
   .settings .set-row.on b { color: var(--accent); }
@@ -699,3 +701,6 @@ button.rowi:hover { background: var(--zebra); }
 .shared .rowi .amt { white-space: nowrap; }
 
 .hint.pre { white-space: pre-line; }
+
+.rowi.sub { padding-block: 2px; min-height: 0; }
+.payday-card h2 { margin-bottom: 6px; }

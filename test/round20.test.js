@@ -33,8 +33,8 @@ describe('CSV', () => {
       { id: 'a', date: '2026-10-01', time: '', owner: 'Me', stream: 'BCA', direction: 'in', amount: 9000000, category: 'Gaji', description: 'Gaji', details: 'Gaji 2026-10', source: 'manual', status: 'approved', ref_no: 'salary:2026-10' },
     ]);
     const lines = csv.replace(/^﻿/, '').split('\r\n');
-    expect(lines[0]).toBe('id,date,time,owner,stream,direction,amount,category,description,details,source,status,ref_no,transfer_id');
-    expect(lines[1]).toBe('a,2026-10-01,,Me,BCA,in,9000000,Gaji,Gaji,Gaji 2026-10,manual,approved,salary:2026-10,');
+    expect(lines[0]).toBe('id,date,time,owner,stream,direction,amount,category,description,details,source,status,ref_no,transfer_id,gmail_id');
+    expect(lines[1]).toBe('a,2026-10-01,,Me,BCA,in,9000000,Gaji,Gaji,Gaji 2026-10,manual,approved,salary:2026-10,,');
     expect(lines[2].startsWith('b,2026-10-02,10:00:00')).toBe(true);
     expect(toCsv(['x'], [['y']])).toBe('﻿x\r\ny');
   });

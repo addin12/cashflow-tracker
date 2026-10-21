@@ -12,7 +12,7 @@ import { compileRule } from '../core/rules.js';
 import { parseStatement, matchStatement } from '../core/statement.js';
 import { parseQuick, evalAmount } from '../core/quick.js';
 import { interestCompare } from '../core/wealth.js';
-import { toCsv } from '../core/csv.js';
+import { toCsv, parseBackupCsv } from '../core/csv.js';
 import { isShared, toggleSharedTag } from '../core/shared.js';
 import { validToken } from '../core/telegram.js';
 import { categoryHabit } from '../core/insights.js';
@@ -485,7 +485,7 @@ async function viewDashboard() {
   const yr = Number(d.month.slice(0, 4));
   if (report && state.reportYearly && !(state.yearly && state.yearly.forDash === d && state.yearly.data.year === yr)) {
     skeleton(T.tabDashboard);
-    state.yearly = { forDash: d, data: await call('yearly', { year: yr }) };
+    state.yearly = { forDash: d, data: await call('yearly', { year: yr, owner: state.who || '' }) };
     if (state.tab !== 'dashboard' || state.dashView !== 'report') return;
   }
   const viewBtn = (v, label) => `<button type="button" class="${(v === 'report') === report ? 'on' : ''}" aria-pressed="${(v === 'report') === report}" data-action="dashview" data-view="${v}">${esc(label)}</button>`;
@@ -596,6 +596,7 @@ function overviewHtml(d) {
       ${today.length ? `<div class="rows">${today.slice(0, 3).map(lineRow).join('')}</div>${today.length > 3 ? `<button class="link" data-action="drillday" data-date="${esc(state.boot.today)}">${esc(T.moreN(today.length - 3))}</button>` : ''}` : ''}
     </section>` : '';
   return `${hero}
+    ${isNow ? paydayCard(d.paydayPlan) : ''}
     ${isNow ? attentionCard(d) : ''}
     <div class="ov-grid">
       <div class="stack">
@@ -812,6 +813,7 @@ function importForm(s) {
     <details class="howto"><summary>${esc(T.importHowTo)}</summary><ol>${T.importSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol></details>
     <div id="impReview" role="status"></div>
     <div class="actions"><span class="state" role="status"></span><button class="btn primary" type="submit" disabled>${esc(T.importSave(0))}</button></div></form>
+    ${restoreForm()}
     ${hist ? `<section class="card"><h2>${esc(T.importHistory)}</h2><p class="lead">${esc(T.importHistoryHint)}</p><div class="rows">${hist}</div></section>` : ''}`;
 }
 
@@ -1335,8 +1337,67 @@ function attentionCard(d) {
     const mine = name === state.boot.me;
     rows.push({ icon: '📧', bad: false, title: mine ? T.notifGmailMine : T.notifGmailOther(name), meta: mine ? T.notifGmailMineSub : T.notifGmailOtherSub, act: 'data-action="go" data-tab="settings" data-section="household"' });
   }
+  const su = state.boot.setup;
+  if (su && (state.boot.members || []).length > 1) {
+    if (!su.accounts) rows.push({ icon: '🏦', bad: false, title: T.stepAccounts, meta: T.stepAccountsMeta, act: 'data-action="go" data-tab="settings" data-section="accounts"' });
+    if (!su.payday) rows.push({ icon: '💼', bad: false, title: T.stepPayday, meta: T.stepPaydayMeta, act: 'data-action="go" data-tab="settings" data-section="prefs"' });
+  }
   if (!rows.length) return '';
   return `<section class="card attn"><h2>${esc(T.attnTitle)}</h2><div class="rows">${rows.slice(0, 6).map((r) => `<button class="lrow" ${r.act}><span class="cat-ic ${r.bad ? 'c3' : 'c6'}" aria-hidden="true">${r.icon}</span><span class="what"><b>${esc(r.title)}</b><span class="meta">${esc(r.meta)}</span></span></button>`).join('')}</div></section>`;
+}
+
+/** "Terakhir diubah oleh <nama>, 19 Okt 10.05": two people edit the same rows. */
+const lastChanged = (x) => {
+  if (!x.updated_by || !x.updated_at) return '';
+  const at = new Date(x.updated_at);
+  if (Number.isNaN(at.getTime())) return '';
+  const by = ['sync', 'app'].includes(x.updated_by) ? T.bySync : x.updated_by;
+  return `<p class="hint">${esc(T.lastChanged(by, at.toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })))}</p>`;
+};
+
+/** Overview, on payday and the two days after: what the salary has to cover until the next one. */
+function paydayCard(p) {
+  if (!p) return '';
+  const line = (label, v, cls = '') => `<div class="rowi"><span class="what"><b>${esc(label)}</b></span><span class="amt ${cls}">${v}</span></div>`;
+  const sub = (label, v) => `<div class="rowi sub"><span class="what"><span class="meta">${esc(label)}</span></span><span class="amt">${rp(v)}</span></div>`;
+  return `<section class="card payday-card"><h2>${esc(T.pdTitle)}</h2><p class="lead">${esc(p.salary ? T.pdHint(rp(p.salary), p.days) : T.pdHintNoSalary(p.days))}</p>
+    <div class="rows">${p.salary ? line(T.pdSalary, `+${rp(p.salary)}`, 'in') : ''}
+      ${line(T.pdBills(p.bills.length), `−${rp(p.billsTotal)}`)}${p.bills.slice(0, 4).map((b) => sub(`${b.name} · ${dateLabel(b.date, { weekday: false })}`, b.amount)).join('')}
+      ${line(T.pdSave(p.goals.length), `−${rp(p.saveTotal)}`)}${p.goals.map((g) => sub(g.name, g.amount)).join('')}
+      ${p.free !== null ? line(T.pdFree, rp(p.free), p.free < 0 ? 'bad' : '') : ''}</div>
+    ${p.perDay ? `<p class="hint">${esc(T.pdPerDay(rp(p.perDay), p.days))}</p>` : ''}
+    ${p.free === null ? `<button class="link" data-action="go" data-tab="settings" data-section="prefs">${esc(T.pdSetSalary)}</button>` : ''}</section>`;
+}
+
+/** Settings → Impor: put transactions back from a backup file (only the ones missing, by id). */
+function restoreForm() {
+  return `<form class="card" data-form="restore" novalidate><h2>${esc(T.restoreTitle)}</h2><p class="lead">${esc(T.restoreHint)}</p>
+    ${field(T.importFile, '<input name="backup" type="file" accept=".csv,text/csv,text/plain">', { help: T.restoreFileHelp })}
+    <div id="restoreReview" role="status"></div>
+    <div class="actions"><span class="state" role="status"></span><button class="btn primary" type="submit" disabled>${esc(T.restoreSave(0))}</button></div></form>`;
+}
+async function readBackup(form) {
+  const input = form.querySelector('[name=backup]');
+  const box = $('#restoreReview');
+  const btn = form.querySelector('button[type=submit]');
+  state.restoreRows = null;
+  btn.disabled = true;
+  const file = input.files && input.files[0];
+  if (!file) { box.innerHTML = ''; return; }
+  box.innerHTML = `<p class="hint">${esc(T.loading)}</p>`;
+  try {
+    const text = file.text ? await file.text() : await new Promise((ok, fail) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = () => fail(fr.error); fr.readAsText(file); });
+    const rows = parseBackupCsv(text);
+    if (!state.all || state.allStale) setAll((await call('list', { limit: 1000000 })).rows);
+    const have = new Set(state.all.map((r) => String(r.id)));
+    const fresh = rows.filter((r) => r.id && !have.has(String(r.id)));
+    state.restoreRows = fresh;
+    box.innerHTML = `<p class="imp-sum"><b>${esc(T.restoreRead(rows.length))}</b> · ${esc(T.restoreKnown(rows.length - fresh.length))} · <b>${esc(T.restoreNew(fresh.length))}</b></p>`;
+    btn.textContent = T.restoreSave(fresh.length);
+    btn.disabled = !fresh.length;
+  } catch (e) {
+    box.innerHTML = `<p class="hint bad">${esc(T.restoreFailed(e.message))}</p>`;
+  }
 }
 
 /** The tag button on a payment's notes: shared by the two of you (#bersama). Only with two people. */
@@ -1551,7 +1612,7 @@ function showResults() {
     lastDay = k;
     const t = dayTotal.get(k) || { out: 0, in: 0 };
     const label = k === state.boot.today ? T.today : k === yesterday ? T.yesterday : dateLabel(k);
-    return `<div class="day-head" role="row"><span>${esc(label)}</span><span class="amt">${t.out ? `−${rp(t.out)}` : ''}${t.in ? ` <span class="in">+${rp(t.in)}</span>` : ''}</span></div>`;
+    return `<div class="day-head" role="heading" aria-level="2"><span>${esc(label)}</span><span class="amt">${t.out ? `−${rp(t.out)}` : ''}${t.in ? ` <span class="in">+${rp(t.in)}</span>` : ''}</span></div>`;
   };
   const items = rows.map((x) => `${dayHead(x)}
     <button class="trow${state.selecting ? ' picking' : ''}${state.picked.has(String(x.id)) ? ' picked' : ''}" data-action="${state.selecting ? 'pick' : 'edit'}" data-id="${esc(x.id)}" ${state.selecting ? `aria-pressed="${state.picked.has(String(x.id))}"` : ''}>
@@ -1565,7 +1626,7 @@ function showResults() {
   box.innerHTML = `${f.category ? categoryDetail(f.category) : ''}
     <div class="summary-bar"><span><b>${esc(T.countTransactions(all.total))}</b></span>
       <span>${esc(T.kindIn)} <b class="amt in">+${rp(sum('in'))}</b> · ${esc(T.kindOut)} <b class="amt">${rp(sum('out'))}</b></span></div>
-    ${rows.length ? `<div class="table" role="table"><div class="thead" role="row"><span>${esc(T.time)}</span><span>${esc(T.description)}</span><span>${esc(T.category)}</span><span>${esc(T.account)}</span><span class="r">${esc(T.amount)}</span></div>${items}</div>`
+    ${rows.length ? `<div class="table"><div class="thead" aria-hidden="true"><span>${esc(T.time)}</span><span>${esc(T.description)}</span><span>${esc(T.category)}</span><span>${esc(T.account)}</span><span class="r">${esc(T.amount)}</span></div>${items}</div>`
     : `<div class="card empty"><b>${esc(T.noTransactions)}</b>${esc(chips.length ? T.noTransactionsFiltered : '')}</div>`}
     ${all.total > rows.length ? `<div class="more"><span>${esc(T.showing(rows.length, all.total))}</span><button class="btn secondary" data-action="more">${esc(T.showMore)}</button></div>` : ''}
     ${state.selecting ? `<div class="pick-bar" role="region" aria-label="${esc(T.selectMany)}"><b>${esc(T.pickedN(state.picked.size))}</b>
@@ -1595,6 +1656,7 @@ function openEditor(id) {
     <form data-form="edit" data-id="${esc(x.id)}" novalidate>
       <h2>${esc(T.editTitle)}</h2>
       <p class="lead">${esc(x.gmail_id ? T.fromEmail : T.enteredByHand)}${x.gmail_id ? ` · <a class="link" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/#all/${esc(x.gmail_id)}">${esc(T.openGmail)} ↗</a>` : ''}</p>
+      ${lastChanged(x)}
       ${field(T.description, `<input name="description" value="${esc(x.description)}">`)}
       <div class="fields2" style="margin-top:16px">
         ${field(T.amountRp, `<input name="amount" class="amount-input" inputmode="decimal" autocomplete="off" value="${esc(x.amount)}"><em class="calc-out"></em>`)}
@@ -2601,6 +2663,33 @@ function onSubmit(e) {
     const person = (role) => ({ name: v(`${role}_name`), emails: emailsOf(`${role}_emails`), bankNames: v(`${role}_bank`) });
     return saveForm(form, 'saveHousehold', { owner: person('owner'), partner: person('partner'), ...(splitInput ? { split: Number(splitInput.value) } : {}) }, async () => { state.dashByMonth = {}; state.allStale = true; await refresh(); viewSettings(await call('settings')); });
   }
+  if (kind === 'restore') {
+    const rows = state.restoreRows || [];
+    if (!rows.length) return null;
+    const btn = form.querySelector('button[type=submit]');
+    const st = form.querySelector('.state');
+    btn.disabled = true;
+    st.className = 'state';
+    st.textContent = T.saving;
+    (async () => {
+      try {
+        let added = 0;
+        for (let i = 0; i < rows.length; i += 1000) added += (await call('restoreBackup', { rows: rows.slice(i, i + 1000) })).added;
+        state.restoreRows = null;
+        state.allStale = true;
+        state.dashByMonth = {};
+        $('#restoreReview').innerHTML = '';
+        st.className = 'state ok';
+        st.textContent = `✓ ${T.restoreDone(added)}`;
+        await refresh();
+      } catch (err) {
+        st.className = 'state bad';
+        st.textContent = err.message;
+        btn.disabled = false;
+      }
+    })();
+    return null;
+  }
   if (kind === 'telegramtoken') {
     const token = form.querySelector('[name=token]').value.trim();
     if (!fieldMessage(form.querySelector('[name=token]'), validToken(token) ? '' : T.tgBad)) return null;
@@ -2721,6 +2810,8 @@ function onChange(e) {
   if (e.target.dataset.k === 'as_opening') { updateBalRow(e.target.closest('.bal-row')); return null; }
   if (e.target.name === 'me' && e.target.closest('form[data-form=tagih]')) { updateTagih(e.target.closest('form')); return null; }
   if (e.target.dataset.p === 'direction') { const f = e.target.closest('form'); state.settings.plans = readPlans(f); viewSettings(state.settings); return null; }
+  const resForm = e.target.closest('form[data-form=restore]');
+  if (resForm && e.target.name === 'backup') { readBackup(resForm); return null; }
   const impForm = e.target.closest('form[data-form=import]');
   if (impForm && (e.target.name === 'statement' || e.target.name === 'stream')) { readStatement(impForm); return null; }
   if (impForm && e.target.dataset.imp) {
@@ -2759,6 +2850,13 @@ function applyLanguage(configured) {
 export async function start() {
   applyTheme(readTheme());
   document.addEventListener('click', onClick);
+  const modal = $('#modal');
+  if (modal && window.MutationObserver) {
+    new MutationObserver(() => {
+      const h = modal.querySelector('h2, h3');
+      if (h) { h.id = h.id || 'modalTitle'; modal.setAttribute('aria-labelledby', h.id); } else modal.removeAttribute('aria-labelledby');
+    }).observe(modal, { childList: true, subtree: true });
+  }
   document.addEventListener('toggle', (e) => { if (e.target.matches && e.target.matches('details.day-card')) state.dayOpen = e.target.open; }, true); // stays open while you type
   document.addEventListener('error', (e) => { // load errors don't bubble, so this listens while capturing
     const box = e.target?.parentElement;

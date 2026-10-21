@@ -12,7 +12,7 @@
 // }
 // env: { now(): Date, sync(): object }
 
-import { TABS, FIXED_CATEGORIES } from './schema.js';
+import { TABS, FIXED_CATEGORIES, TRANSACTION_HEADERS, STATUS } from './schema.js';
 import { buildCategorySlots, validateAccounts } from './categories.js';
 import {
   categoryLists, summarizeMonth, streamBalances, budgetPerDay, reviewItems, ruleFromApproval, pendingMatching,
@@ -20,7 +20,9 @@ import {
 } from './app.js';
 import { compileRule } from './rules.js';
 import { recurringCharges, payee } from './recurring.js';
-import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth } from './salary.js';
+import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth, paydayOf } from './salary.js';
+import { daysUntilPayday } from './payday.js';
+import { paydayPlan } from './paydayplan.js';
 import { topPlaces, biggestExpenses, moneyFlow, spendingPattern, tagTotals, newPlaceIds, underBudget } from './insights.js';
 import { netWorth, assetProblems, ASSET_KINDS, duePlans, owedSummary, upcomingBills, financialHealth, warrantyEnds, parsePriceStatus } from './wealth.js';
 import { markClaim, openClaims, CLAIM_STATUSES, DEFAULT_CLAIM_DAYS } from './claims.js';
@@ -113,6 +115,24 @@ export function createApi(store, env) {
     const c = store.read(TABS.connections).find((x) => emails.includes(String(x.gmail).toLowerCase()));
     return { role, name: String(store.config(`${p}name`) || ''), emails, bankNames: String(store.config(`${p}bank_names`) || ''), connected: c ? { at: c.last_sync || '', status: String(c.last_status || '') } : null };
   };
+  /** "Hari gajian": on your payday and the two days after, what the salary has to cover until the next one. */
+  const paydayNow = (recItems, cardList, goals, today) => {
+    const day = isOwner() ? payday() : ownPayday();
+    if (!day) return null;
+    const t = isoDate(today);
+    const m = t.slice(0, 7);
+    const last = [paydayOf(monthAdd(m, -1), day), paydayOf(m, day)].filter((d) => d <= t).pop();
+    if (!last || Math.round((Date.parse(t) - Date.parse(last)) / 86400000) > 2) return null;
+    const days = daysUntilPayday(today, day);
+    const mineGoal = (g) => { const a = accounts().find((x) => x.stream === g.stream); return !a || !a.owner || a.owner === owner(); };
+    return {
+      date: last, ...paydayPlan({
+        salary: Number(store.config(mine('salary_amount'))) || 0, days,
+        bills: upcomingBills(store.read(TABS.plans), recItems, today, days, cardList),
+        goals: goals.filter((g) => !g.done && g.perMonth > 0 && mineGoal(g)).map((g) => ({ name: g.name, amount: g.perMonth })),
+      }),
+    };
+  };
   /** What the two of you share (#bersama): who paid, who owes whom. Null with one person. */
   const sharedNow = (range) => {
     const people = members();
@@ -201,6 +221,8 @@ export function createApi(store, env) {
         pendingCount: rows().filter((r) => r.status === 'pending').length,
         rules: store.read(TABS.rules).map((r) => ({ pattern: r.pattern, category: r.category })), // for typing a transaction as a sentence
         usual: usualEntries(rows(), { today: now() }),
+        // Your own first steps (the two of you are new to the app one at a time): accounts of yours, a payday of yours.
+        setup: { accounts: accounts().filter((a) => a.owner === owner()).length, payday: isOwner() || ownPayday() > 0 },
         // People whose Gmail isn't connected yet (so their bank emails aren't coming in).
         notConnected: [memberInfo('owner'), memberInfo('partner')].filter((m) => m.name && m.emails.length && !m.connected).map((m) => m.name),
       };
@@ -416,6 +438,7 @@ export function createApi(store, env) {
         under: underBudget(daily, { today: isoDate(today), from: start(), allowance: budgetTotal ? budgetTotal / Math.max(1, daily.length) : 0 }),
         claims: openClaims(all, json('claims'), today),
         shared: sharedNow(spanOf(m)),
+        paydayPlan: paydayNow(rec.items, cardList, goals, today),
         warranties: warrantyEnds(store.read(TABS.assets), today, 60),
         prevDaily: dailySpending(all, c, spanOf(monthAdd(m, -1))),
         // Today's payments (also the ones still waiting for a category) and the latest rows.
@@ -556,6 +579,38 @@ export function createApi(store, env) {
       return { ok: true };
     },
 
+    /**
+     * Puts back transactions from a backup file (parseBackupCsv): the ones whose id isn't in the sheet yet. Nothing
+     * is overwritten or removed. Max 5000 at a time.
+     */
+    restoreBackup({ rows: list }) {
+      if (!Array.isArray(list) || !list.length) throw new Error('nothing to restore');
+      if (list.length > 5000) throw new Error('too many rows in one go (max 5000)');
+      const have = new Set(rows().map((r) => String(r.id)));
+      const blank = Object.fromEntries(TRANSACTION_HEADERS.map((h) => [h, '']));
+      const text = (v, max) => String(v ?? '').slice(0, max);
+      const added = [];
+      list.forEach((r, i) => {
+        const n = `row ${i + 1}`;
+        const id = text(r.id, 100).trim();
+        const amount = Math.round(Math.abs(Number(r.amount)) * 100) / 100;
+        if (!id) throw new Error(`${n}: no id`);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.date || ''))) throw new Error(`${n}: date must be YYYY-MM-DD`);
+        if (r.direction !== 'in' && r.direction !== 'out') throw new Error(`${n}: direction must be in or out`);
+        if (!(amount > 0)) throw new Error(`${n}: amount must be more than 0`);
+        if (!STATUS.includes(r.status)) throw new Error(`${n}: unknown status ${text(r.status, 20)}`);
+        if (have.has(id)) return;
+        have.add(id);
+        added.push({
+          ...blank, id, date: r.date, time: text(r.time, 8), owner: text(r.owner, 60), stream: text(r.stream, 80), direction: r.direction, amount,
+          category: text(r.category, 100), description: text(r.description, 200), details: text(r.details, 300), source: text(r.source, 20) || 'restore',
+          status: r.status, ref_no: text(r.ref_no, 100), transfer_id: text(r.transfer_id, 100), gmail_id: text(r.gmail_id, 100), updated_by: owner() || 'app', updated_at: nowIso(),
+        });
+      });
+      if (added.length) store.append(TABS.transactions, added);
+      return { ok: true, added: added.length, skipped: list.length - added.length };
+    },
+
     /** A test notification to every phone that joined. */
     pushTest() {
       if (!env.push) throw new Error('notifications are not set up');
@@ -576,9 +631,9 @@ export function createApi(store, env) {
     },
 
     /** A year month by month (each month as the summary counts it), with the year's places and biggest payments. */
-    yearly({ year: y } = {}) {
+    yearly({ year: y, owner: who } = {}) {
       const yy = Number(y) || now().getFullYear();
-      const all = rows();
+      const all = who ? rows().filter((r) => r.owner === who) : rows();
       const c = cats();
       const months = [...Array(12)].map((_, i) => `${yy}-${String(i + 1).padStart(2, '0')}`).map((m) => {
         const t = summarizeMonth(all, c, m, '', rangeOf(m));
@@ -1084,5 +1139,5 @@ export const API_METHODS = [
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
   'yearly', 'importStatement', 'undoImport', 'updateMany', 'tagih', 'owedSet', 'owedRemove', 'savePlans', 'saveAssets', 'markRecurring',
-  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe', 'markClaim', 'saveHousehold', 'settleUp', 'undoSettlement', 'saveTelegramToken', 'telegramUnlink', 'telegramRemove',
+  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe', 'markClaim', 'saveHousehold', 'settleUp', 'undoSettlement', 'saveTelegramToken', 'telegramUnlink', 'telegramRemove', 'restoreBackup',
 ];
