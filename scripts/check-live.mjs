@@ -19,7 +19,9 @@ for (let i = 0; i < rounds; i += 1) {
   if (i) await wait(30000);
   const res = await fetch(url, { headers: { authorization: `Bearer ${tok.access_token}` }, redirect: 'follow' });
   const body = await res.text();
-  const err = body.match(/(Exception|Error): [^<"\\]{0,200}/);
+  // The app page carries cached first-screen data that can hold an old sync error as text: only a page that is
+  // not the app (no window.__ME__) counts as Google's error page.
+  const err = body.includes('window.__ME__') ? null : body.match(/(Exception|Error): [^<"\\]{0,200}/);
   if (res.status !== 200 || err) {
     console.error(`live page FAILED (try ${i + 1}): HTTP ${res.status} ${err ? err[0] : ''}`);
     process.exit(1);
