@@ -45,8 +45,9 @@ function memoryStore() {
 let dom; let store; let doc; let api; let html;
 const calls = [];
 const tick = () => new Promise((r) => setTimeout(r, 0));
-async function until(fn, what) {
-  for (let i = 0; i < 200; i += 1) { if (fn()) return; await new Promise((r) => setTimeout(r, 5)); }
+async function until(fn, what, ms = 1000) {
+  for (const end = Date.now() + ms; Date.now() < end;) { if (fn()) return; await new Promise((r) => setTimeout(r, 5)); }
+  if (fn()) return;
   throw new Error(`timed out waiting for ${what}\nserver calls so far: ${calls.join(' ')}\n${doc.querySelector('#view').innerHTML.slice(0, 500)}`);
 }
 const view = () => doc.querySelector('#view').textContent;
@@ -362,7 +363,7 @@ describe('web app', () => {
     const addAt = calls.lastIndexOf('add');
     await tab('add', 'Simpan transaksi'); // the Add screen (or the refresh after the add) loads the list, now with the cash expense
     // Which of the two comes first depends on the machine's speed, so look for any list call after the add.
-    await until(() => calls.indexOf('list', addAt) > -1, 'list refreshed after the add');
+    await until(() => calls.indexOf('list', addAt) > -1, 'list refreshed after the add', 4000); // the app refreshes 1.2 s after a change
     await tick(); await tick();
     const form = doc.querySelector('form[data-form=add]');
     const fill = (stream, name) => {
