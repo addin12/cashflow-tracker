@@ -9,6 +9,7 @@ import { TABS } from '../src/core/schema.js';
 import { accountFixes } from '../src/core/datafix.js';
 import { ruleUpdates } from '../src/core/rules.js';
 import { retryable } from '../src/core/retry.js';
+import { unknownAccounts, adoptRows } from '../src/core/newaccounts.js';
 
 describe('reading CSV', () => {
   it('quotes, doubled quotes, commas and line breaks inside quotes, both kinds of line end, a BOM', () => {
@@ -234,5 +235,46 @@ describe('which mail can be opened from here', () => {
     store.cfg.partner_email = 'dewi@example.com, dewi2@example.com';
     expect(me(store, at(10, 21)).bootstrap().myEmails).toEqual(['me@example.com']);
     expect(she(store, at(10, 21)).bootstrap().myEmails).toEqual(['dewi@example.com', 'dewi2@example.com']);
+  });
+});
+
+describe('accounts the emails mention but nobody added yet', () => {
+  const log = [
+    { gmail_id: 'g1', status: 'ok', rows: 2, reason: 'account not recognised (Mandiri …0202)', gmail: 'dewi@example.com' },
+    { gmail_id: 'g2', status: 'ok', rows: 1, reason: 'account not recognised (Mandiri …0202); named shopee charge x', gmail: 'dewi@example.com' },
+    { gmail_id: 'g3', status: 'ok', rows: 1, reason: 'account not recognised (Jago)', gmail: 'dewi@example.com' },
+    { gmail_id: 'g4', status: 'ok', rows: 1, reason: 'account not recognised (BCA …1234)', gmail: 'me@example.com' },
+    { gmail_id: 'g5', status: 'ok', rows: 1, reason: '', gmail: 'dewi@example.com' },
+  ];
+  const mine = [{ stream: 'Mandiri', institution: 'Mandiri', match_hint: '1111', owner: 'Dewi' }];
+  it('lists, for one person\'s own mailboxes, the bank and number with how many transactions wait, biggest first', () => {
+    expect(unknownAccounts(log, ['dewi@example.com'], mine)).toEqual([{ institution: 'Mandiri', hint: '0202', count: 3 }, { institution: 'Jago', hint: '', count: 1 }]);
+    expect(unknownAccounts(log, ['me@example.com'], [])).toEqual([{ institution: 'BCA', hint: '1234', count: 1 }]);
+  });
+  it('is no longer listed once an account matches it', () => {
+    expect(unknownAccounts(log, ['dewi@example.com'], [...mine, { stream: 'Mandiri Dewi', institution: 'Mandiri', match_hint: '0202', owner: 'Dewi' }]).map((x) => x.institution)).toEqual(['Jago']);
+  });
+  it('adoptRows moves only that account\'s accountless rows of that owner', () => {
+    const rows = [
+      { id: 'a', gmail_id: 'g1', stream: '', owner: 'Dewi' }, { id: 'a_fee', gmail_id: 'g1', stream: '', owner: 'Dewi' },
+      { id: 'b', gmail_id: 'g3', stream: '', owner: 'Dewi' }, { id: 'c', gmail_id: 'g2', stream: 'BCA', owner: 'Dewi' }, { id: 'd', gmail_id: 'g1', stream: '', owner: 'Me' },
+    ];
+    expect(adoptRows(log, rows, { stream: 'Mandiri Dewi', institution: 'Mandiri', match_hint: '0202', owner: 'Dewi' }).map((u) => u.id)).toEqual(['a', 'a_fee']);
+  });
+  it('saving the account through the API puts the waiting rows on it and lets the rules settle them', () => {
+    const rows = [
+      { id: 'w1', date: '2026-10-05', direction: 'out', amount: 5, stream: '', category: '', status: 'pending', description: 'SHOPEE X', owner: 'Dewi', gmail_id: 'g1' },
+      { id: 'w2', date: '2026-10-05', direction: 'out', amount: 9, stream: '', category: '', status: 'pending', description: 'OVO', owner: 'Dewi', gmail_id: 'g1' },
+    ];
+    const store = memoryStore({}, rows);
+    store.t[TABS.inboxLog] = log.map((l) => ({ ...l }));
+    store.t[TABS.rules] = [{ id: 'r1', field: 'description', pattern: 'SHOPEE', category: 'Makan', auto_approve: true }];
+    store.update = (tab, ups) => ups.forEach(({ id, changes }) => Object.assign(store.t[tab].find((r) => r.id === id), changes));
+    const api = she(store, at(10, 21));
+    expect(api.bootstrap().newAccounts.map((x) => x.institution)).toEqual(['Mandiri', 'Jago']);
+    const accounts = [...store.t[TABS.accounts].map((a) => ({ ...a })), { stream: 'Mandiri Dewi', type: 'Spending', owner: 'Dewi', institution: 'Mandiri', match_hint: '0202', opening_balance: 0 }];
+    expect(api.saveAccounts({ accounts })).toEqual({ ok: true, adopted: 2 });
+    expect(store.t[TABS.transactions].map((r) => [r.id, r.stream, r.category, r.status])).toEqual([['w1', 'Mandiri Dewi', 'Makan', 'approved'], ['w2', 'Mandiri Dewi', '', 'pending']]);
+    expect(api.bootstrap().newAccounts.map((x) => x.institution)).toEqual(['Jago']);
   });
 });

@@ -97,6 +97,8 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 
 > **Review is per person:** the number on Review, the bell and the first screen count your own waiting transactions. The other person's wait below, under "Menunggu <name>", and either of you can settle them.
 
+> **A new bank account:** when emails mention an account you haven't added (for example a new person's first bank emails), "Perlu perhatian" says which bank and number and how many transactions wait. Tap it, give the account a name, **Simpan rekening**: the waiting transactions move onto it.
+
 ## Akhir bulan / Month end (±5 menit)
 
 0. Di tanggal gajian: catat dulu **gaji** di **Cek**, baru cek saldo (kalau tidak, gajinya tercatat sebagai Penyesuaian).

@@ -1349,6 +1349,7 @@ function attentionCard(d) {
     if (!su.accounts) rows.push({ icon: '🏦', bad: false, title: T.stepAccounts, meta: T.stepAccountsMeta, act: 'data-action="go" data-tab="settings" data-section="accounts"' });
     if (!su.payday) rows.push({ icon: '💼', bad: false, title: T.stepPayday, meta: T.stepPaydayMeta, act: 'data-action="go" data-tab="settings" data-section="prefs"' });
   }
+  for (const n of (state.boot.newAccounts || []).slice(0, 2)) rows.push({ icon: '🏦', bad: false, title: T.attnNewAccount(n.institution, n.hint, n.count), meta: T.attnNewAccountMeta, act: `data-action="newaccount" data-inst="${esc(n.institution)}" data-hint="${esc(n.hint)}"` });
   for (const a of ((su && su.unchecked) || []).slice(0, 2)) rows.push({ icon: '⚖️', bad: false, title: T.stepBalance(a), meta: T.stepBalanceMeta, act: 'data-action="go" data-tab="settings" data-section="monthend"' });
   const rv = state.review || {};
   for (const e of (rv.errors || []).slice(0, 2)) rows.push({ icon: '✉️', bad: false, title: T.attnUnread(e.subject || e.from), meta: T.attnUnreadMeta, act: 'data-action="go" data-tab="review"' });
@@ -1953,6 +1954,14 @@ async function viewSettings(local) {
   if (!local) skeleton(T.tabSettings);
   const s = local || await call('settings');
   if (state.tab !== 'settings') return;
+  if (state.prefillAccount) { // from "Perlu perhatian": an account the emails mention, with its bank and number filled in
+    const p = state.prefillAccount;
+    state.prefillAccount = null;
+    if (!s.accounts.some((a) => a.institution === p.institution && a.match_hint === p.match_hint)) {
+      const taken = s.accounts.some((a) => a.stream === p.institution);
+      s.accounts = [...s.accounts, { stream: taken ? `${p.institution} ${state.boot.me}` : p.institution, type: 'Spending', owner: state.boot.me, institution: p.institution, match_hint: p.match_hint, opening_balance: 0 }];
+    }
+  }
   state.settings = s;
   const cfg = s.config;
   const saveRow = (label) => `<div class="actions"><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(label)}</button></div>`;
@@ -2511,6 +2520,11 @@ function onClick(e) {
     return save('remove', { id }).catch((err) => { toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }); scheduleRefresh(0); });
   }
   if (a === 'delrule') { state.settings.rules = readRules(el.closest('form')); state.settings.rules.splice(Number(el.dataset.i), 1); return viewSettings(state.settings); }
+  if (a === 'newaccount') {
+    state.prefillAccount = { institution: el.dataset.inst, match_hint: el.dataset.hint };
+    state.settingsSection = 'accounts';
+    return show('settings');
+  }
   if (a === 'addacct') {
     const form = el.closest('form');
     state.settings.accounts = readAccounts(form);
@@ -2772,7 +2786,7 @@ function onSubmit(e) {
   }
   if (kind === 'accounts') {
     const list = readAccounts(form).filter((a) => a.stream.trim());
-    return saveForm(form, 'saveAccounts', { accounts: list }, () => refresh());
+    return saveForm(form, 'saveAccounts', { accounts: list }, (r) => { if (r && r.adopted) { toast(T.adopted(r.adopted)); state.allStale = true; state.dashByMonth = {}; } return refresh(); });
   }
   if (kind === 'categories') {
     const lines = (s) => String(s || '').split('\n').map((x) => x.trim()).filter(Boolean);

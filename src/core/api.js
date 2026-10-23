@@ -19,6 +19,7 @@ import {
   manualRows, balanceCorrection, renamedCategories, budgetUsage, filterTransactions, isoDate, newId, suggestBudgets, bigSpends, newestFromEmail, dailySpending, rowView,
 } from './app.js';
 import { compileRule, ruleUpdates } from './rules.js';
+import { unknownAccounts, adoptRows } from './newaccounts.js';
 import { recurringCharges, payee } from './recurring.js';
 import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth, paydayOf } from './salary.js';
 import { daysUntilPayday } from './payday.js';
@@ -224,6 +225,8 @@ export function createApi(store, env) {
         start: String(store.config('start_date') || ''), currentMonth: currentMonth(), summaryPeriod: byPayday() ? 'payday' : 'month',
         payday: Number(store.config('payday_day')) || 28, categories: c,
         accounts: accounts().map((a) => ({ stream: a.stream, type: a.type, owner: a.owner, institution: a.institution })),
+        // Bank accounts your emails mention that you have not added yet (their transactions wait without an account).
+        newAccounts: unknownAccounts(store.read(TABS.inboxLog), memberInfo(isOwner() ? 'owner' : 'partner').emails, accounts().filter((a) => !a.owner || a.owner === owner())).slice(0, 3),
         myEmails: memberInfo(isOwner() ? 'owner' : 'partner').emails, // the Google accounts that are yours: only their mail can be opened from here
         connections: store.read(TABS.connections).map((x) => ({ gmail: x.gmail, last_sync: x.last_sync, last_status: x.last_status })),
         pendingCount: rows().filter((r) => r.status === 'pending').length,
@@ -972,7 +975,16 @@ export function createApi(store, env) {
       const missing = [...used].filter((s) => !kept.has(s));
       if (missing.length) throw new Error(`these accounts have transactions and can't be removed: ${missing.join(', ')}`);
       store.replace(TABS.accounts, clean);
-      return { ok: true };
+      // Transactions that waited for an account of this kind (a newcomer's first emails) go onto it, and the rules settle them.
+      const log = store.read(TABS.inboxLog);
+      const adopt = clean.flatMap((a) => adoptRows(log, rows(), a));
+      if (adopt.length) {
+        store.update(TABS.transactions, adopt.map((u) => ({ id: u.id, changes: touch(u.changes) })));
+        const ids = new Set(adopt.map((u) => String(u.id)));
+        const settle = ruleUpdates(rows().filter((r) => ids.has(String(r.id))), store.read(TABS.rules));
+        if (settle.length) store.update(TABS.transactions, settle.map((u) => ({ id: u.id, changes: touch(u.changes) })));
+      }
+      return { ok: true, adopted: adopt.length };
     },
 
     saveCategories({ income, expense }) {
