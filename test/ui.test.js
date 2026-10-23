@@ -683,12 +683,19 @@ describe('web app', () => {
     expect([...doc.querySelectorAll('.seg.who button')].map((b) => b.textContent.trim())).toEqual(['Us', 'Me', 'Dewi']);
     // Dewi's waiting rows are not in Me's badge: they wait in their own part of Review.
     store.t[TABS.transactions].push({ id: 'dw1', date: '2026-10-04', time: '09:00:00', owner: 'Dewi', stream: 'BCA', direction: 'out', amount: 7000, category: '', description: 'WARUNG DEWI', details: '', status: 'pending', gmail_id: 'gdw1', updated_by: 'sync' });
+    store.t[TABS.inboxLog].push({ gmail_id: 'gdw9', received: '2026-10-05', from: 'bank', subject: 'Transfer Berhasil', status: 'error', parser: 'livin', reason: 'no amount found', rows: 0, gmail: 'dewi@example.com' });
+    const linksBefore = doc.querySelectorAll('a[href*="mail.google.com"]').length;
     const mineBefore = store.t[TABS.transactions].filter((r) => r.status === 'pending' && r.owner !== 'Dewi').length;
     await tab('review', 'To review');
     click(doc.querySelector('[data-action=sync]'));
     await until(() => /Waiting for Dewi \(1\)/.test(view()), 'the partner part of Review', 4000);
     expect(Number(doc.querySelector('#reviewCount').textContent)).toBeLessThanOrEqual(mineBefore + 1); // Dewi's row is not counted
     expect(doc.querySelector('.txcard[data-id=dw1]')).not.toBeNull(); // but it can still be settled from here
+    // An unreadable email of Dewi's mailbox has no "Open in Gmail" here (it is not in this inbox); the others keep theirs.
+    expect(view()).toContain('Transfer Berhasil');
+    expect(doc.querySelectorAll('a[href*="mail.google.com"]').length).toBeLessThanOrEqual(Math.max(linksBefore, 1));
+    expect(doc.querySelector('a[href*="gdw9"]')).toBeNull();
+    store.t[TABS.inboxLog] = store.t[TABS.inboxLog].filter((l) => l.gmail_id !== 'gdw9');
     store.t[TABS.transactions] = store.t[TABS.transactions].filter((r) => r.id !== 'dw1');
     // Put the household back as it was, for anything after this.
     Object.assign(store.cfg, { partner_name: '', partner_email: '', partner_bank_names: '' });

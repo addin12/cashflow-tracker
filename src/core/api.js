@@ -224,6 +224,7 @@ export function createApi(store, env) {
         start: String(store.config('start_date') || ''), currentMonth: currentMonth(), summaryPeriod: byPayday() ? 'payday' : 'month',
         payday: Number(store.config('payday_day')) || 28, categories: c,
         accounts: accounts().map((a) => ({ stream: a.stream, type: a.type, owner: a.owner, institution: a.institution })),
+        myEmails: memberInfo(isOwner() ? 'owner' : 'partner').emails, // the Google accounts that are yours: only their mail can be opened from here
         connections: store.read(TABS.connections).map((x) => ({ gmail: x.gmail, last_sync: x.last_sync, last_status: x.last_status })),
         pendingCount: rows().filter((r) => r.status === 'pending').length,
         rules: store.read(TABS.rules).map((r) => ({ pattern: r.pattern, category: r.category })), // for typing a transaction as a sentence

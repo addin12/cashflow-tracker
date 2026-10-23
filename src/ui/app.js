@@ -333,7 +333,7 @@ function viewReview() {
     <div class="actions" style="justify-content:center"><button class="btn secondary" data-action="go" data-tab="dashboard">${esc(T.seeSummary)}</button></div></div>`;
   const errors = r.errors.map((x) => `
     <div class="rowi"><div class="what"><b>${esc(x.subject || x.from)}</b><div class="meta">${esc(x.reason)}</div>
-      <div class="actions" style="justify-content:flex-start;margin-top:8px"><a class="btn secondary small" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/#all/${esc(x.gmail_id)}">${esc(T.openGmail)} ↗</a>
+      <div class="actions" style="justify-content:flex-start;margin-top:8px">${gmailLink(x, 'btn secondary small')}
       <button class="btn plain small" data-action="go" data-tab="add">${esc(T.enterManually)}</button>
       <button class="btn plain small" data-action="dismissmail" data-id="${esc(x.gmail_id)}">${esc(T.dismissMail)}</button></div></div></div>`).join('');
   const rulesCard = r.ruleable ? `<div class="card rowi"><span class="what"><b>${esc(T.rulesWaiting(r.ruleable))}</b></span><button class="btn secondary small" data-action="applyrules">${esc(T.rulesApply)}</button></div>` : '';
@@ -1666,7 +1666,7 @@ function openEditor(id) {
   $('#modal').innerHTML = `<div class="sheet">
     <form data-form="edit" data-id="${esc(x.id)}" novalidate>
       <h2>${esc(T.editTitle)}</h2>
-      <p class="lead">${esc(x.gmail_id ? T.fromEmail : T.enteredByHand)}${x.gmail_id ? ` · <a class="link" target="_blank" rel="noopener" href="https://mail.google.com/mail/u/0/#all/${esc(x.gmail_id)}">${esc(T.openGmail)} ↗</a>` : ''}</p>
+      <p class="lead">${esc(x.gmail_id ? T.fromEmail : T.enteredByHand)}${gmailLink(x, 'link') ? ` · ${gmailLink(x, 'link')}` : ''}</p>
       ${lastChanged(x)}
       ${field(T.description, `<input name="description" value="${esc(x.description)}">`)}
       <div class="fields2" style="margin-top:16px">
@@ -1880,6 +1880,14 @@ function whoSeg() {
 }
 /** A row of yours (or of nobody in particular): the Review badge and bell count only these; the other person's wait below. */
 const mineRow = (x) => !x.owner || (state.boot.members || []).length < 2 || x.owner === state.boot.me;
+/** A link to the email in Gmail, only for mail in one of your own accounts (another person's mail is not in your inbox). */
+const gmailLink = (x, cls) => {
+  const mailbox = String(x.gmail || '').toLowerCase();
+  const mine = (state.boot.myEmails || []).includes(mailbox);
+  if (!x.gmail_id || (mailbox && !mine)) return '';
+  const user = mailbox ? `?authuser=${encodeURIComponent(mailbox)}` : '/u/0/';
+  return `<a class="${cls}" target="_blank" rel="noopener" href="https://mail.google.com/mail${user}#all/${esc(x.gmail_id)}">${esc(T.openGmail)} ↗</a>`;
+};
 const otherOwner = (x) => (x.owner && (state.boot.members || []).length > 1 && x.owner !== state.boot.me ? ` · ${esc(x.owner)}` : '');
 
 /** Settings → Telegram: your own bot, and which chats may log by it. */

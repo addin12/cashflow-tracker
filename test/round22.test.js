@@ -227,3 +227,12 @@ describe('Review: rules button, dismissing an email, balance steps, one line per
     expect(g.map((x) => [x.email, x.connected, x.problem])).toEqual([['dewi@example.com', true, ''], ['dewi2@example.com', false, ''], ['dewi3@example.com', true, 'Quota hit']]);
   });
 });
+
+describe('which mail can be opened from here', () => {
+  it('bootstrap lists only the signed-in person\'s own Google accounts', () => {
+    const store = memoryStore();
+    store.cfg.partner_email = 'dewi@example.com, dewi2@example.com';
+    expect(me(store, at(10, 21)).bootstrap().myEmails).toEqual(['me@example.com']);
+    expect(she(store, at(10, 21)).bootstrap().myEmails).toEqual(['dewi@example.com', 'dewi2@example.com']);
+  });
+});
