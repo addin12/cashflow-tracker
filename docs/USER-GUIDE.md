@@ -95,6 +95,8 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 
 > **Review:** when your rules fit waiting transactions (for example a newcomer's first emails), a card offers **Terapkan aturan / Apply rules**. An email that is not a transaction can be dismissed (**Abaikan**). The overview card "Perlu perhatian" also names unreadable emails and accounts that still need an opening balance. **Settings → Pasangan** shows, for each Google account of a person, whether it is connected and when it was last read.
 
+> **Review is per person:** the number on Review, the bell and the first screen count your own waiting transactions. The other person's wait below, under "Menunggu <name>", and either of you can settle them.
+
 ## Akhir bulan / Month end (±5 menit)
 
 0. Di tanggal gajian: catat dulu **gaji** di **Cek**, baru cek saldo (kalau tidak, gajinya tercatat sebagai Penyesuaian).

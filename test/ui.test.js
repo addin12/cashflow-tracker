@@ -681,6 +681,15 @@ describe('web app', () => {
     await tab('dashboard', 'Summary');
     await until(() => doc.querySelector('.seg.who'), 'the Us / Me / Dewi switch');
     expect([...doc.querySelectorAll('.seg.who button')].map((b) => b.textContent.trim())).toEqual(['Us', 'Me', 'Dewi']);
+    // Dewi's waiting rows are not in Me's badge: they wait in their own part of Review.
+    store.t[TABS.transactions].push({ id: 'dw1', date: '2026-10-04', time: '09:00:00', owner: 'Dewi', stream: 'BCA', direction: 'out', amount: 7000, category: '', description: 'WARUNG DEWI', details: '', status: 'pending', gmail_id: 'gdw1', updated_by: 'sync' });
+    const mineBefore = store.t[TABS.transactions].filter((r) => r.status === 'pending' && r.owner !== 'Dewi').length;
+    await tab('review', 'To review');
+    click(doc.querySelector('[data-action=sync]'));
+    await until(() => /Waiting for Dewi \(1\)/.test(view()), 'the partner part of Review', 4000);
+    expect(Number(doc.querySelector('#reviewCount').textContent)).toBeLessThanOrEqual(mineBefore + 1); // Dewi's row is not counted
+    expect(doc.querySelector('.txcard[data-id=dw1]')).not.toBeNull(); // but it can still be settled from here
+    store.t[TABS.transactions] = store.t[TABS.transactions].filter((r) => r.id !== 'dw1');
     // Put the household back as it was, for anything after this.
     Object.assign(store.cfg, { partner_name: '', partner_email: '', partner_bank_names: '' });
     state_reset();

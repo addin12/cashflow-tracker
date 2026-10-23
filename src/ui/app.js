@@ -289,7 +289,7 @@ function syncLine() {
 }
 
 function updateNav() {
-  const n = state.review ? state.review.pending.length + (state.review.salary || []).length : 0;
+  const n = state.review ? state.review.pending.filter(mineRow).length + (state.review.salary || []).length : 0;
   const count = $('#reviewCount');
   if (count) { count.hidden = !n; count.textContent = String(n); count.setAttribute('aria-label', T.pendingNote(n)); }
   const owner = $('#brandOwner');
@@ -303,7 +303,7 @@ function updateNav() {
 function viewReview() {
   const r = state.review;
   if (!r) return skeleton(T.reviewTitle);
-  const n = r.pending.length + (r.salary || []).length;
+  const n = r.pending.filter(mineRow).length + (r.salary || []).length;
   // Salary: no email reports it, so each payday without one asks for the amount.
   const salary = (r.salary || []).map((x) => `
     <article class="card txcard salary-card" data-id="salary:${esc(x.month)}" data-month="${esc(x.month)}" data-date="${esc(x.date)}">
@@ -315,7 +315,7 @@ function viewReview() {
       </div>
       <div class="actions fill"><button class="btn secondary" data-action="salaryskip">${esc(T.salarySkip)}</button><button class="btn primary" data-action="salarysave">${esc(T.salarySave)}</button></div>
     </article>`).join('');
-  const cards = r.pending.map((x) => `
+  const card = (x) => `
     <article class="card txcard" data-id="${esc(x.id)}">
       <div class="top"><div class="name">${esc(x.description || x.details || '—')}</div><div class="amt ${esc(x.direction)}">${signed(x)}</div></div>
       <div class="meta">${esc(when(x))} · ${esc(x.stream || T.noAccount)}${x.details && x.description ? ` · ${esc(x.details)}` : ''}${otherOwner(x)}${firstBadge(x)}</div>
@@ -323,7 +323,12 @@ function viewReview() {
       ${field(T.category, `<select data-field="category">${categoryOptions(x.category, x.direction)}</select>`)}
       ${x.description && x.source !== 'summary' ? `<label class="check"><input type="checkbox" data-field="always" checked> ${esc(T.alwaysFor(x.description))}</label>` : ''}
       <div class="actions fill"><button class="btn secondary" data-action="ignore">${esc(T.ignore)}</button><button class="btn primary" data-action="approve">${esc(T.saveToReports)}</button></div>
-    </article>`).join('');
+    </article>`;
+  const mine = r.pending.filter(mineRow);
+  const theirs = r.pending.filter((x) => !mineRow(x));
+  const theirName = (theirs[0] && theirs[0].owner) || '';
+  const cards = mine.map(card).join('');
+  const theirCards = theirs.length ? `<h2 class="section-title">${esc(T.waitingFor(theirName, theirs.length))}<small>${esc(T.waitingForHint)}</small></h2>${theirs.map(card).join('')}` : '';
   const empty = `<div class="card empty"><div class="big" aria-hidden="true">✓</div><b>${esc(T.reviewEmpty)}</b>${esc(T.reviewEmptySub)}
     <div class="actions" style="justify-content:center"><button class="btn secondary" data-action="go" data-tab="dashboard">${esc(T.seeSummary)}</button></div></div>`;
   const errors = r.errors.map((x) => `
@@ -338,7 +343,7 @@ function viewReview() {
     <header class="page-head"><div><h1>${esc(T.reviewTitle)}</h1><p class="sub">${esc(n ? T.reviewSub(n) : T.reviewSubNone)} · ${syncLine()}</p></div>
       <div class="tools"><button class="btn secondary small" data-action="sync">↻ ${esc(T.syncNow)}</button></div></header>
     <div class="split">
-      <section class="stack" aria-label="${esc(T.reviewTitle)}">${rulesCard}${dayCard(r.day, !!(r.pending.length || (r.salary || []).length))}${salary}${cards || (salary ? '' : empty)}</section>
+      <section class="stack" aria-label="${esc(T.reviewTitle)}">${rulesCard}${dayCard(r.day, !!(mine.length || (r.salary || []).length))}${salary}${cards || (salary || theirCards ? '' : empty)}${theirCards}</section>
       <aside>
         ${errors ? `<h2 class="section-title">${esc(T.unreadTitle)}<small>${esc(T.unreadHint)}</small></h2><div class="card rows">${errors}</div>` : ''}
         ${recent ? `<h2 class="section-title">${esc(T.recentTitle)}<small>${esc(T.recentHint)}</small></h2><div class="card rows">${recent}</div>` : ''}
@@ -1873,6 +1878,8 @@ function whoSeg() {
   const btn = (v, label) => `<button type="button" class="${(state.who || '') === v ? 'on' : ''}" aria-pressed="${(state.who || '') === v}" data-action="who" data-who="${esc(v)}">${esc(label)}</button>`;
   return `<div class="seg who" role="group" aria-label="${esc(T.whoLabel)}">${btn('', T.whoAll)}${btn(me, T.whoMe)}${btn(other, other)}</div>`;
 }
+/** A row of yours (or of nobody in particular): the Review badge and bell count only these; the other person's wait below. */
+const mineRow = (x) => !x.owner || (state.boot.members || []).length < 2 || x.owner === state.boot.me;
 const otherOwner = (x) => (x.owner && (state.boot.members || []).length > 1 && x.owner !== state.boot.me ? ` · ${esc(x.owner)}` : '');
 
 /** Settings → Telegram: your own bot, and which chats may log by it. */
@@ -2115,8 +2122,9 @@ function notifications() {
   const out = [];
   if (!state.boot) return out;
   const r = state.review;
-  if (r && r.pending.length) {
-    out.push({ id: `pending:${r.pending.length}:${r.pending[0].id}`, kind: 'warn', title: T.notifPending(r.pending.length), text: T.notifPendingSub, go: 'review', goLabel: T.reviewNow });
+  const ownPending = r ? r.pending.filter(mineRow) : [];
+  if (ownPending.length) {
+    out.push({ id: `pending:${ownPending.length}:${ownPending[0].id}`, kind: 'warn', title: T.notifPending(ownPending.length), text: T.notifPendingSub, go: 'review', goLabel: T.reviewNow });
   }
   for (const x of (r && r.salary) || []) {
     out.push({ id: `salary:${x.month}`, kind: 'warn', title: T.notifSalary(dateLabel(x.date, { weekday: false })), text: T.salaryNoticeSub, go: 'review', goLabel: T.salaryRecord });
@@ -2903,7 +2911,7 @@ export async function start() {
   let waitTimer = null;
   // A short link (/tambah, /cek ...) asks for a screen; otherwise Review when something waits.
   const asked = window.__TAB__ || '';
-  const firstTab = (data) => asked || (data.review.pending.length || (data.review.salary || []).length ? 'review' : 'dashboard');
+  const firstTab = (data) => asked || (data.review.pending.some(mineRow) || (data.review.salary || []).length ? 'review' : 'dashboard');
   if (window.__PUSH__) {
     state.settingsSection = 'notif';
     setTimeout(() => toast(window.__PUSH__ === 'ok' ? T.notifAdded : T.notifBad, { kind: window.__PUSH__ === 'ok' ? 'ok' : 'bad' }), 600);
