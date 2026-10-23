@@ -96,11 +96,11 @@ describe('the payday plan on the overview', () => {
 describe('first steps for someone new', () => {
   it('your accounts and a payday of your own', () => {
     const store = memoryStore();
-    expect(me(store, at(10, 21)).bootstrap().setup).toEqual({ accounts: 2, payday: true, unchecked: [] });
-    expect(she(store, at(10, 21)).bootstrap().setup).toEqual({ accounts: 1, payday: false, unchecked: [] });
+    expect(me(store, at(10, 21)).bootstrap().setup).toEqual({ accounts: 2, payday: true, unchecked: [], bankName: false });
+    expect(she(store, at(10, 21)).bootstrap().setup).toEqual({ accounts: 1, payday: false, unchecked: [], bankName: false });
     store.cfg.partner_payday_day = 25;
     store.t[TABS.accounts] = store.t[TABS.accounts].filter((a) => a.owner !== 'Dewi');
-    expect(she(store, at(10, 21)).bootstrap().setup).toEqual({ accounts: 0, payday: true, unchecked: [] });
+    expect(she(store, at(10, 21)).bootstrap().setup).toEqual({ accounts: 0, payday: true, unchecked: [], bankName: false });
   });
 });
 
@@ -276,5 +276,13 @@ describe('accounts the emails mention but nobody added yet', () => {
     expect(api.saveAccounts({ accounts })).toEqual({ ok: true, adopted: 2 });
     expect(store.t[TABS.transactions].map((r) => [r.id, r.stream, r.category, r.status])).toEqual([['w1', 'Mandiri Dewi', 'Makan', 'approved'], ['w2', 'Mandiri Dewi', '', 'pending']]);
     expect(api.bootstrap().newAccounts.map((x) => x.institution)).toEqual(['Jago']);
+  });
+});
+
+describe('your name as the bank writes it', () => {
+  it('bootstrap tells whether it is filled in, for you', () => {
+    const store = memoryStore({ partner_bank_names: 'DEWI LESTARI' });
+    expect(me(store, at(10, 21)).bootstrap().setup.bankName).toBe(false);
+    expect(she(store, at(10, 21)).bootstrap().setup.bankName).toBe(true);
   });
 });

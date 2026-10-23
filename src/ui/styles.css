@@ -696,6 +696,9 @@ button.rowi:hover { background: var(--zebra); }
 .day-card.closed .row-top { gap: 8px; }
 .day-card.closed .row-top .what { flex: 1; min-width: 0; }
 .attn h2 { margin-bottom: 8px; }
+/* These lines tell someone what to do: never cut them with an ellipsis. */
+.attn .lrow { align-items: flex-start; text-align: left; }
+.attn .lrow .what b, .attn .lrow .what .meta { white-space: normal; overflow: visible; text-overflow: clip; }
 .day-card.compact summary .what { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .day-card .streak { white-space: nowrap; }
 

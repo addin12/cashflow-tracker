@@ -546,7 +546,8 @@ function overviewHtml(d) {
   const hour = new Date().getHours();
   const greet = hour < 11 ? T.greetMorning : hour < 15 ? T.greetNoon : hour < 18 ? T.greetAfternoon : T.greetEvening;
   const chips = [
-    d.pendingCount ? `<button class="hchip warn" data-action="go" data-tab="review">⚠ ${esc(T.pendingNote(d.pendingCount))}</button>` : '',
+    // Your own waiting transactions, the same number as the Review badge (the other person's are not yours to chase).
+    ownPendingCount(d) ? `<button class="hchip warn" data-action="go" data-tab="review">⚠ ${esc(T.pendingNote(ownPendingCount(d)))}</button>` : '',
     (d.salaryMissing || []).length ? `<button class="hchip warn" data-action="go" data-tab="review">💼 ${esc(T.salaryNotice(dateLabel(d.salaryMissing[0].date, { weekday: false })))}</button>` : '',
     bills.length ? `<button class="hchip" data-action="bills">📅 ${esc(T.billsThisWeek(bills.length))}</button>` : '',
     state.boot.today.slice(5, 7) === '12' && Number(state.boot.today.slice(8)) >= 15 ? `<button class="hchip" data-action="recap">✨ ${esc(T.recapChip(state.boot.today.slice(0, 4)))}</button>` : '',
@@ -1347,6 +1348,7 @@ function attentionCard(d) {
   const su = state.boot.setup;
   if (su && (state.boot.members || []).length > 1) {
     if (!su.accounts) rows.push({ icon: '🏦', bad: false, title: T.stepAccounts, meta: T.stepAccountsMeta, act: 'data-action="go" data-tab="settings" data-section="accounts"' });
+    if (su.bankName === false) rows.push({ icon: '🪪', bad: false, title: T.stepBankName, meta: T.stepBankNameMeta, act: 'data-action="go" data-tab="settings" data-section="household"' });
     if (!su.payday) rows.push({ icon: '💼', bad: false, title: T.stepPayday, meta: T.stepPaydayMeta, act: 'data-action="go" data-tab="settings" data-section="prefs"' });
   }
   for (const n of (state.boot.newAccounts || []).slice(0, 2)) rows.push({ icon: '🏦', bad: false, title: T.attnNewAccount(n.institution, n.hint, n.count), meta: T.attnNewAccountMeta, act: `data-action="newaccount" data-inst="${esc(n.institution)}" data-hint="${esc(n.hint)}"` });
@@ -1889,6 +1891,7 @@ const gmailLink = (x, cls) => {
   const user = mailbox ? `?authuser=${encodeURIComponent(mailbox)}` : '/u/0/';
   return `<a class="${cls}" target="_blank" rel="noopener" href="https://mail.google.com/mail${user}#all/${esc(x.gmail_id)}">${esc(T.openGmail)} ↗</a>`;
 };
+const ownPendingCount = (d) => (state.review ? state.review.pending.filter(mineRow).length : d.pendingCount);
 const otherOwner = (x) => (x.owner && (state.boot.members || []).length > 1 && x.owner !== state.boot.me ? ` · ${esc(x.owner)}` : '');
 
 /** Settings → Telegram: your own bot, and which chats may log by it. */

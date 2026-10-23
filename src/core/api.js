@@ -235,6 +235,8 @@ export function createApi(store, env) {
         // Your own first steps (the two of you are new to the app one at a time): accounts of yours, a payday of yours.
         setup: {
           accounts: accounts().filter((a) => a.owner === owner()).length, payday: isOwner() || ownPayday() > 0,
+          // Your name as the bank writes it: how money between the two of you is told from spending.
+          bankName: !!memberInfo(isOwner() ? 'owner' : 'partner').bankNames.trim(),
           // Spending accounts of yours with transactions but no balance check and an opening balance of 0: the balance can't be right yet.
           unchecked: accounts().filter((a) => a.owner === owner() && a.type === 'Spending' && !openingChecks()[a.stream] && !Number(a.opening_balance) && !/manual/i.test(a.match_hint || '')
             && rows().some((r) => r.stream === a.stream)).map((a) => a.stream),
