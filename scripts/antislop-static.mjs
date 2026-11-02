@@ -48,7 +48,7 @@ out.css = {
 };
 
 // ---- controls that are rendered but have no handler (R-26)
-const app = read('src/ui/app.js');
+const app = walk('src/ui', (p) => p.endsWith('.js') && !p.endsWith('i18n.js')).map(read).join('\n');
 const rendered = new Set([...app.matchAll(/data-action=\\?"([a-z0-9_-]+)\\?"/gi)].map((m) => m[1]));
 const handled = new Set([...app.matchAll(/(?:a|action|act)\s*===?\s*'([a-z0-9_-]+)'/gi)].map((m) => m[1]));
 const handledMore = new Set([...app.matchAll(/case\s+'([a-z0-9_-]+)'/gi)].map((m) => m[1]));

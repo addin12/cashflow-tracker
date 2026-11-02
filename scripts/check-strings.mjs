@@ -1,8 +1,10 @@
 // Every T.key the web app uses must exist in both languages (and both languages have the same keys).
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { STRINGS } from '../src/ui/i18n.js';
 
-const app = readFileSync(new URL('../src/ui/app.js', import.meta.url), 'utf8');
+// every screen lives in its own file of src/ui; the strings themselves are in i18n.js
+const app = readdirSync(new URL('../src/ui/', import.meta.url)).filter((f) => f.endsWith('.js') && f !== 'i18n.js')
+  .map((f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8')).join('\n');
 const html = readFileSync(new URL('../src/ui/index.html', import.meta.url), 'utf8');
 const used = new Set([
   ...[...app.matchAll(/\bT\.([a-zA-Z]+)/g)].map((m) => m[1]),

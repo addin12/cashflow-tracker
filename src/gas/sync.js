@@ -222,6 +222,8 @@ function syncOnce(opts) {
     const emails = [];
     let complete = true;
     let note = '';
+    // A step that failed does not stop the run, but its message goes into the status line (Settings -> Sync) instead of being lost.
+    const warn = (what, e) => { note = note ? `${note}; ${what}: ${e.message}` : `${what}: ${e.message}`; };
     for (const id of ids) {
       if (Date.now() - started > (opts.budgetMs || TIME_BUDGET_MS) || emails.length >= MAX_EMAILS_PER_RUN) { complete = false; break; }
       let e;
@@ -292,10 +294,10 @@ function syncOnce(opts) {
       } catch (e) { note = note ? `${note}; notes: ${e.message}` : `notes: ${e.message}`; }
     }
     // Market prices of the Aset tab's stocks (Yahoo / Google Finance), at most every 25 minutes (either sync).
-    try { if (mode === 'live') refreshPrices(ss); } catch (e) { /* tried again next run */ }
+    try { if (mode === 'live') refreshPrices(ss); } catch (e) { warn('prices', e); } // tried again next run
     // Planned transactions (rent, cash bills) that are due go to Review; the daily trigger does this too.
-    try { if (mode === 'live') createApi(sheetStore(ss), { now: () => new Date() }).createDuePlanned(); } catch (e) { /* tried again next run */ }
-    try { if (mode === 'live') refreshInit(ss, { name: memberName(ss, gmail), owner, email: gmail.toLowerCase() }); } catch (e) { /* the page then fetches its data itself */ }
+    try { if (mode === 'live') createApi(sheetStore(ss), { now: () => new Date() }).createDuePlanned(); } catch (e) { warn('planned transactions', e); } // tried again next run
+    try { if (mode === 'live') refreshInit(ss, { name: memberName(ss, gmail), owner, email: gmail.toLowerCase() }); } catch (e) { warn('first-screen data', e); } // the page then fetches its data itself
     const newest = emails.reduce((m, e) => Math.max(m, e.epochMs), Number(conn.checkpoint) || 0);
     const summary = {
       status: complete ? 'ok' : 'partial', mode, gmail, ...counts, added: plan.add.length, updated: plan.update.length,

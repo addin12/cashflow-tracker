@@ -1,0 +1,345 @@
+// The Summary screen: overview, report and yearly views.
+
+import { svgIcon } from './icons.js';
+import { attentionCard, cardsCard, claimsCard, eventsCard, goalsCard, healthCard, owedCard, patternCard, paydayCard, recapCard, recurringCard, sharedCard, sptCard, tagsCard, warrantiesCard, wealthCard } from './cards.js';
+import { remember } from './data.js';
+import { currentMonth, dateLabel, esc, fmt, locale, monthAdd, monthDate, monthLabel, monthShort, rangeLabel, rp, signed, timeLabel } from './format.js';
+import { ownPendingCount, setView, skeleton, whoSeg } from './render.js';
+import { call } from './server.js';
+import { T, state } from './state.js';
+import { EYE, EYE_OFF, acctIcon, firstBadge, icon } from './visuals.js';
+
+// Two views of one month: the overview (today, where the money went, the latest rows) and the
+// report (money out, a calendar of daily spending, the running total against last month, a donut).
+export async function viewDashboard() {
+  let d = state.dashByMonth[state.month];
+  if (!d) {
+    skeleton(T.tabDashboard);
+    d = await call('dashboard', { month: state.month, owner: state.who || '' });
+    state.dashByMonth[d.month] = d;
+    if (state.tab !== 'dashboard' || d.month !== state.month) return;
+  }
+  remember([...(d.today || []), ...(d.recent || [])]);
+  const s = d.summary;
+  const current = currentMonth();
+  const prev = monthAdd(d.month, -1);
+  const next = monthAdd(d.month, 1);
+  const report = state.dashView === 'report';
+  // The year view: one request per year, fetched again whenever the month data was.
+  const yr = Number(d.month.slice(0, 4));
+  if (report && state.reportYearly && !(state.yearly && state.yearly.forDash === d && state.yearly.data.year === yr)) {
+    skeleton(T.tabDashboard);
+    state.yearly = { forDash: d, data: await call('yearly', { year: yr, owner: state.who || '' }) };
+    if (state.tab !== 'dashboard' || state.dashView !== 'report') return;
+  }
+  const viewBtn = (v, label) => `<button type="button" class="${(v === 'report') === report ? 'on' : ''}" aria-pressed="${(v === 'report') === report}" data-action="dashview" data-view="${v}">${esc(label)}</button>`;
+  setView(`
+    <header class="page-head"><div><h1>${esc(T.tabDashboard)}</h1><p class="sub">${esc(monthLabel(d.month))}${s.from ? ` · ${esc(rangeLabel(s.from, s.to))}` : ''}</p></div>
+      <div class="tools">${whoSeg()}
+        <div class="seg">${viewBtn('overview', T.viewOverview)}${viewBtn('report', T.viewReport)}</div>
+        <div class="monthnav">
+          <button class="btn secondary small" data-action="setmonth" data-month="${prev}" aria-label="${esc(monthLabel(prev))}">‹ ${esc(monthShort(prev))}</button>
+          <button class="btn secondary small" data-action="setmonth" data-month="${next}" aria-label="${esc(monthLabel(next))}" ${next > current ? 'disabled' : ''}>${esc(monthShort(next))} ›</button>
+        </div></div></header>
+    ${report ? `<div class="seg report-seg">${[['month', T.reportMonthly], ['year', T.reportYearly]].map(([v, l]) => `<button type="button" class="${(v === 'year') === !!state.reportYearly ? 'on' : ''}" aria-pressed="${(v === 'year') === !!state.reportYearly}" data-action="reportmode" data-mode="${v}">${esc(l)}</button>`).join('')}</div>${state.reportYearly ? yearlyHtml(state.yearly.data) : reportHtml(d)}` : overviewHtml(d)}`);
+}
+
+/** Total balance, then what is free and what is set aside for savings goals. */
+function walletLine(d) {
+  const total = (d.balances || []).reduce((t, b) => t + b.balance, 0);
+  const goals = (d.goals || []).reduce((t, g) => t + Math.min(g.saved, g.target), 0);
+  return `<div class="wallet-total">${bigRp(total, 'lg')}<p class="muted">${esc(goals > 0 ? T.walletSplit(rp(total - goals), rp(goals)) : T.walletTotal)}</p></div>`;
+}
+
+/** Day number of today inside the month's dates (the whole month for a past one). */
+function dayOfPeriod(d) {
+  const days = d.daily || [];
+  const i = days.findIndex((x) => x.date === state.boot.today);
+  return i >= 0 ? i + 1 : days.length;
+}
+
+export const monthName = (ym) => monthDate(ym).toLocaleDateString(locale(), { month: 'long' });
+
+export const bigRp = (n, cls = '') => `<span class="big-num ${cls}"><span class="cur">Rp</span>${state.hide ? '•••' : fmt.format(Math.round(Number(n) || 0))}</span>`;
+
+/** One transaction as a list line: icon, name, when · category · account, amount. */
+const lineRow = (x) => `<button class="lrow" data-action="edit" data-id="${esc(x.id)}">${icon(x.category)}
+  <span class="what"><b>${esc(x.description || x.details || T.noName)}</b><span class="meta">${esc([`${dateLabel(x.date, { weekday: false })}${x.time ? `, ${timeLabel(x.time)}` : ''}`, x.category || T.noCategory, x.stream].filter(Boolean).join(' · '))}${firstBadge(x)}</span></span>
+  <span class="amt ${esc(x.direction)}">${signed(x)}</span></button>`;
+
+function overviewHtml(d) {
+  const s = d.summary;
+  const isNow = d.month === currentMonth();
+  const today = d.today || [];
+  const todayTotal = today.reduce((a, x) => a + x.amount, 0);
+  const days = d.daily || [];
+  const idx = dayOfPeriod(d);
+  const elapsed = isNow && days.length ? idx / days.length : 1;
+  const prevName = monthName(monthAdd(d.month, -1));
+  // Last month up to the same day, for "Rp… more than September".
+  const prevSame = (d.prevDaily || []).slice(0, idx).reduce((a, x) => a + x.amount, 0);
+  const diff = s.expense - prevSame;
+  const bills = d.bills || ((d.recurring && d.recurring.items) || []).filter((i) => i.daysLeft >= 0 && i.daysLeft <= 7);
+  const hour = new Date().getHours();
+  const greet = hour < 11 ? T.greetMorning : hour < 15 ? T.greetNoon : hour < 18 ? T.greetAfternoon : T.greetEvening;
+  const chips = [
+    // Your own waiting transactions, the same number as the Review badge (the other person's are not yours to chase).
+    ownPendingCount(d) ? `<button class="hchip warn" data-action="go" data-tab="review">${svgIcon('alert')} ${esc(T.pendingNote(ownPendingCount(d)))}</button>` : '',
+    (d.salaryMissing || []).length ? `<button class="hchip warn" data-action="go" data-tab="review">${svgIcon('briefcase')} ${esc(T.salaryNotice(dateLabel(d.salaryMissing[0].date, { weekday: false })))}</button>` : '',
+    bills.length ? `<button class="hchip" data-action="bills">${svgIcon('calendar')} ${esc(T.billsThisWeek(bills.length))}</button>` : '',
+    state.boot.today.slice(5, 7) === '12' && Number(state.boot.today.slice(8)) >= 15 ? `<button class="hchip" data-action="recap">${svgIcon('trend')} ${esc(T.recapChip(state.boot.today.slice(0, 4)))}</button>` : '',
+  ].join('');
+  const todayLong = new Date(`${state.boot.today}T00:00:00`).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
+  const hero = isNow ? `<section class="hero">
+      <div class="hero-top"><h2>${esc(greet)}</h2>
+        <button class="icon-btn" data-action="hide" aria-pressed="${state.hide}" aria-label="${esc(state.hide ? T.showAmounts : T.hideAmounts)}" title="${esc(state.hide ? T.showAmounts : T.hideAmounts)}">${state.hide ? EYE_OFF : EYE}</button></div>
+      <p class="hero-date">${esc(T.todayIs(todayLong))}</p>
+      <button class="hero-num" data-action="drillday" data-date="${esc(state.boot.today)}" aria-label="${esc(T.paymentsToday(today.length))}">${bigRp(todayTotal, 'xl')}</button>
+      <p class="hero-sub">${esc(T.paymentsToday(today.length))}</p>
+      ${chips ? `<div class="hchips">${chips}</div>` : ''}
+    </section>` : '';
+
+  // Where it went: every spending category, against its budget (with a "how far into the month" marker).
+  const budgets = new Map(d.budgets.map((b) => [b.category, b]));
+  const spent = s.byCategory.filter((c) => c.kind !== 'income');
+  for (const b of d.budgets) if (!spent.some((c) => c.category === b.category)) spent.push({ category: b.category, kind: 'expense', amount: 0 });
+  spent.sort((a, b) => b.amount - a.amount);
+  const top = Math.max(1, ...spent.map((c) => c.amount));
+  const catRows = spent.map((c) => {
+    const b = budgets.get(c.category);
+    const over = b && b.ratio > 1;
+    const ahead = b && !over && isNow && b.ratio > elapsed + 0.05;
+    const pct = Math.min(100, Math.round((b ? b.ratio : c.amount / top) * 100));
+    return `<button class="cat-row" data-action="drill" data-category="${esc(c.category)}">${icon(c.category)}
+      <span class="cat-main"><span class="cat-top"><b>${esc(c.category)}</b><span class="amt ${over ? 'bad' : ''}">${rp(c.amount)}</span></span>
+        <span class="bar ${b ? '' : 'plain'}" ${b ? `role="img" aria-label="${esc(T.budgetUse(Math.round(b.ratio * 100)))}"` : ''}><i class="${over ? 'over' : ahead ? 'ahead' : ''}" style="width:${pct}%"></i>${b && isNow ? `<em style="left:${Math.round(elapsed * 100)}%"></em>` : ''}</span>
+        ${b ? `<span class="budget-note ${over ? 'over' : ahead ? 'ahead' : ''}">${esc(over ? T.overBudget(rp(b.spent - b.budget), rp(b.budget)) : T.ofBudget(rp(b.budget), rp(b.budget - b.spent)))}${ahead ? ` · ${esc(T.aheadOfPace)}` : ''}</span>` : ''}
+      </span></button>`;
+  }).join('');
+  const totalBudget = d.budgets.reduce((a, b) => a + b.budget, 0);
+  const inBudgets = d.budgets.reduce((a, b) => a + b.spent, 0);
+  const daysLeft = Math.max(1, days.length - idx + 1);
+  const foot = totalBudget ? `<div class="budget-foot">
+      <span class="bar total"><i class="${inBudgets > totalBudget ? 'over' : ''}" style="width:${Math.min(100, Math.round((inBudgets / totalBudget) * 100))}%"></i>${isNow ? `<em style="left:${Math.round(elapsed * 100)}%"></em>` : ''}</span>
+      <p><b>${esc(inBudgets > totalBudget ? T.budgetOverLine(rp(inBudgets - totalBudget)) : isNow ? T.budgetLeftLine(rp(totalBudget - inBudgets), rp((totalBudget - inBudgets) / daysLeft), daysLeft) : T.budgetLeftEnd(rp(totalBudget - inBudgets)))}</b></p>
+      ${s.expense - inBudgets > 0 ? `<p class="muted">${esc(T.outsideBudgets(rp(s.expense - inBudgets)))}</p>` : ''}
+      ${isNow && idx > 2 ? `<p class="muted">${esc(T.onPace(rp((s.expense / idx) * days.length)))}</p>` : ''}
+    </div>` : `<p class="hint"><button class="link" data-action="go" data-tab="settings" data-section="budgets">${esc(T.noBudgetsSet)}</button></p>`;
+
+  const incomeRows = s.byCategory.filter((c) => c.kind === 'income').sort((a, b) => b.amount - a.amount).map((c) => `
+    <button class="lrow" data-action="drill" data-category="${esc(c.category)}">${icon(c.category)}<span class="what"><b>${esc(c.category)}</b></span><span class="amt in">+${rp(c.amount)}</span></button>`).join('');
+  const group = (type, title) => {
+    const list = d.balances.filter((b) => b.type === type);
+    if (!list.length) return '';
+    const total = list.reduce((a, b) => a + b.balance, 0);
+    return `<div class="rowi total-row"><span>${esc(title)}</span><span class="amt">${rp(total)}</span></div>${list.map((b) => `
+      <button class="lrow" data-action="drill" data-stream="${esc(b.stream)}">${acctIcon(b.stream, b.type)}<span class="what"><b>${esc(b.stream)}</b></span><span class="amt">${rp(b.balance)}</span></button>`).join('')}`;
+  };
+  const todayCard = isNow ? `<section class="card today-card">
+      <p class="eyebrow">${esc(T.todayIs(dateLabel(state.boot.today)))}</p>
+      <h2>${esc(today.length ? T.todayLine(today.length, rp(todayTotal)) : T.noPaymentsToday)}</h2>
+      ${today.length ? `<div class="rows">${today.slice(0, 3).map(lineRow).join('')}</div>${today.length > 3 ? `<button class="link" data-action="drillday" data-date="${esc(state.boot.today)}">${esc(T.moreN(today.length - 3))}</button>` : ''}` : ''}
+    </section>` : '';
+  return `${hero}
+    ${isNow ? paydayCard(d.paydayPlan) : ''}
+    ${isNow ? attentionCard(d) : ''}
+    <div class="ov-grid">
+      <div class="stack">
+        <section class="spend">
+          <p class="k">${esc(T.monthSpending(monthName(d.month), isNow ? idx : 0))}</p>
+          <button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
+          ${prevSame > 0 ? `<p class="cmp ${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '↑' : '↓'} ${esc(diff > 0 ? T.moreThan(rp(diff), prevName) : T.lessThan(rp(-diff), prevName))}</p>` : ''}
+          ${d.under && (d.under.under != null || d.under.noSpend) ? `<p class="muted under">${esc(T.underLine(d.under.under, d.under.elapsed, rp(d.under.allowance), d.under.noSpend))}</p>` : ''}
+          <div class="mini-stats">
+            <button data-action="drill" data-direction="in"><span>${esc(T.income)}</span><b class="amt in">+${rp(s.income)}</b></button>
+            <button data-action="drill"><span>${esc(T.netThisMonth)}</span><b class="amt ${s.balance < 0 ? 'bad' : ''}">${s.balance < 0 ? '' : '+'}${rp(s.balance)}</b></button>
+            ${isNow ? `<div><span>${esc(T.perDay)}</span><b class="amt">${rp(d.perDay.perDay)}</b><small>${esc(T.daysToPayday(d.perDay.daysLeft, dateLabel(d.perDay.nextPayday, { weekday: false })))}</small></div>` : ''}
+          </div>
+          ${isNow && d.perDay.spending < 0 ? `<p><button class="link" data-action="go" data-tab="settings" data-section="accounts">${svgIcon('alert')} ${esc(T.negativeSpending)}</button></p>` : ''}
+        </section>
+        <section><h2 class="section-title">${esc(T.whereItWent)}<small>${esc(T.expenseByCategoryHint)}</small></h2>
+          <div class="card list-card">${catRows || `<p class="hint">${esc(T.nothingYet)}</p>`}${foot}</div></section>
+        ${(d.recent || []).length ? `<section><h2 class="section-title row-title">${esc(T.latestTitle)}<button class="link" data-action="go" data-tab="transactions">${esc(T.seeAll)}</button></h2>
+          <div class="card list-card">${d.recent.map(lineRow).join('')}</div></section>` : ''}
+      </div>
+      <div class="stack">
+        ${todayCard}
+        ${owedCard(d.owed)}
+        ${incomeRows ? `<section class="card"><h2>${esc(T.incomeByCategory)}</h2><div class="rows">${incomeRows}</div></section>` : ''}
+        ${goalsCard(d.goals)}
+        ${recurringCard(d.recurring)}
+        ${eventsCard(d.events)}
+        ${sharedCard(d.shared)}
+        ${claimsCard(d.claims)}
+        ${warrantiesCard(d.warranties)}
+        ${cardsCard(d.cards)}
+        ${healthCard(d.health)}
+        ${wealthCard(d.wealth)}
+        <section class="card"><h2>${esc(T.accounts)}</h2>${walletLine(d)}<p class="lead">${esc(T.accountsHint)}</p><div class="rows">${group('Spending', T.spendingGroup)}${group('Saving', T.savingGroup)}</div></section>
+      </div>
+    </div>`;
+}
+
+function reportHtml(d) {
+  const s = d.summary;
+  const days = d.daily || [];
+  const prevDays = d.prevDaily || [];
+  const idx = Math.max(1, dayOfPeriod(d));
+  const today = state.boot.today;
+  // Calendar: Monday first, one cell per day, darker = more spent.
+  const max = Math.max(1, ...days.map((x) => x.amount));
+  const lead = days.length ? (new Date(`${days[0].date}T00:00:00`).getDay() + 6) % 7 : 0;
+  const weekdays = [...Array(7)].map((_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale(), { weekday: 'short' }));
+  const cells = `${'<span class="hm-cell blank" aria-hidden="true"></span>'.repeat(lead)}${days.map((x) => {
+    const future = x.date > today;
+    const lvl = x.amount > 0 ? Math.min(4, 1 + Math.floor((x.amount / max) * 3.999)) : 0;
+    return `<button class="hm-cell l${lvl}${future ? ' future' : ''}${x.date === today ? ' today' : ''}" data-action="drillday" data-date="${x.date}" ${future ? 'disabled' : ''} aria-label="${esc(`${dateLabel(x.date)}: ${rp(x.amount)}`)}" title="${esc(`${dateLabel(x.date)}: ${rp(x.amount)}`)}">${Number(x.date.slice(8))}</button>`;
+  }).join('')}`;
+  // Running total this month against last month.
+  const run = (list) => { let t = 0; return list.map((x) => { t += x.amount; return t; }); };
+  const a = run(days).slice(0, d.month === currentMonth() ? idx : days.length);
+  const b = run(prevDays);
+  const n = Math.max(days.length, prevDays.length, 2);
+  const top = Math.max(1, ...a, ...b);
+  const W = 600; const H = 180;
+  const path = (list) => list.map((v, i) => `${i ? 'L' : 'M'}${((i / (n - 1)) * W).toFixed(1)},${(H - (v / top) * (H - 10)).toFixed(1)}`).join(' ');
+  const lastA = a.length ? a[a.length - 1] : 0;
+  const lastB = b.length ? b[b.length - 1] : 0;
+  const prevName = monthName(monthAdd(d.month, -1));
+  const line = `<svg class="line-chart" viewBox="0 0 ${W} ${H + 4}" preserveAspectRatio="none" role="img" aria-label="${esc(`${monthName(d.month)} ${rp(lastA)}, ${prevName} ${rp(lastB)}`)}">
+      ${b.length ? `<path class="prev" d="${path(b)}"/>` : ''}${a.length ? `<path class="now-fill" d="${path(a)} L${(((a.length - 1) / (n - 1)) * W).toFixed(1)},${H} L0,${H} Z"/><path class="now" d="${path(a)}"/>` : ''}
+    </svg>`;
+  const cats = s.byCategory.filter((c) => c.kind !== 'income').sort((x, y) => y.amount - x.amount);
+  const trend = d.trend || [];
+  const tTop = Math.max(1, ...trend.map((t) => Math.max(t.income, t.expense)));
+  const chart = trend.map((t) => `
+    <button class="m ${t.month === d.month ? 'on' : ''}" data-action="setmonth" data-month="${t.month}" aria-label="${esc(`${monthLabel(t.month)}: ${T.income} ${rp(t.income)}, ${T.expense} ${rp(t.expense)}`)}">
+      <span class="bars"><i class="in" style="height:${Math.round((t.income / tTop) * 100)}%"></i><i class="out" style="height:${Math.round((t.expense / tTop) * 100)}%"></i></span>
+      <span>${esc(monthShort(t.month))}</span></button>`).join('');
+  return `<div class="ov-grid">
+    <div class="stack">
+      <section class="spend"><p class="k">${esc(T.moneyOut)}</p><button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
+        <p class="muted">${esc(T.ofIncome(rp(s.income), rp(s.balance)))}</p></section>
+      <section class="card"><h2>${esc(T.dailyTrend)}</h2><p class="lead">${esc(T.avgPerDay(rp(s.expense / idx)))}</p>
+        <div class="hm-grid">${weekdays.map((w) => `<span class="hm-wd">${esc(w)}</span>`).join('')}${cells}</div>
+        <div class="hm-legend"><span>${esc(T.heatLess)}</span><i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span>${esc(T.heatMore)}</span></div></section>
+      <section class="card"><h2>${esc(T.spendTrend)}</h2><p class="lead">${esc(T.spendTrendHint)}</p>${line}
+        <div class="legend"><span><i class="out-now"></i>${esc(monthName(d.month))} ${rp(lastA)}</span>${b.length ? `<span><i class="out-prev"></i>${esc(prevName)} ${rp(lastB)}</span>` : ''}</div></section>
+      ${flowCard(d.flow, d)}
+    </div>
+    <div class="stack">
+      ${donutCard(cats, (v) => T.perDayShort(rp(v / idx)))}
+      ${patternCard(d.pattern)}
+      ${tagsCard(d.tags)}
+      ${placesCard(d.places)}
+      ${biggestCard(d.biggest)}
+      ${trend.length ? `<section class="card"><h2>${esc(T.trendTitle)}</h2><p class="lead">${esc(T.trendHint)}</p><div class="chart">${chart}</div></section>` : ''}
+    </div>
+  </div>`;
+}
+
+/** Donut and list of spending categories; `per` labels each row's average (per day or per month). */
+function donutCard(cats, per, title = T.whereItWent) {
+  const total = cats.reduce((t, c) => t + c.amount, 0);
+  let at = 0;
+  const stops = cats.map((c, i) => { const from = at; at += total ? (c.amount / total) * 100 : 0; return `var(--ch${i % 8}) ${from.toFixed(2)}% ${at.toFixed(2)}%`; }).join(', ');
+  const list = cats.map((c, i) => `<button class="lrow" data-action="drill" data-category="${esc(c.category)}">${icon(c.category)}
+      <span class="what"><b><i class="dot" style="background:var(--ch${i % 8})"></i>${esc(c.category)}</b><span class="meta">${esc(`${total ? Math.round((c.amount / total) * 100) : 0}% · ${per(c.amount)}`)}</span></span>
+      <span class="amt">${rp(c.amount)}</span></button>`).join('');
+  return `<section class="card"><h2>${esc(title)}</h2><p class="lead">${esc(T.donutHint)}</p>
+    ${total ? `<div class="donut" style="background:conic-gradient(${stops})" role="img" aria-label="${esc(`${T.moneyOut} ${rp(total)}`)}"><div><span>${esc(T.moneyOut)}</span><b>${rp(total)}</b><small>${esc(T.nCats(cats.length))}</small></div></div>
+    <div class="rows">${list}</div>` : `<p class="hint">${esc(T.nothingYet)}</p>`}</section>`;
+}
+
+/** Top places (by transaction name) and the biggest single payments. */
+function placesCard(places) {
+  if (!places || !places.length) return '';
+  return `<section class="card"><h2>${esc(T.topPlaces)}</h2><p class="lead">${esc(T.topPlacesHint)}</p><div class="rows">${places.map((p, i) => `
+    <button class="lrow" data-action="drill" data-q="${esc(p.name)}"><span class="rank">${i + 1}</span><span class="what"><b>${esc(p.name)}</b><span class="meta">${esc(`${p.count}× · ${p.category}`)}</span></span><span class="amt">${rp(p.total)}</span></button>`).join('')}</div></section>`;
+}
+
+function biggestCard(list) {
+  if (!list || !list.length) return '';
+  remember(list);
+  return `<section class="card"><h2>${esc(T.biggestTitle)}</h2><p class="lead">${esc(T.biggestHint)}</p><div class="rows">${list.map(lineRow).join('')}</div></section>`;
+}
+
+/**
+ * Where the money moved this month: income into accounts, transfers between them (a saving
+ * account is "saved"), and what was spent from each.
+ */
+function flowCard(flow, d) {
+  if (!flow || (!flow.income.length && !flow.transfers.length && !flow.spent.length)) return '';
+  const type = new Map((d.balances || []).map((b) => [b.stream, b.type]));
+  const income = new Map(flow.income.map((x) => [x.stream, x.amount]));
+  const spent = new Map(flow.spent.map((x) => [x.stream, x.amount]));
+  const inFrom = new Map();
+  for (const t of flow.transfers) inFrom.set(t.to, (inFrom.get(t.to) || 0) + t.amount);
+  const order = [...new Set([...flow.income.map((x) => x.stream), ...flow.transfers.map((t) => t.from), ...flow.transfers.map((t) => t.to), ...flow.spent.map((x) => x.stream)])];
+  const totalIn = flow.income.reduce((t, x) => t + x.amount, 0);
+  const node = (stream) => {
+    const kids = [
+      ...flow.transfers.filter((t) => t.from === stream).map((t) => `<li><span class="flow-tag ${type.get(t.to) === 'Saving' ? 'save' : ''}">${esc(type.get(t.to) === 'Saving' ? T.flowSave : T.flowMove)}</span><span>→ ${esc(t.to)}</span><b class="amt">${rp(t.amount)}</b></li>`),
+      spent.get(stream) ? `<li><span class="flow-tag spend">${esc(T.flowSpend)}</span><button class="link" data-action="drill" data-stream="${esc(stream)}">${esc(T.flowSpentFrom(stream))}</button><b class="amt">${rp(spent.get(stream))}</b></li>` : '',
+    ].filter(Boolean);
+    const got = [income.get(stream) ? T.flowIncome(rp(income.get(stream))) : '', inFrom.get(stream) ? T.flowFrom(rp(inFrom.get(stream))) : ''].filter(Boolean).join(' · ');
+    return `<div class="flow-node"><div class="flow-acct">${acctIcon(stream)}<b>${esc(stream)}</b>${got ? `<small>${esc(got)}</small>` : ''}</div>${kids.length ? `<ul>${kids.join('')}</ul>` : ''}</div>`;
+  };
+  return `<section class="card"><h2>${esc(T.flowTitle)}</h2><p class="lead">${esc(T.flowHint)}</p>
+    <div class="flow"><div class="flow-root"><span class="flow-in" aria-hidden="true">↓</span><b>${esc(T.flowMoneyIn)}</b><span class="amt in">+${rp(totalIn)}</span></div>
+    ${order.map(node).join('')}</div></section>`;
+}
+
+/** A year month by month: bars split by the biggest categories, a category × month grid, places. */
+function yearlyHtml(y) {
+  const nowMonth = state.boot.today.slice(0, 7);
+  const months = y.months.filter((m) => m.month <= nowMonth || m.expense || m.income);
+  const shown = months.filter((m) => m.expense || m.income);
+  const totalOut = months.reduce((t, m) => t + m.expense, 0);
+  const totalIn = months.reduce((t, m) => t + m.income, 0);
+  const byCat = new Map();
+  for (const m of y.months) for (const [c, v] of Object.entries(m.byCategory)) byCat.set(c, (byCat.get(c) || 0) + v);
+  const cats = [...byCat].map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
+  const top = cats.slice(0, 4).map((c) => c.category);
+  const max = Math.max(1, ...y.months.map((m) => m.expense));
+  const avg = shown.length ? totalOut / shown.length : 0;
+  const bars = y.months.map((m) => {
+    const other = m.expense - top.reduce((t, c) => t + (m.byCategory[c] || 0), 0);
+    const segs = [...top.map((c, i) => [m.byCategory[c] || 0, `var(--ch${i})`]), [other, 'var(--ch7)']].filter(([v]) => v > 0)
+      .map(([v, color]) => `<i style="height:${((v / max) * 100).toFixed(1)}%;background:${color}"></i>`).join('');
+    return `<button class="m ${m.month === nowMonth ? 'on' : ''}" data-action="yearmonth" data-month="${m.month}" ${m.month > nowMonth ? 'disabled' : ''} aria-label="${esc(`${monthLabel(m.month)}: ${rp(m.expense)}`)}"><span class="stack-bar">${segs}</span><span>${esc(monthShort(m.month))}</span></button>`;
+  }).join('');
+  const legend = [...top.map((c, i) => [c, `var(--ch${i})`]), [T.otherCats, 'var(--ch7)']].map(([c, color]) => `<span><i style="background:${color}"></i>${esc(c)}</span>`).join('');
+  // The grid shows the months since the start date (up to now), so it fits a phone.
+  const first = String(state.boot.start || '').slice(0, 7);
+  const gridMonths = y.months.filter((m) => (!first || m.month >= first) && m.month <= nowMonth);
+  const gridCats = cats.slice(0, 8);
+  const grid = gridCats.map((c) => {
+    const rowMax = Math.max(1, ...gridMonths.map((m) => m.byCategory[c.category] || 0));
+    return `<button class="ct-row" data-action="drill" data-category="${esc(c.category)}">${icon(c.category)}<span class="ct-name">${esc(c.category)}</span>${gridMonths.map((m) => {
+      const v = m.byCategory[c.category] || 0;
+      const lvl = v > 0 ? Math.min(4, 1 + Math.floor((v / rowMax) * 3.999)) : 0;
+      return `<i class="hm-dot l${lvl}" title="${esc(`${monthShort(m.month)}: ${rp(v)}`)}"></i>`;
+    }).join('')}<span class="amt">${rp(c.amount)}</span></button>`;
+  }).join('');
+  return `<div class="ov-grid">
+    <div class="stack">
+      ${recapCard(y)}
+      <section class="spend"><p class="k">${esc(T.moneyOutYear(shown.length ? `${monthShort(shown[0].month)}–${monthShort(shown[shown.length - 1].month)}` : String(y.year)))}</p>${bigRp(totalOut, 'lg')}
+        <p class="muted">${esc(T.ofIncome(rp(totalIn), rp(totalIn - totalOut)))}</p></section>
+      <section class="card"><h2>${esc(T.monthlyTrend)}</h2><p class="lead">${esc(T.monthlyTrendHint(rp(avg)))}</p>
+        <div class="chart year-chart">${avg ? `<span class="avg-line" style="bottom:calc(${((avg / max) * 100).toFixed(1)}% * 0.82 + 30px)"></span>` : ''}${bars}</div>
+        <div class="legend">${legend}</div></section>
+      ${grid ? `<section class="card"><h2>${esc(T.catsOverTime)}</h2><p class="lead">${esc(T.catsOverTimeHint)}</p>
+        <div class="ct-grid" style="--n:${gridMonths.length}"><div class="ct-head"><span></span><span></span>${gridMonths.map((m) => `<span>${esc(monthShort(m.month).slice(0, 3))}</span>`).join('')}<span></span></div>${grid}</div></section>` : ''}
+    </div>
+    <div class="stack">
+      ${donutCard(cats, (v) => T.perMonthShort(rp(v / Math.max(1, shown.length))))}
+      ${patternCard(y.pattern)}
+      ${tagsCard(y.tags)}
+      ${placesCard(y.places)}
+      ${biggestCard(y.biggest)}
+      ${sptCard(y.year)}
+    </div>
+  </div>`;
+}

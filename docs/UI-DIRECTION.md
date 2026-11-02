@@ -34,6 +34,14 @@ Reading this as: a personal money app for two adults, used every day on a phone,
 - Transactions: a plain list grouped by day, filters as chips.
 - Settings: one section at a time, labels above fields.
 
+## Third-party requests
+
+Bank and wallet logos load from Google's favicon service when a screen is drawn, so that service can see which banks are used. No logo artwork lives in the repo on purpose. A logo that fails to load falls back to the drawn icon. Nothing else is requested from outside the page.
+
+## Code layout
+
+One file per screen or purpose in `src/ui/`: `app.js` starts the page; `router.js` moves between screens; `review.js`, `dashboard.js` (and `cards.js`), `transactions.js`, `add.js`, `settings.js` (and `forms.js`) are the screens; `editor.js` and `split.js` are pop-ups; `render.js`, `format.js`, `visuals.js`, `icons.js` are what screens are built from; `server.js`, `data.js`, `cache.js` talk to Google and keep data; `events.js` handles taps, submits and changes; `theme.js`, `language.js`, `notifications.js`, `state.js` are the rest. `test/structure.test.js` keeps it that way (no file over 650 lines, small entry, no banners).
+
 ## Identity
 
 The wallet mark and the round category icons. Nothing else is decorative.
