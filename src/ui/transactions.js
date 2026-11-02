@@ -3,7 +3,7 @@
 import { filterTransactions } from '../core/app.js';
 import { categoryHabit } from '../core/insights.js';
 import { patchRow, remember, setAll } from './data.js';
-import { currentMonth, dateLabel, esc, monthAdd, monthLabel, monthShort, rangeLabel, rp, signed, timeLabel } from './format.js';
+import { currentMonth, dateLabel, esc, monthAdd, monthAria, monthLabel, monthShort, rangeLabel, rp, signed, timeLabel } from './format.js';
 import { categoryOptions, downloadCsv, field, setView, skeleton, toast, updateNav, whoSeg } from './render.js';
 import { show } from './router.js';
 import { call, save } from './server.js';
@@ -68,7 +68,7 @@ function categoryDetail(category) {
   return `<section class="card trend-card cat-detail"><div class="cat-head">${icon(category)}<div><h2>${esc(category)}</h2><p class="lead">${esc(T.categoryTrendHint(rp(avg)))}</p></div></div>
     ${habit ? `<p class="hint">${esc(habit)}</p>` : ''}
     ${budget ? `<p class="budget-note ${budget.ratio > 1 ? 'over' : ''}">${esc(budget.ratio > 1 ? T.overBudget(rp(budget.spent - budget.budget), rp(budget.budget)) : T.ofBudget(rp(budget.budget), rp(budget.budget - budget.spent)))}</p>` : ''}
-    <div class="chart cat-chart">${data.map((d) => `<button class="m ${state.filters.month === d.m ? 'on' : ''}" data-action="trendmonth" data-month="${d.m}" aria-label="${esc(`${monthLabel(d.m)}: ${rp(d.v)}`)}"><span class="bars"><i class="${dir}" style="height:${Math.round((d.v / top) * 100)}%"></i></span><span>${esc(monthShort(d.m))}</span></button>`).join('')}</div>
+    <div class="chart cat-chart">${data.map((d) => `<button class="m ${state.filters.month === d.m ? 'on' : ''}" data-action="trendmonth" data-month="${d.m}" aria-label="${esc(`${monthAria(d.m)}: ${rp(d.v)}`)}"><span class="bars"><i class="${dir}" style="height:${Math.round((d.v / top) * 100)}%"></i></span><span>${esc(monthShort(d.m))}</span></button>`).join('')}</div>
     ${topPlaces.length ? `<h3 class="sub-title">${esc(T.topPlaces)}</h3><div class="rows">${topPlaces.map((p) => `<button class="rowi" data-action="drill" data-q="${esc(p.name)}"><span class="what"><b>${esc(p.name)}</b><span class="meta">${p.n}×</span></span><span class="amt">${rp(p.v)}</span></button>`).join('')}</div>` : ''}
     ${biggest.length ? `<h3 class="sub-title">${esc(T.biggestTitle)}</h3><div class="rows">${biggest.map((x) => `<button class="rowi" data-action="edit" data-id="${esc(x.id)}"><span class="what"><b>${esc(x.description || T.noName)}</b><span class="meta">${esc(dateLabel(x.date))}</span></span><span class="amt">${rp(x.amount)}</span></button>`).join('')}</div>` : ''}
   </section>`;

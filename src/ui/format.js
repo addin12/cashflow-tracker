@@ -21,6 +21,8 @@ export const monthDate = (ym) => { const [y, m] = ym.split('-').map(Number); ret
 export const monthLabel = (ym) => monthDate(ym).toLocaleDateString(locale(), { month: 'long', year: 'numeric' });
 
 export const monthShort = (ym) => monthDate(ym).toLocaleDateString(locale(), { month: 'short' });
+// The name of a month button for a screen reader: it starts with the word that is printed on the button, so a person who says "Sep" reaches it too.
+export const monthAria = (ym) => `${monthShort(ym)}, ${monthLabel(ym)}`;
 
 const thisYear = () => String(state.boot?.today || '').slice(0, 4);
 

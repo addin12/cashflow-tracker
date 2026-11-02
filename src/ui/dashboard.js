@@ -3,7 +3,7 @@
 import { svgIcon } from './icons.js';
 import { attentionCard, cardsCard, claimsCard, eventsCard, goalsCard, healthCard, owedCard, patternCard, paydayCard, recapCard, recurringCard, sharedCard, sptCard, tagsCard, warrantiesCard, wealthCard } from './cards.js';
 import { remember } from './data.js';
-import { currentMonth, dateLabel, esc, fmt, locale, monthAdd, monthDate, monthLabel, monthShort, rangeLabel, rp, signed, timeLabel } from './format.js';
+import { currentMonth, dateLabel, esc, fmt, locale, monthAdd, monthAria, monthDate, monthLabel, monthShort, rangeLabel, rp, signed, timeLabel } from './format.js';
 import { ownPendingCount, setView, skeleton, whoSeg } from './render.js';
 import { call } from './server.js';
 import { T, state } from './state.js';
@@ -38,8 +38,8 @@ export async function viewDashboard() {
       <div class="tools">${whoSeg()}
         <div class="seg">${viewBtn('overview', T.viewOverview)}${viewBtn('report', T.viewReport)}</div>
         <div class="monthnav">
-          <button class="btn secondary small" data-action="setmonth" data-month="${prev}" aria-label="${esc(monthLabel(prev))}">‹ ${esc(monthShort(prev))}</button>
-          <button class="btn secondary small" data-action="setmonth" data-month="${next}" aria-label="${esc(monthLabel(next))}" ${next > current ? 'disabled' : ''}>${esc(monthShort(next))} ›</button>
+          <button class="btn secondary small month-prev" data-action="setmonth" data-month="${prev}" aria-label="${esc(monthAria(prev))}">${esc(monthShort(prev))}</button>
+          <button class="btn secondary small month-next" data-action="setmonth" data-month="${next}" aria-label="${esc(monthAria(next))}" ${next > current ? 'disabled' : ''}>${esc(monthShort(next))}</button>
         </div></div></header>
     ${report ? `<div class="seg report-seg">${[['month', T.reportMonthly], ['year', T.reportYearly]].map(([v, l]) => `<button type="button" class="${(v === 'year') === !!state.reportYearly ? 'on' : ''}" aria-pressed="${(v === 'year') === !!state.reportYearly}" data-action="reportmode" data-mode="${v}">${esc(l)}</button>`).join('')}</div>${state.reportYearly ? yearlyHtml(state.yearly.data) : reportHtml(d)}` : overviewHtml(d)}`);
 }
@@ -94,7 +94,7 @@ function overviewHtml(d) {
       <div class="hero-top"><h2>${esc(greet)}</h2>
         <button class="icon-btn" data-action="hide" aria-pressed="${state.hide}" aria-label="${esc(state.hide ? T.showAmounts : T.hideAmounts)}" title="${esc(state.hide ? T.showAmounts : T.hideAmounts)}">${state.hide ? EYE_OFF : EYE}</button></div>
       <p class="hero-date">${esc(T.todayIs(todayLong))}</p>
-      <button class="hero-num" data-action="drillday" data-date="${esc(state.boot.today)}" aria-label="${esc(T.paymentsToday(today.length))}">${bigRp(todayTotal, 'xl')}</button>
+      <button class="hero-num" data-action="drillday" data-date="${esc(state.boot.today)}" aria-label="${esc(`${rp(todayTotal)}, ${T.paymentsToday(today.length)}`)}">${bigRp(todayTotal, 'xl')}</button>
       <p class="hero-sub">${esc(T.paymentsToday(today.length))}</p>
       ${chips ? `<div class="hchips">${chips}</div>` : ''}
     </section>` : '';
@@ -213,7 +213,7 @@ function reportHtml(d) {
   const trend = d.trend || [];
   const tTop = Math.max(1, ...trend.map((t) => Math.max(t.income, t.expense)));
   const chart = trend.map((t) => `
-    <button class="m ${t.month === d.month ? 'on' : ''}" data-action="setmonth" data-month="${t.month}" aria-label="${esc(`${monthLabel(t.month)}: ${T.income} ${rp(t.income)}, ${T.expense} ${rp(t.expense)}`)}">
+    <button class="m ${t.month === d.month ? 'on' : ''}" data-action="setmonth" data-month="${t.month}" aria-label="${esc(`${monthAria(t.month)}: ${T.income} ${rp(t.income)}, ${T.expense} ${rp(t.expense)}`)}">
       <span class="bars"><i class="in" style="height:${Math.round((t.income / tTop) * 100)}%"></i><i class="out" style="height:${Math.round((t.expense / tTop) * 100)}%"></i></span>
       <span>${esc(monthShort(t.month))}</span></button>`).join('');
   return `<div class="ov-grid">
@@ -307,7 +307,7 @@ function yearlyHtml(y) {
     const other = m.expense - top.reduce((t, c) => t + (m.byCategory[c] || 0), 0);
     const segs = [...top.map((c, i) => [m.byCategory[c] || 0, `var(--ch${i})`]), [other, 'var(--ch7)']].filter(([v]) => v > 0)
       .map(([v, color]) => `<i style="height:${((v / max) * 100).toFixed(1)}%;background:${color}"></i>`).join('');
-    return `<button class="m ${m.month === nowMonth ? 'on' : ''}" data-action="yearmonth" data-month="${m.month}" ${m.month > nowMonth ? 'disabled' : ''} aria-label="${esc(`${monthLabel(m.month)}: ${rp(m.expense)}`)}"><span class="stack-bar">${segs}</span><span>${esc(monthShort(m.month))}</span></button>`;
+    return `<button class="m ${m.month === nowMonth ? 'on' : ''}" data-action="yearmonth" data-month="${m.month}" ${m.month > nowMonth ? 'disabled' : ''} aria-label="${esc(`${monthAria(m.month)}: ${rp(m.expense)}`)}"><span class="stack-bar">${segs}</span><span>${esc(monthShort(m.month))}</span></button>`;
   }).join('');
   const legend = [...top.map((c, i) => [c, `var(--ch${i})`]), [T.otherCats, 'var(--ch7)']].map(([c, color]) => `<span><i style="background:${color}"></i>${esc(c)}</span>`).join('');
   // The grid shows the months since the start date (up to now), so it fits a phone.

@@ -562,6 +562,10 @@ describe('web app', () => {
     click(doc.querySelector('[data-action=close]'));
     click(doc.querySelector('.nav [data-tab=dashboard]'));
     await until(() => doc.querySelector('[data-action=owedpaid]'), 'owed card');
+    // WCAG 2.5.3: a button's spoken name contains the words printed on it (so "tap Sep" or "tap Lunas" works), arrows apart
+    const plain = (s) => s.replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const mismatched = [...doc.querySelectorAll('#view button[aria-label]')].filter((b) => plain(b.textContent) && !plain(b.getAttribute('aria-label')).includes(plain(b.textContent)));
+    expect(mismatched.map((b) => `${b.textContent.trim()} / ${b.getAttribute('aria-label')}`)).toEqual([]);
     click(doc.querySelector('[data-action=owedpaid]'));
     await until(() => store.t[TABS.owed][0].status === 'paid', 'marked paid');
   });

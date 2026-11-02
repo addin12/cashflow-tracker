@@ -151,6 +151,9 @@ button, input, select, textarea { font: inherit; letter-spacing: inherit; color:
 .btn.small { min-height: var(--hit); padding: 0 14px; font-size: 15px; }
 .btn[disabled] { opacity: .55; cursor: default; }
 .btn.block { width: 100%; }
+/* The arrows are drawn here, not typed in the button, so the button's own text is just the month and its spoken name can match it. */
+.month-prev::before { content: '‹'; }
+.month-next::after { content: '›'; }
 .actions { display: flex; gap: 12px; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin-top: 16px; }
 .actions .left { margin-right: auto; }
 .actions .state { color: var(--muted); font-size: 15px; margin-right: auto; }
