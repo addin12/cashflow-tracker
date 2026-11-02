@@ -29,6 +29,11 @@ Reading this as: a personal money app for two adults, used every day on a phone,
 | Pop-ups | Opening one makes the page behind it inert, moves focus into it (the pop-up itself on a phone, so no keyboard opens), keeps Tab inside, and Escape or the backdrop closes it and puts focus back on what opened it (`src/ui/modal.js`) | A keyboard or screen-reader user must not wander into a page they cannot see |
 | Messages | They stack (three at most, the newest at the bottom); each keeps its own Undo until it fades | A second message must never take the first one's Undo away |
 | Switches | The white thumb of the Us / Me / name and similar switches slides to the active choice (`transform` only, 120 ms) and is placed where it was across redraws (`src/ui/seg.js`) | The one visible motion: it shows what changed, and is gone when motion is reduced |
+| On / off settings | Drawn as a switch (48x28, the whole 44px row is the target); it is still a checkbox underneath, so keyboard, label and screen reader work. The off track is the muted grey so it shows on a white card | A pale track is invisible; a custom control must not lose what the native one gives |
+| Press feedback | Rows dim or tint, chips, tabs and link buttons shrink to 96% for 120 ms, and `touch-action: manipulation` removes the double-tap delay | A thumb on a row must see it was heard |
+| Pop-ups opening | The pop-up fades in and rises 24px in 200 ms (`@starting-style`; a browser without it just shows it). It closes at once, and scrolling past its end stays inside it | It shows where the pop-up came from; the page behind is already waiting when it closes |
+| Windows High Contrast | What only a background showed (the sliding thumb, bars, chips, badges, switches) gets an outline or a system colour under `forced-colors: active` | High Contrast removes background colours |
+| Figures and titles | Tabular figures everywhere (not only on amounts); titles use `text-wrap: balance`, paragraphs `pretty` | Columns line up; no title ends on one lonely word |
 | Loading | Each screen has a skeleton shaped like its first blocks (`scripts/skeleton-check.mjs` keeps the first screenful within 20%) | The page should not jump when the data arrives |
 
 ## Tokens

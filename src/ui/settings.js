@@ -65,7 +65,7 @@ function notifSection(s) {
       <div class="actions" style="justify-content:flex-start"><a class="btn primary" target="_top" href="${esc(p.link)}">${esc(T.notifAdd)}</a>${devs ? `<button class="btn secondary" type="button" data-action="pushtest">${esc(T.notifTest)}</button>` : ''}</div>
       <p class="hint">${esc(T.notifIphone)}</p></section>
     <form class="card" data-form="notif" novalidate><h2>${esc(T.notifWhat)}</h2>
-      ${NOTIF_EVENTS.map((k) => `<label class="check"><input type="checkbox" name="push_${k}" ${p.events.includes(k) ? 'checked' : ''}> ${esc(T[`notif_${k}`])}</label>`).join('')}
+      ${NOTIF_EVENTS.map((k) => `<label class="check switch"><input type="checkbox" name="push_${k}" ${p.events.includes(k) ? 'checked' : ''}> ${esc(T[`notif_${k}`])}</label>`).join('')}
       <div class="actions">${devs ? `<button class="btn danger left" type="button" data-action="pushforget">${esc(T.notifForget)}</button>` : ''}<span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div></form>`;
 }
 
@@ -103,7 +103,7 @@ export async function viewSettings(local) {
         ${field(T.rulePattern, `<input data-r="pattern" value="${esc(r.pattern)}" autocomplete="off" spellcheck="false">`, { help: T.rulePatternHelp })}
         ${field(T.category, `<select data-r="category">${categoryOptions(r.category, 'out')}</select>`)}
       </div>
-      <label class="check"><input type="checkbox" data-r="auto_approve" ${r.auto_approve === true || r.auto_approve === 'TRUE' ? 'checked' : ''}> ${esc(T.autoApprove)}</label>
+      <label class="check switch"><input type="checkbox" data-r="auto_approve" ${r.auto_approve === true || r.auto_approve === 'TRUE' ? 'checked' : ''}> ${esc(T.autoApprove)}</label>
       <p class="hint rule-preview" role="status">${esc(T.hits(Number(r.hits) || 0))}</p>
       <div class="actions"><button class="btn danger small" type="button" data-action="delrule" data-i="${i}">${esc(T.deleteRule)}</button></div>
     </fieldset>`).join('');
@@ -150,12 +150,12 @@ export async function viewSettings(local) {
         <div class="actions"><button class="btn secondary left" type="button" data-action="addrule">＋ ${esc(T.addRule)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveRules)}</button></div></form>`,
     emails: `
       <form class="card" data-form="weekly" novalidate><h2>${esc(T.emailsTitle)}</h2><p class="lead">${esc(T.emailsHint)}</p>
-        <label class="check"><input type="checkbox" name="weekly_email" ${cfg.weekly_email !== 'off' ? 'checked' : ''}> ${esc(T.weeklyOn)}</label>
-        <label class="check"><input type="checkbox" name="monthly_email" ${cfg.monthly_email !== 'off' ? 'checked' : ''}> ${esc(T.monthlyOn)}</label>
-        <label class="check"><input type="checkbox" name="payday_email" ${cfg.payday_email !== 'off' ? 'checked' : ''}> ${esc(T.paydayOn)}</label>
-        <label class="check"><input type="checkbox" name="bill_email" ${cfg.bill_email !== 'off' ? 'checked' : ''}> ${esc(T.billEmailOn)}</label>
-        <label class="check"><input type="checkbox" name="close_email" ${cfg.close_email === 'on' ? 'checked' : ''}> ${esc(T.closeEmailOn)}</label>
-        <label class="check"><input type="checkbox" name="calendar_sync" ${cfg.calendar_sync === 'on' ? 'checked' : ''}> ${esc(T.calendarOn)}</label>
+        <label class="check switch"><input type="checkbox" name="weekly_email" ${cfg.weekly_email !== 'off' ? 'checked' : ''}> ${esc(T.weeklyOn)}</label>
+        <label class="check switch"><input type="checkbox" name="monthly_email" ${cfg.monthly_email !== 'off' ? 'checked' : ''}> ${esc(T.monthlyOn)}</label>
+        <label class="check switch"><input type="checkbox" name="payday_email" ${cfg.payday_email !== 'off' ? 'checked' : ''}> ${esc(T.paydayOn)}</label>
+        <label class="check switch"><input type="checkbox" name="bill_email" ${cfg.bill_email !== 'off' ? 'checked' : ''}> ${esc(T.billEmailOn)}</label>
+        <label class="check switch"><input type="checkbox" name="close_email" ${cfg.close_email === 'on' ? 'checked' : ''}> ${esc(T.closeEmailOn)}</label>
+        <label class="check switch"><input type="checkbox" name="calendar_sync" ${cfg.calendar_sync === 'on' ? 'checked' : ''}> ${esc(T.calendarOn)}</label>
         ${cfg.calendar_status ? `<p class="hint">${esc(T.calendarStatus(cfg.calendar_status))}</p>` : ''}
         <p class="hint">${esc(T.noteEmailHint)}</p>
         <p class="hint">${esc(T.alertsAlways)}</p>

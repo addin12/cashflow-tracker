@@ -30,7 +30,7 @@ window.google = { script: { get run() { var ok; var r = { withSuccessHandler: fu
 }
 
 /** Opens the page and returns { run(js), close() }. `reduced` emulates prefers-reduced-motion; `width` sets a phone-sized window. */
-export async function openPage(file, { reduced = false, width = 500, height = 900 } = {}) {
+export async function openPage(file, { reduced = false, forced = false, dark = false, width = 500, height = 900 } = {}) {
   ports += 1;
   const port = ports;
   const proc = spawn(browser, ['--headless=new', '--disable-gpu', '--no-first-run', `--user-data-dir=${join(dir, `profile-${port}`)}`, `--remote-debugging-port=${port}`, `--window-size=${width},${height}`, 'about:blank'], { stdio: 'ignore' });
@@ -48,7 +48,11 @@ export async function openPage(file, { reduced = false, width = 500, height = 90
   const send = (method, params = {}) => new Promise((ok) => { id += 1; waiting.set(id, ok); ws.send(JSON.stringify({ id, method, params })); });
   await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
-  if (reduced) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  const features = [];
+  if (reduced) features.push({ name: 'prefers-reduced-motion', value: 'reduce' });
+  if (forced) features.push({ name: 'forced-colors', value: 'active' });
+  if (dark) features.push({ name: 'prefers-color-scheme', value: 'dark' });
+  if (features.length) await send('Emulation.setEmulatedMedia', { features });
   await send('Page.navigate', { url: pathToFileURL(file).href });
   await sleep(1500);
   return {

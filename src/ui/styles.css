@@ -42,7 +42,12 @@ html, body { margin: 0; background: var(--bg); color: var(--ink); }
 body {
   font: 17px/1.47 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
   letter-spacing: -0.01em; -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums; /* every figure in a column lines up, not only the ones marked .amt */
+  touch-action: manipulation; /* a tap is a tap: no double-tap-to-zoom delay on a phone */
 }
+/* Two-line titles break evenly, and a paragraph never ends on one lonely word. */
+h1, h2, h3 { text-wrap: balance; }
+.lead, .hint { text-wrap: pretty; }
 button, input, select, textarea { font: inherit; letter-spacing: inherit; color: inherit; }
 .num, .amt, .kpi .v { font-variant-numeric: tabular-nums; }
 [hidden] { display: none !important; }
@@ -173,6 +178,18 @@ textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .check { display: flex; align-items: center; gap: 12px; min-height: 44px; margin-top: 8px; font-size: 16px; color: var(--ink-2); cursor: pointer; }
 .check input { width: 22px; height: 22px; min-height: 0; margin: 0; accent-color: var(--accent); flex: none; }
+/* On / off settings: the same checkbox (keyboard, screen reader and label all work), drawn as a switch. The off track is dark enough to see on a white card. */
+.check.switch { flex-direction: row-reverse; justify-content: space-between; }
+.switch input {
+  appearance: none; -webkit-appearance: none; position: relative; width: 48px; height: 28px; border-radius: var(--r-pill); background: var(--muted); cursor: pointer;
+  transition: background-color var(--dur-quick) var(--ease-out);
+}
+.switch input::before {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--card);
+  transition: transform var(--dur-quick) var(--ease-out), background-color var(--dur-quick) var(--ease-out);
+}
+.switch input:checked { background: var(--accent-btn); }
+.switch input:checked::before { transform: translateX(20px); background: var(--on-accent); }
 .fields2 { display: grid; gap: 0 16px; }
 @media (min-width: 640px) { .fields2 { grid-template-columns: 1fr 1fr; } .fields2 .field { margin-top: 16px; } .fields2 .wide { grid-column: 1 / -1; } }
 .fields2 .field:first-child { margin-top: 0; }
@@ -216,6 +233,13 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, select:focus-vi
 .rowi .what .meta { margin-top: 2px; }
 button.rowi, a.rowi { width: 100%; background: none; border: 0; border-bottom: 1px solid var(--line-soft); text-align: left; cursor: pointer; font: inherit; color: inherit; padding: 12px 8px; margin: 0 -8px; width: calc(100% + 16px); border-radius: var(--r-field); }
 button.rowi:hover { background: var(--zebra); }
+/* Press feedback, so a thumb on a row or chip sees it was heard. */
+button.rowi, a.rowi { transition: background-color var(--dur-quick) var(--ease-out); }
+button.rowi:active, a.rowi:active { background: var(--line-soft); }
+button.lrow { transition: opacity var(--dur-quick) var(--ease-out); }
+button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
+.chip, .chip-btn, .nav button, .seg button, button.link { transition: transform var(--dur-quick) var(--ease-out); }
+.chip:active, .chip-btn:active, .nav button:active, .seg button:active, button.link:active { transform: scale(.96); }
 .rowi .chev { color: var(--muted); margin-left: 4px; }
 .total-row { font-weight: 600; }
 
@@ -302,6 +326,11 @@ button.rowi:hover { background: var(--zebra); }
 /* ---------- modal: bottom sheet on a phone, dialog on a PC */
 .modal { display: none; position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, .4); align-items: flex-end; justify-content: center; }
 .modal.open { display: flex; }
+/* The pop-up eases in (it closes at once: the page behind is already waiting). Browsers without @starting-style just show it. */
+.modal { overscroll-behavior: contain; transition: opacity var(--dur-base) var(--ease-out); }
+@starting-style { .modal.open { opacity: 0; } }
+.sheet { overscroll-behavior: contain; transition: transform var(--dur-base) var(--ease-out); }
+@starting-style { .modal.open .sheet { transform: translateY(24px); } }
 .sheet { background: var(--card); width: 100%; max-width: 560px; max-height: 92vh; overflow: auto; border-radius: var(--r-card) var(--r-card) 0 0; padding: 24px 20px calc(20px + env(safe-area-inset-bottom)); box-shadow: var(--shadow-modal); }
 .sheet h2 { margin: 0 0 4px; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
 .sheet .lead { margin: 0 0 16px; color: var(--muted); font-size: 15px; }
@@ -333,6 +362,19 @@ button.rowi:hover { background: var(--zebra); }
 .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
 .status.done .spin { display: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* Windows High Contrast removes background colours: what only a background showed gets a border or a system colour. */
+@media (forced-colors: active) {
+  .seg.thumb::before, .seg button.on { border: 2px solid Highlight; }
+  .bar { border: 1px solid CanvasText; }
+  .bar i, .bar i.over, .bar i.ahead, .bar i.done { forced-color-adjust: none; background: Highlight; }
+  .bar i.over { background: Mark; }
+  .bar em { forced-color-adjust: none; background: CanvasText; }
+  .chip, .chip-btn, .badge, .tag { border: 1px solid CanvasText; }
+  .switch input { forced-color-adjust: none; border: 2px solid ButtonText; background: Canvas; }
+  .switch input::before { background: ButtonText; }
+  .switch input:checked { background: Highlight; }
+  .switch input:checked::before { background: HighlightText; }
+}
 /* Whoever asks for less motion gets none: every transition and animation, present and future (1ms, not 0, so "transitionend" still fires). */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 1ms !important; transition-delay: 0s !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
