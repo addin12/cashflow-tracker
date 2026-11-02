@@ -95,7 +95,9 @@ describe('web app', () => {
 
   it('opens on Review when something waits, with the unread email and recent automatic rows', () => {
     expect(view()).toContain('Perlu dicek');
-    expect(doc.querySelectorAll('.txcard[data-id]')).toHaveLength(2);
+    // the two waiting rows of the same place are one card (the newer one) with the older folded under it
+    expect(doc.querySelectorAll('.txcard[data-id]')).toHaveLength(1);
+    expect(doc.querySelector('.txcard[data-id="t2"] .similar summary').textContent).toContain('1 transaksi serupa');
     expect(doc.querySelector('#reviewCount').textContent).toBe('2');
     expect(view()).toContain('Email yang belum terbaca');
   });
@@ -129,7 +131,7 @@ describe('web app', () => {
   });
 
   it('saving without a category shows the problem under the field and sends nothing', () => {
-    const card = doc.querySelector('.txcard[data-id="t1"]');
+    const card = doc.querySelector('.txcard[data-id="t2"]');
     const before = calls.length;
     click(card.querySelector('[data-action=approve]'));
     expect(card.querySelector('.field .msg').textContent).toBe('Pilih kategori dulu.');
@@ -137,12 +139,11 @@ describe('web app', () => {
   });
 
   it('approving with "always" leaves the screen at once, then saves the row, the rule and the other row of that merchant', async () => {
-    const card = doc.querySelector('.txcard[data-id="t1"]');
+    const card = doc.querySelector('.txcard[data-id="t2"]');
     card.querySelector('[data-field=category]').value = 'fnb';
     click(card.querySelector('[data-action=approve]'));
-    // On screen right away, before Google answers: both cards of that merchant go.
+    // On screen right away, before Google answers: the card of that merchant goes, and the row folded under it with it.
     expect(card.classList.contains('leaving')).toBe(true);
-    expect(doc.querySelector('.txcard[data-id="t2"]').classList.contains('leaving')).toBe(true);
     expect(doc.querySelector('#reviewCount').hidden).toBe(true);
     expect(doc.querySelector('#toast').textContent).toContain('plus 1 transaksi lain');
     await until(() => status('t2') === 'approved', 'approval');
@@ -153,9 +154,9 @@ describe('web app', () => {
 
   it('undo puts both rows back, and approving again files them again', async () => {
     click(doc.querySelector('#toast [data-toast=undo]'));
-    await until(() => doc.querySelectorAll('.txcard[data-id]').length === 2, 'cards back');
+    await until(() => doc.querySelectorAll('.txcard[data-id]').length === 1, 'card back');
     await until(() => status('t1') === 'pending' && status('t2') === 'pending', 'restored on the server');
-    const card = doc.querySelector('.txcard[data-id="t1"]');
+    const card = doc.querySelector('.txcard[data-id="t2"]');
     card.querySelector('[data-field=category]').value = 'fnb';
     click(card.querySelector('[data-action=approve]'));
     await until(() => status('t1') === 'approved' && status('t2') === 'approved', 'approved again');

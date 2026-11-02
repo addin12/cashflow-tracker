@@ -35,7 +35,7 @@ out.css = {
   lines: css.split('\n').length,
   gradients: hits('src/ui/styles.css', /(linear|radial|conic)-gradient\([^)]*\)/g).map((h) => `styles.css:${h.line} ${h.text}`),
   shadows: count(/box-shadow\s*:/g),
-  blurs: hits('src/ui/styles.css', /(backdrop-)?filter\s*:\s*blur[^;]*/g).map((h) => `styles.css:${h.line} ${h.text}`),
+  blurs: hits('src/ui/styles.css', /(backdrop-)?filter\s*:[^;]*blur[^;]*/g).map((h) => `styles.css:${h.line} ${h.text}`),
   pillRadius: hits('src/ui/styles.css', /border-radius\s*:\s*(999px|9999px|50%)[^;]*/g).map((h) => `styles.css:${h.line}`),
   uppercaseTracking: hits('src/ui/styles.css', /text-transform\s*:\s*uppercase/g).map((h) => `styles.css:${h.line}`),
   transitions: count(/transition\s*:/g),

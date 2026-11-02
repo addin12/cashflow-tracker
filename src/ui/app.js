@@ -321,20 +321,32 @@ function viewReview() {
       </div>
       <div class="actions fill"><button class="btn secondary" data-action="salaryskip">${esc(T.salarySkip)}</button><button class="btn primary" data-action="salarysave">${esc(T.salarySave)}</button></div>
     </article>`).join('');
-  const card = (x) => `
+  const card = (x, followers = []) => `
     <article class="card txcard" data-id="${esc(x.id)}">
       <div class="top"><div class="name">${esc(x.description || x.details || T.noName)}</div><div class="amt ${esc(x.direction)}">${signed(x)}</div></div>
       <div class="meta">${esc(when(x))} · ${esc(x.stream || T.noAccount)}${x.details && x.description ? ` · ${esc(x.details)}` : ''}${otherOwner(x)}${firstBadge(x)}</div>
       ${x.stream ? '' : field(T.account, `<select data-field="stream">${accountOptions('')}</select>`)}
       ${field(T.category, `<select data-field="category">${categoryOptions(x.category, x.direction)}</select>`)}
-      ${x.description && x.source !== 'summary' ? `<label class="check"><input type="checkbox" data-field="always" checked> ${esc(T.alwaysFor(x.description))}</label>` : ''}
+      ${x.description && x.source !== 'summary' ? `<label class="check"><input type="checkbox" data-field="always" checked> ${esc(T.alwaysFor(x.description))}${followers.length ? esc(T.alsoSimilar(followers.length)) : ''}</label>` : ''}
+      ${followers.length ? `<details class="similar"><summary>${esc(T.similarList(followers.length))}</summary><div class="rows">${followers.map((f) => `<div class="rowi sub"><span class="what"><span class="meta">${esc(when(f))}${f.stream ? ` · ${esc(f.stream)}` : ''}</span></span><span class="amt ${esc(f.direction)}">${signed(f)}</span></div>`).join('')}</div></details>` : ''}
       <div class="actions fill"><button class="btn secondary" data-action="ignore">${esc(T.ignore)}</button><button class="btn primary" data-action="approve">${esc(T.saveToReports)}</button></div>
     </article>`;
   const mine = r.pending.filter(mineRow);
   const theirs = r.pending.filter((x) => !mineRow(x));
   const theirName = (theirs[0] && theirs[0].owner) || '';
-  const cards = mine.map(card).join('');
-  const theirCards = theirs.length ? `<h2 class="section-title">${esc(T.waitingFor(theirName, theirs.length))}<small>${esc(T.waitingForHint)}</small></h2>${theirs.map(card).join('')}` : '';
+  // Waiting rows of the same place and direction (with an account) show as one card: approving it with "always" files the rest.
+  const fold = (list) => {
+    const lead = new Map();
+    const out = [];
+    for (const x of list) {
+      const key = x.description && x.stream && x.source !== 'summary' ? `${x.direction}|${String(x.description).trim().toLowerCase()}` : '';
+      if (key && lead.has(key)) lead.get(key).followers.push(x);
+      else { const g = { x, followers: [] }; if (key) lead.set(key, g); out.push(g); }
+    }
+    return out.map((g) => card(g.x, g.followers)).join('');
+  };
+  const cards = fold(mine);
+  const theirCards = theirs.length ? `<h2 class="section-title">${esc(T.waitingFor(theirName, theirs.length))}<small>${esc(T.waitingForHint)}</small></h2>${fold(theirs)}` : '';
   const empty = `<div class="card empty"><div class="big" aria-hidden="true">✓</div><b>${esc(T.reviewEmpty)}</b>${esc(T.reviewEmptySub)}
     <div class="actions" style="justify-content:center"><button class="btn secondary" data-action="go" data-tab="dashboard">${esc(T.seeSummary)}</button></div></div>`;
   const errors = r.errors.map((x) => `
@@ -1638,7 +1650,7 @@ function showResults() {
     <button class="trow${state.selecting ? ' picking' : ''}${state.picked.has(String(x.id)) ? ' picked' : ''}" data-action="${state.selecting ? 'pick' : 'edit'}" data-id="${esc(x.id)}" ${state.selecting ? `aria-pressed="${state.picked.has(String(x.id))}"` : ''}>
       <span class="c-date">${state.selecting ? `<span class="pick-box" aria-hidden="true">${state.picked.has(String(x.id)) ? '✓' : ''}</span>` : ''}${esc(timeLabel(x.time) || '')}</span>
       <span class="c-desc">${icon(x.category)}<span>${esc(x.description || T.noName)}${x.details ? `<small>${esc(x.details)}</small>` : ''}</span></span>
-      <span class="c-mobile-meta">${esc([timeLabel(x.time), x.stream || T.noAccount].filter(Boolean).join(' · '))}</span>
+      <span class="c-mobile-meta">${esc([timeLabel(x.time), x.category || T.noCategory, x.stream || T.noAccount].filter(Boolean).join(' · '))}</span>
       <span class="c-cat">${tag(x.category)}${statusBadge(x.status)}${firstBadge(x)}</span>
       <span class="c-acct">${esc(x.stream || T.noAccount)}</span>
       <span class="c-amt amt ${esc(x.direction)}">${signed(x)}</span>

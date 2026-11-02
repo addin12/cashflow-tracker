@@ -2,8 +2,6 @@
 //   tap targets under 44px, horizontal overflow, focus visibility, and an inventory of decoration (gradients, shadows,
 //   pills, emoji icons, arrows, badges, uppercase tracking). Generated from a11y.mjs (same screens and demo data).
 //   A11Y_OUT=out.json node scripts/antislop-browser.mjs [--only=phone-review,...] [--dark]
-// Screenshots of every screen at phone and PC size, with made-up demo data, in headless Edge.
-//   node scripts/screens.mjs [--only=phone-review,pc-dashboard]   -> private/screens/*.png
 import { readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -82,14 +80,14 @@ setTimeout(function () {
   });
   var all = [].slice.call(document.querySelectorAll('body *')).filter(vis);
   var gradients = 0; var shadows = 0; var pills = 0; var upper = 0;
-  all.forEach(function (e) { var c = getComputedStyle(e); if (/gradient/.test(c.backgroundImage)) gradients += 1; if (c.boxShadow !== 'none') shadows += 1; if (parseFloat(c.borderTopLeftRadius) >= 999 || (parseFloat(c.borderTopLeftRadius) >= e.getBoundingClientRect().height / 2 && e.getBoundingClientRect().height > 16 && e.getBoundingClientRect().width > 40)) pills += 1; if (c.textTransform === 'uppercase') upper += 1; });
+  all.forEach(function (e) { var c = getComputedStyle(e); if (/gradient/.test(c.backgroundImage)) gradients += 1; if (c.boxShadow !== 'none') shadows += 1; var h = e.getBoundingClientRect().height; if (e.matches('button, a, select, input, .badge, .chip, .tag, [role=button]') && h > 16 && parseFloat(c.borderTopLeftRadius) >= h / 2 - 1) pills += 1; if (c.textTransform === 'uppercase') upper += 1; });
   var text = document.body.innerText;
   var emoji = (text.match(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu) || []).length;
   var arrows = (text.match(/[→↗↘›»]/g) || []).length;
-  var badges = document.querySelectorAll('.badge, .chip, .hchip, .tag').length;
+  var badges = [].slice.call(document.querySelectorAll('.badge, .tag')).filter(vis).length; var chips = [].slice.call(document.querySelectorAll('.chip, .hchip, .chip-btn')).filter(vis).length;
   var cards = document.querySelectorAll('.card').length;
   var heads = [].slice.call(document.querySelectorAll('h1, h2, h3')).filter(vis).length;
-  var out = JSON.stringify({ interactive: interactive.length, smallTargets: small, overflowX: document.documentElement.scrollWidth > W + 1, overflowEls: overflow, noFocusIndicator: noFocus, decoration: { gradients: gradients, shadows: shadows, pills: pills, uppercase: upper, emoji: emoji, arrows: arrows, badges: badges, cards: cards, headings: heads }, textChars: text.length });
+  var out = JSON.stringify({ interactive: interactive.length, smallTargets: small, overflowX: document.documentElement.scrollWidth > W + 1, overflowEls: overflow, noFocusIndicator: noFocus, decoration: { gradients: gradients, shadows: shadows, pills: pills, uppercase: upper, emoji: emoji, arrows: arrows, badges: badges, chips: chips, cards: cards, headings: heads }, textChars: text.length });
   if (window.parent !== window) parent.postMessage({ a11y: out }, '*'); else { var p = document.createElement('pre'); p.id = 'a11y'; p.textContent = out; document.body.appendChild(p); }
 }, 2200);
 </script>`;
