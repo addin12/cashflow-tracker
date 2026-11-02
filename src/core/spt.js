@@ -7,7 +7,7 @@ const num = (v) => Number(v) || 0;
 const round2 = (n) => Math.round(n * 100) / 100;
 
 /** SPT codes (kode harta / kode utang) and their names. */
-export const SPT_CODES = {
+const SPT_CODES = {
   '011': 'Uang tunai', '012': 'Tabungan', '014': 'Deposito', '019': 'Setara kas lainnya', '021': 'Piutang',
   '032': 'Saham', '034': 'Obligasi pemerintah (SBN)', '036': 'Reksa dana', '039': 'Investasi lainnya',
   '042': 'Sepeda motor', '043': 'Mobil', '049': 'Alat transportasi lainnya', '051': 'Logam mulia',

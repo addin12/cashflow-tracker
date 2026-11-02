@@ -31,8 +31,8 @@ function foreignAmount(details, currency) {
   return m ? parseAmount(m[1]) : NaN;
 }
 
-export const MATCH_WINDOW_MINUTES = 15;
-export const RECEIPT_WAIT_DAYS = 4;
+const MATCH_WINDOW_MINUTES = 15;
+const RECEIPT_WAIT_DAYS = 4;
 const dayNumber = (date) => { const [y, m, d] = String(date).slice(0, 10).split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
 
 function minutesOf(row) {

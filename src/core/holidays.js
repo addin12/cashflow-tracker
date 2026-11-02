@@ -3,7 +3,7 @@
 // shortcut: only the years listed here are known (weekends still count after that); add the next
 // year's SKB dates when they are published (the self-test warns from October of the last year).
 
-export const HOLIDAYS = new Set([
+const HOLIDAYS = new Set([
   // 2026
   '2026-01-01', '2026-01-16', '2026-02-16', '2026-02-17', '2026-03-18', '2026-03-19', '2026-03-20', '2026-03-21', '2026-03-22',
   '2026-03-23', '2026-03-24', '2026-04-03', '2026-04-05', '2026-05-01', '2026-05-14', '2026-05-15', '2026-05-27', '2026-05-28',

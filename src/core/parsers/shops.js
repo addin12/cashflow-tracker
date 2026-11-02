@@ -111,7 +111,7 @@ export const xendit = {
  * "Qty: 1 Total: $179.95 AUD" per item). The shop's name and currency come from the email, so no
  * shop is named here; the bank row is the card charge whose description holds the shop's name.
  */
-export const shopOrder = {
+const shopOrder = {
   id: 'shop-order',
   matches: (m) => /^.+? order #\d+ Confirmed/i.test(m.subject),
   parse(m) {
@@ -148,7 +148,7 @@ export const myminifactory = {
   },
 };
 
-export const optikMelawai = {
+const optikMelawai = {
   id: 'optik-melawai',
   matches: (m) => /@optikmelawai\.id$/i.test(m.from),
   parse(m) {

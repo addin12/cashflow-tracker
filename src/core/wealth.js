@@ -2,7 +2,7 @@
 // debts), planned recurring transactions, and money friends owe you ("Tagih"). Pure functions.
 
 export const ASSET_KINDS = ['property', 'vehicle', 'gold', 'stock', 'fund', 'bond', 'deposit', 'pension', 'crypto', 'goods', 'collectible', 'receivable', 'other', 'debt', 'paylater'];
-export const DEBT_KINDS = new Set(['debt', 'paylater']);
+const DEBT_KINDS = new Set(['debt', 'paylater']);
 // Stock codes: IDX:BBCA, or just BBCA (an IDX stock), or EXCHANGE:CODE elsewhere (NASDAQ:AAPL).
 export const TICKER = /^(?:[A-Z]{2,10}:)?[A-Z0-9.-]{1,15}$/;
 
@@ -169,9 +169,10 @@ export function financialHealth({ balances, goals = [], trend, month, summary, w
 }
 
 /**
- * What an amount earns over `months`: a time deposit (interest taxed 20%, none when the amount is
- * Rp7,5 jt or less) against government bonds, SBN (coupon taxed 10%). Rates are yearly percentages;
- * a missing rate gives null for that side.
+ * What an amount earns over `months`: a time deposit (interest taxed 20%, none when the deposit is
+ * Rp7,5 jt or less: PMK 212/PMK.03/2018) against government bonds, SBN (coupon taxed 10%: PP 91/2021).
+ * Checked against press and tax-site summaries on 2026-11-02, not the regulation text; the UI tells people to
+ * check current rules. Rates are yearly percentages; a missing rate gives null for that side.
  */
 export function interestCompare({ amount, months = 1, depositRate, sbnRate }) {
   const a = num(amount);

@@ -5,8 +5,8 @@
 
 const KEY = 'PERF';
 const MAX = 50;
-export const PERF_TAB = 'Perf Log';
-export const PERF_HEADERS = ['at', 'open_ms', 'work_ms', 'client_total_ms', 'client_cached_ms', 'client_from_cache'];
+const PERF_TAB = 'Perf Log';
+const PERF_HEADERS = ['at', 'open_ms', 'work_ms', 'client_total_ms', 'client_cached_ms', 'client_from_cache'];
 
 export function recordStartup(entry) {
   try {

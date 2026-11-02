@@ -1,12 +1,9 @@
 // Reading and writing the app's tabs as arrays of objects (keyed by header).
-/* global SpreadsheetApp */
-
-import { TABS, TRANSACTION_HEADERS } from '../core/schema.js';
 
 const pad = (n) => String(n).padStart(2, '0');
 
 /** Sheet cell -> plain value for the core logic (dates 'YYYY-MM-DD', times 'HH:MM:SS'). */
-function fromCell(header, v, tz) {
+function fromCell(header, v) {
   if (v instanceof Date) {
     if (header === 'time') return `${pad(v.getHours())}:${pad(v.getMinutes())}:${pad(v.getSeconds())}`;
     if (header === 'updated_at' || header === 'connected_at' || header === 'last_sync' || header === 'created_at') return v.toISOString();
@@ -73,23 +70,10 @@ export function updateRows(ss, tab, headers, updates) {
   return n;
 }
 
-export const readTransactions = (ss) => readTable(ss, TABS.transactions);
-export const appendTransactions = (ss, rows) => appendRows(ss, TABS.transactions, TRANSACTION_HEADERS, rows);
-export const updateTransactions = (ss, updates) => updateRows(ss, TABS.transactions, TRANSACTION_HEADERS, updates);
-
-/** Whole-row replace (used by the web app when the user edits a row). */
-export function writeRow(ss, tab, headers, rowNumber, obj) {
-  ss.getSheetByName(tab).getRange(rowNumber, 1, 1, headers.length).setValues([headers.map((h) => toCell(h, obj[h]))]);
-}
-
 export function deleteRowById(ss, tab, id) {
   const sh = ss.getSheetByName(tab);
   const ids = sh.getRange(1, 1, sh.getLastRow(), 1).getValues().map((r) => String(r[0]));
   const row = ids.indexOf(String(id)) + 1;
   if (row >= 2) sh.deleteRow(row);
   return row >= 2;
-}
-
-export function spreadsheet() {
-  return SpreadsheetApp.getActive() || null;
 }

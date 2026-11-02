@@ -31,7 +31,7 @@ const TIME_BUDGET_MS = 4.5 * 60 * 1000; // Apps Script stops a run at 6 minutes
 const SHEET_KEY = 'SHEET_ID';
 const MAX_EMAILS_PER_RUN = 80; // a backlog is worked off over several runs
 const PAUSE_MS = 300; // stays well under Gmail's per-minute quota for personal scripts
-export const TRIGGER_HANDLER = 'syncTrigger';
+const TRIGGER_HANDLER = 'syncTrigger';
 const TRIGGER_MINUTES = 1;
 // Emails you send yourself to log spending: "catat kopi 28rb gopay".
 const NOTE_QUERY = 'from:me to:me (catat OR log)';

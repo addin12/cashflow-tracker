@@ -30,7 +30,7 @@ export function categoryCellFormula(row, col, amountCol) {
 }
 
 /** Monthly IN (Debit) or OUT (Credit) of the stream named in K<nameRow>. */
-export function streamCellFormula(nameRow, col, amountCol) {
+function streamCellFormula(nameRow, col, amountCol) {
   return `=IF(OR($K${nameRow}="",$K${nameRow}="${EMPTY_SLOT}"),0,LET(m,${monthOf(col)},SUMIFS($${amountCol}$6:$${amountCol},$D$6:$D,$K${nameRow},${monthBounds()})))`;
 }
 

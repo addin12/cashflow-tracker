@@ -39,7 +39,7 @@ import { monthlyReport } from './notices.js';
 import { goalProgress, goalProblems } from './goals.js';
 
 const cents = (n) => Math.round(Number(n) * 100);
-export const SPLIT_REF = 'split:';
+const SPLIT_REF = 'split:';
 
 const PUBLIC_FIELDS = ['date', 'time', 'stream', 'direction', 'amount', 'category', 'description', 'details', 'status'];
 

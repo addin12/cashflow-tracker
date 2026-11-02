@@ -8,8 +8,8 @@ The workbook is a **Google Sheets original** exported to Excel. It uses Sheets-o
 
 | Tab | Role | Reads from |
 |---|---|---|
-| **GUIDELINE** | Column glossary + FAQ (Indonesian) | — |
-| **Setup** | Year (D3 = 2026), 8 *Spending* accounts + 8 *Saving* accounts with opening balances (B6:E13) | — |
+| **GUIDELINE** | Column glossary + FAQ (Indonesian) | n/a |
+| **Setup** | Year (D3 = 2026), 8 *Spending* accounts + 8 *Saving* accounts with opening balances (B6:E13) | n/a |
 | **CASHFLOW** | **The input sheet** + monthly summary | its own B:H rows |
 | **GROWTH ANALYSIS** | Month-to-month growth of income/expense/balance; balance growth per stream; charts | rawdata |
 | **QUARTER REPORT** | Q1–Q4: totals per category, highest income/expense, pie charts | CASHFLOW |

@@ -2,7 +2,7 @@
 // "waiting" (a receipt whose charge isn't in the account yet) only while it is recent, so an order
 // that never gets charged stops being fetched on every run.
 
-export const WAITING_DAYS = 14;
+const WAITING_DAYS = 14;
 
 /** @param {string} status  latest Inbox Log status of the email
  *  @param {number} receivedMs  when the email arrived (0 = unknown: still tried)

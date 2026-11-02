@@ -97,10 +97,10 @@ There is no server of ours, no database to maintain, and no monthly bill. Google
 | A bank changes its email layout | The email lands in Review as "Email belum terbaca" with an *open in Gmail* link. After 7 quiet days Settings warns about that bank | You enter it by hand; I update that bank's parser and its tests |
 | You change your Google password / revoke access | Settings shows "Sinkron berhenti, hubungkan ulang" | One tap to re-authorize. The next sync catches up, because it overlaps 2 days |
 | Google is down or a run fails | Nothing (it retries) | The next run, 10 minutes later, picks up the same emails. Dedupe prevents doubles |
-| Delay | — | A transaction appears up to ~10 minutes after the bank's email |
-| Google's free script quotas | — | One inbox syncing every 10 minutes uses a small fraction of the daily allowance. A single run may last at most 6 minutes, and the sync is designed to stop and resume |
+| Delay | n/a | A transaction appears up to ~10 minutes after the bank's email |
+| Google's free script quotas | n/a | One inbox syncing every 10 minutes uses a small fraction of the daily allowance. A single run may last at most 6 minutes, and the sync is designed to stop and resume |
 | Web app look | A thin Google banner at the top ("created by a Google Apps Script user") | Cosmetic, can't be removed on free accounts |
-| You want out | — | The sheet is yours. Download it as `.xlsx` at any time. Deleting the script stops everything |
+| You want out | n/a | The sheet is yours. Download it as `.xlsx` at any time. Deleting the script stops everything |
 
 ### 2.6 Why not the alternatives (short version)
 
@@ -145,7 +145,7 @@ Bank fees ("Biaya" in Livin'/blu emails) are written as their own row (category 
 | blu | Spending | Me | blu | `…3456` | 0 |
 | Jago | Spending | Me | Jago | `…7890` | 0 |
 | GoPay | Spending | Me | GoPay | top-ups | 0 |
-| Cash | Spending | Me | — | manual | 0 |
+| Cash | Spending | Me | n/a | manual | 0 |
 | Jago Dana Darurat | Saving | Me | Jago | Kantong "Dana Darurat" | 0 |
 | Saham (Mandiri Sekuritas) | Saving | Me | Mandiri Sekuritas | dividend emails | 0 |
 

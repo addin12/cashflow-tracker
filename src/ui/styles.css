@@ -9,6 +9,7 @@
   --t0: #e6e0f5; --t0i: #3d2a73; --t1: #dcecfa; --t1i: #0b4a7d; --t2: #d9f3e1; --t2i: #11602b; --t3: #ffe8d4; --t3i: #7a3a00;
   --t4: #fde0ec; --t4i: #8a1d50; --t5: #fef7d6; --t5i: #6b5200; --t6: #f0eeec; --t6i: #4a4740; --t7: #dff4f2; --t7i: #0d5e5a;
   --r-card: 18px; --r-field: 12px; --r-tag: 6px; --nav-w: 248px;
+  --hit: 44px; /* the smallest a tappable thing may be, in height and width */
   color-scheme: light;
 }
 /* Dark: chosen in the app (data-theme="dark"), or the device is dark and light wasn't chosen. */
@@ -140,7 +141,7 @@ button, input, select, textarea { font: inherit; letter-spacing: inherit; color:
 .btn.secondary { background: var(--card); color: var(--accent); border-color: var(--field-line); }
 .btn.plain { background: transparent; color: var(--accent); padding: 0 12px; }
 .btn.danger { background: transparent; color: var(--critical); border-color: var(--field-line); }
-.btn.small { min-height: 36px; padding: 0 14px; font-size: 15px; }
+.btn.small { min-height: var(--hit); padding: 0 14px; font-size: 15px; }
 .btn[disabled] { opacity: .55; cursor: default; }
 .btn.block { width: 100%; }
 .actions { display: flex; gap: 12px; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin-top: 16px; }
@@ -150,6 +151,7 @@ button, input, select, textarea { font: inherit; letter-spacing: inherit; color:
 .actions .state.bad { color: var(--critical); }
 @media (max-width: 520px) { .actions.fill > .btn { flex: 1; } }
 .link { border: 0; background: none; color: var(--accent); font: inherit; font-weight: 500; padding: 0; cursor: pointer; text-decoration: none; }
+button.link { min-height: var(--hit); min-width: var(--hit); display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; }
 
 /* ---------- fields: label above, helper below, message next to the field */
 .field { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
@@ -175,11 +177,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 @media (min-width: 640px) { .fields2 .field:nth-child(2) { margin-top: 0; } }
 .amount-input { font-size: 32px; font-weight: 700; min-height: 64px; letter-spacing: -0.02em; }
 
-button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 /* ---------- segmented control */
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--line-soft); border-radius: 12px; padding: 4px; gap: 4px; }
-.seg button { min-height: 40px; border: 0; background: transparent; border-radius: 9px; font-size: 16px; font-weight: 500; color: var(--ink-2); cursor: pointer; padding: 0 6px; }
+.seg button { min-height: var(--hit); border: 0; background: transparent; border-radius: 9px; font-size: 16px; font-weight: 500; color: var(--ink-2); cursor: pointer; padding: 0 6px; }
 .seg button.on { background: var(--card); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
 
 /* ---------- review */
@@ -241,7 +243,7 @@ button.rowi:hover { background: var(--zebra); }
 .filter-grid .field { margin: 0; }
 @media (min-width: 1100px) { .filter-grid { grid-template-columns: repeat(4, 1fr); } }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 8px 0 14px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); border: 0; font-size: 15px; font-weight: 500; cursor: pointer; }
+.chip { display: inline-flex; align-items: center; gap: 6px; min-height: var(--hit); padding: 0 8px 0 14px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); border: 0; font-size: 15px; font-weight: 500; cursor: pointer; }
 .chip .x { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 14px; }
 .chip:hover .x { background: rgba(0, 102, 204, .15); }
 .summary-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; margin: 20px 0 10px; font-size: 16px; color: var(--ink-2); }
@@ -275,7 +277,7 @@ button.rowi:hover { background: var(--zebra); }
 .rule-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
 .rule-row:last-child { border-bottom: 0; }
 .rule-row code { font: 15px/1.4 ui-monospace, "SF Mono", Consolas, monospace; background: var(--line-soft); padding: 2px 6px; border-radius: 6px; word-break: break-all; }
-.rule-row .check { margin: 0; min-height: 36px; font-size: 15px; }
+.rule-row .check { margin: 0; min-height: var(--hit); font-size: 15px; }
 .budget-grid { display: grid; gap: 0 16px; }
 @media (min-width: 640px) { .budget-grid { grid-template-columns: 1fr 1fr; } }
 .budget-grid .field { margin-top: 12px; }
@@ -297,7 +299,7 @@ button.rowi:hover { background: var(--zebra); }
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
 .toast.bad { background: var(--critical); color: #fff; }
-.toast button { border: 0; background: rgba(255, 255, 255, .16); color: inherit; font: inherit; font-weight: 600; min-height: 36px; padding: 0 14px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.toast button { border: 0; background: rgba(255, 255, 255, .16); color: inherit; font: inherit; font-weight: 600; min-height: var(--hit); padding: 0 14px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
 @media (min-width: 900px) { .toast { left: calc(50% + var(--nav-w) / 2); bottom: 32px; } }
 .status {
   position: fixed; z-index: 11; top: calc(10px + env(safe-area-inset-top)); right: 12px; display: flex; align-items: center; gap: 8px;
@@ -524,7 +526,7 @@ button.rowi:hover { background: var(--zebra); }
 /* Reports: calendar, running total, donut */
 .hm-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
 .hm-wd { text-align: center; font-size: 13px; color: var(--muted); }
-.hm-cell { aspect-ratio: 1.3; min-height: 36px; border-radius: 10px; border: 0; font: inherit; font-size: 14px; color: var(--ink-2); display: flex; align-items: flex-start; justify-content: flex-start; padding: 6px 8px; cursor: pointer; background: var(--line-soft); }
+.hm-cell { aspect-ratio: 1.3; min-height: var(--hit); min-width: var(--hit); border-radius: 10px; border: 0; font: inherit; font-size: 14px; color: var(--ink-2); display: flex; align-items: flex-start; justify-content: flex-start; padding: 6px 8px; cursor: pointer; background: var(--line-soft); }
 .hm-cell.blank { background: none; cursor: default; }
 .hm-cell.l1 { background: color-mix(in srgb, var(--accent) 18%, var(--card)); }
 .hm-cell.l2 { background: color-mix(in srgb, var(--accent) 38%, var(--card)); }
@@ -549,7 +551,7 @@ button.rowi:hover { background: var(--zebra); }
 
 /* Transactions: period and kind chips, a heading per day */
 .pchips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 8px; scrollbar-width: none; }
-.pchips button { flex: none; min-height: 40px; padding: 0 16px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: var(--ink-2); font: inherit; font-size: 15px; font-weight: 500; cursor: pointer; }
+.pchips button { flex: none; min-height: var(--hit); padding: 0 16px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: var(--ink-2); font: inherit; font-size: 15px; font-weight: 500; cursor: pointer; }
 .pchips button.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .day-head { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px 6px; font-size: 14px; font-weight: 600; color: var(--muted); background: var(--zebra); border-bottom: 1px solid var(--line-soft); }
 .day-head .in { color: var(--success); }
@@ -563,11 +565,14 @@ button.rowi:hover { background: var(--zebra); }
    Transactions: picking several rows. Settings: statement import. */
 .report-seg { margin-top: 16px; width: min(100%, 320px); }
 .rank { width: 28px; text-align: center; color: var(--muted); font-weight: 600; flex: none; }
-.year-chart { position: relative; height: 220px; gap: 6px; }
+.year-chart { position: relative; height: 220px; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; }
+.year-chart .m { flex: 1 0 var(--hit); min-width: var(--hit); }
 .year-chart .m:disabled { opacity: .35; cursor: default; }
 .stack-bar { flex: 1; width: 70%; max-width: 34px; display: flex; flex-direction: column-reverse; justify-content: flex-start; gap: 2px; }
 .stack-bar i { display: block; width: 100%; border-radius: 4px; min-height: 2px; }
 .avg-line { position: absolute; left: 0; right: 0; border-top: 1.5px dashed var(--muted); opacity: .7; pointer-events: none; }
+/* the yearly chart scrolls: its line must span all twelve months, not just the visible width */
+.year-chart .avg-line { right: auto; width: calc(12 * (var(--hit) + 6px)); }
 .ct-grid { display: flex; flex-direction: column; overflow-x: auto; }
 .ct-head, .ct-row { display: grid; grid-template-columns: 36px minmax(90px, 1.4fr) repeat(var(--n, 12), minmax(18px, 1fr)) minmax(90px, auto); gap: 6px; align-items: center; }
 .ct-head { font-size: 12px; color: var(--muted); text-align: center; padding-bottom: 6px; }
@@ -602,11 +607,11 @@ button.rowi:hover { background: var(--zebra); }
 .pick-box { display: inline-flex; width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--field-line); align-items: center; justify-content: center; margin-right: 8px; font-size: 14px; font-weight: 700; color: var(--on-accent); vertical-align: middle; }
 .trow.picked .pick-box { background: var(--accent); border-color: var(--accent); }
 .pick-bar { position: sticky; bottom: 12px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding: 12px 16px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-modal); }
-.pick-bar select { min-height: 40px; border-radius: 10px; border: 1px solid var(--field-line); background: var(--field); color: var(--ink); font: inherit; padding: 0 10px; max-width: 220px; }
+.pick-bar select { min-height: var(--hit); border-radius: 10px; border: 1px solid var(--field-line); background: var(--field); color: var(--ink); font: inherit; padding: 0 10px; max-width: 220px; }
 @media (max-width: 899px) { .pick-bar { bottom: 84px; } }
 
 .howto { margin: 12px 0; font-size: 15px; }
-.howto summary { cursor: pointer; color: var(--accent); font-weight: 500; min-height: 32px; }
+.howto summary { cursor: pointer; color: var(--accent); font-weight: 500; min-height: var(--hit); display: flex; align-items: center; }
 .howto ol { margin: 8px 0 0; padding-left: 20px; color: var(--ink-2); }
 .imp-sum { margin: 12px 0 8px; font-size: 15px; }
 .imp-list { max-height: 420px; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px; }
@@ -616,7 +621,7 @@ button.rowi:hover { background: var(--zebra); }
 .imp-row .check span { display: flex; flex-direction: column; min-width: 0; }
 .imp-row .check b { font-weight: 500; word-break: break-word; }
 .imp-row .check small { color: var(--muted); font-size: 14px; }
-.imp-row select { grid-column: 1 / -1; min-height: 40px; border-radius: 10px; border: 1px solid var(--field-line); background: var(--field); color: var(--ink); font: inherit; padding: 0 10px; }
+.imp-row select { grid-column: 1 / -1; min-height: var(--hit); border-radius: 10px; border: 1px solid var(--field-line); background: var(--field); color: var(--ink); font: inherit; padding: 0 10px; }
 .hint.bad { color: var(--critical); }
 
 /* ---------------------------------------------------------------- Round 12
@@ -645,7 +650,7 @@ button.rowi:hover { background: var(--zebra); }
 .sub-top .what b { display: block; font-weight: 500; }
 .sub-top .meta { display: block; color: var(--muted); font-size: 14px; }
 .sub-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0 52px; }
-.chip-btn { min-height: 36px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: var(--ink-2); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+.chip-btn { min-height: var(--hit); padding: 0 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--card); color: var(--ink-2); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
 .chip-btn.on { background: var(--success-soft); color: var(--success); border-color: transparent; }
 .chip-btn.on.stop { background: var(--critical-soft); color: var(--critical); }
 
@@ -653,7 +658,7 @@ button.rowi:hover { background: var(--zebra); }
    The usual (Add), today's box (Review), trips & events, category detail. */
 .usual { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .usual-label { font-size: 14px; color: var(--muted); }
-.usual .chip-btn { min-height: 40px; }
+.usual .chip-btn { min-height: var(--hit); }
 .day-card .row-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .day-card h2 { margin: 0; }
 .streak { font-size: 15px; font-weight: 600; color: var(--warning); background: var(--warning-soft); border-radius: 99px; padding: 4px 12px; }

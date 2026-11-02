@@ -15,7 +15,7 @@ import { changeCategorySlots, renameCategoryEverywhere } from '../core/api.js';
 import { slotsAfterChanges } from '../core/categories.js';
 import { sheetStore } from './sheetstore.js';
 
-export const TEMPLATE_TABS = ['GUIDELINE', 'Setup', 'CASHFLOW', 'GROWTH ANALYSIS', 'QUARTER REPORT', 'BUDGET TRACKER', 'FINAL STATEMENT', 'rawdata'];
+const TEMPLATE_TABS = ['GUIDELINE', 'Setup', 'CASHFLOW', 'GROWTH ANALYSIS', 'QUARTER REPORT', 'BUDGET TRACKER', 'FINAL STATEMENT', 'rawdata'];
 const MIN_LEDGER_ROWS = 3000;
 const TIME_ZONE = 'Asia/Jakarta';
 

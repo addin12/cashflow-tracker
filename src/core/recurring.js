@@ -30,7 +30,7 @@ export const payee = (s) => String(s || '').toLowerCase().replace(/\d+/g, ' ').r
 
 // Not "iuran" (dues): one transfer to a person for a group payment isn't a monthly bill. Real
 // monthly dues still show once they repeat (the "monthly" rule).
-export const REPEATING_CATEGORIES = /langganan|subscription|tagihan|utilitas|pulsa|internet/i;
+const REPEATING_CATEGORIES = /langganan|subscription|tagihan|utilitas|pulsa|internet/i;
 
 /**
  * @param {object[]} rows  Transactions

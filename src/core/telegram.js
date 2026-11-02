@@ -4,7 +4,7 @@
 
 import { safeEqual } from './push.js';
 
-export const TOKEN_FORMAT = /^\d{6,12}:[A-Za-z0-9_-]{30,50}$/;
+const TOKEN_FORMAT = /^\d{6,12}:[A-Za-z0-9_-]{30,50}$/;
 export const validToken = (t) => TOKEN_FORMAT.test(String(t || '').trim());
 
 const num = (v) => Number(v) || 0;

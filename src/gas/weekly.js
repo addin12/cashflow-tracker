@@ -25,10 +25,10 @@ import { backupCsv } from '../core/csv.js';
 import { TABS } from '../core/schema.js';
 import { whoAmI, roleKey } from './members.js';
 
-export const WEEKLY_HANDLER = 'weeklySummaryTrigger';
-export const DAILY_HANDLER = 'dailyTrigger';
-export const SELFTEST_HANDLER = 'selfTestTrigger';
-export const EVENING_HANDLER = 'eveningTrigger';
+const WEEKLY_HANDLER = 'weeklySummaryTrigger';
+const DAILY_HANDLER = 'dailyTrigger';
+const SELFTEST_HANDLER = 'selfTestTrigger';
+const EVENING_HANDLER = 'eveningTrigger';
 const ALERT_EVERY_MS = 12 * 3600 * 1000;
 
 function appUrl(ss) {

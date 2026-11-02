@@ -72,7 +72,7 @@ const T = {
 };
 const t = (lang) => T[lang] || T.id;
 const lines = (list, fmt, lang) => [...list.slice(0, 3).map(fmt), ...(list.length > 3 ? [t(lang).more(list.length - 3)] : [])].join('\n');
-const rowLine = (r) => `${r.description || r.details || '—'} ${r.direction === 'in' ? '+' : '−'}${rp(r.amount)}${r.stream ? ` · ${r.stream}` : ''}`;
+const rowLine = (r) => `${r.description || r.details || '?'} ${r.direction === 'in' ? '+' : '−'}${rp(r.amount)}${r.stream ? ` · ${r.stream}` : ''}`;
 
 /**
  * New rows from a sync: big spending first (when that event is on), else every new row (when "new" is on).

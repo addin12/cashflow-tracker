@@ -3,7 +3,7 @@
 // is owed the difference. "Tandai lunas" records a settle-up (Config settlements), which counts
 // against what is owed, so nothing depends on guessing which transfers were settlements.
 
-export const SHARED_TAG = 'bersama';
+const SHARED_TAG = 'bersama';
 const TAG_END = '(?![\\p{L}\\p{N}_-])';
 const HAS_TAG = new RegExp(`(?:^|[^\\p{L}\\p{N}_-])#${SHARED_TAG}${TAG_END}`, 'iu');
 const num = (v) => Number(v) || 0;

@@ -84,7 +84,7 @@ Rows whose category came from a generic rule (Tokopedia, Shopee, Xendit) go back
 | Own-account transfer, only one side emails | Jago → "YOUR NAME · Mandiri" | Beneficiary name matches an owner → transfer. The destination stream comes from the bank name |
 | Failed then retried elsewhere | Livin' failed + blu success at the same shop a minute later | Failed one ignored. The success is a normal row |
 | Marketplace + bank emails for one purchase | Tokopedia "Pesanan Selesai" + Livin' "Penerima Tokopedia" | Bank email is the money row. Marketplace email is enrichment only |
-| Same email fetched twice | — | Dedupe by Gmail message id, then by bank reference number |
+| Same email fetched twice | n/a | Dedupe by Gmail message id, then by bank reference number |
 
 ## 4. Coverage check (to repeat with the partner's inbox)
 

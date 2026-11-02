@@ -37,7 +37,7 @@ export function parseCsv(text) {
   return rows;
 }
 
-export const BACKUP_HEAD = ['id', 'date', 'time', 'owner', 'stream', 'direction', 'amount', 'category', 'description', 'details', 'source', 'status', 'ref_no', 'transfer_id', 'gmail_id'];
+const BACKUP_HEAD = ['id', 'date', 'time', 'owner', 'stream', 'direction', 'amount', 'category', 'description', 'details', 'source', 'status', 'ref_no', 'transfer_id', 'gmail_id'];
 
 /** A backup file back as transactions (the quote csvCell put before formula-like text is taken off again). */
 export function parseBackupCsv(text) {

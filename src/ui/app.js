@@ -233,7 +233,13 @@ function patchRow(id, changes) {
 const sortByDate = (rows) => rows.sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
 
 // ---------------------------------------------------------------- rendering helpers
-function setView(html) { $('#view').innerHTML = html; }
+function setView(html) {
+  $('#view').innerHTML = html;
+  // The yearly chart scrolls sideways on a phone (a 44px tap target per month): start on the month that is open.
+  const chart = $('.year-chart');
+  const on = chart && (chart.querySelector('.m.on') || chart.querySelector('.m:not(:disabled):last-of-type'));
+  if (on) chart.scrollLeft = on.offsetLeft - (chart.clientWidth - on.offsetWidth) / 2;
+}
 const skeleton = (title) => setView(`<header class="page-head"><div><h1>${esc(title)}</h1></div></header>${'<div class="skeleton"></div>'.repeat(4)}`);
 function failed(e) {
   setView(`<div class="card empty error"><b>${esc(T.error)}</b>${esc(e.message)}<div class="actions" style="justify-content:center"><button class="btn primary" data-action="reload">${esc(T.retry)}</button></div></div>`);
@@ -317,7 +323,7 @@ function viewReview() {
     </article>`).join('');
   const card = (x) => `
     <article class="card txcard" data-id="${esc(x.id)}">
-      <div class="top"><div class="name">${esc(x.description || x.details || '—')}</div><div class="amt ${esc(x.direction)}">${signed(x)}</div></div>
+      <div class="top"><div class="name">${esc(x.description || x.details || T.noName)}</div><div class="amt ${esc(x.direction)}">${signed(x)}</div></div>
       <div class="meta">${esc(when(x))} · ${esc(x.stream || T.noAccount)}${x.details && x.description ? ` · ${esc(x.details)}` : ''}${otherOwner(x)}${firstBadge(x)}</div>
       ${x.stream ? '' : field(T.account, `<select data-field="stream">${accountOptions('')}</select>`)}
       ${field(T.category, `<select data-field="category">${categoryOptions(x.category, x.direction)}</select>`)}
@@ -527,7 +533,7 @@ const EYE_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18
 
 /** One transaction as a list line: icon, name, when · category · account, amount. */
 const lineRow = (x) => `<button class="lrow" data-action="edit" data-id="${esc(x.id)}">${icon(x.category)}
-  <span class="what"><b>${esc(x.description || x.details || '—')}</b><span class="meta">${esc([`${dateLabel(x.date, { weekday: false })}${x.time ? `, ${timeLabel(x.time)}` : ''}`, x.category || T.noCategory, x.stream].filter(Boolean).join(' · '))}${firstBadge(x)}</span></span>
+  <span class="what"><b>${esc(x.description || x.details || T.noName)}</b><span class="meta">${esc([`${dateLabel(x.date, { weekday: false })}${x.time ? `, ${timeLabel(x.time)}` : ''}`, x.category || T.noCategory, x.stream].filter(Boolean).join(' · '))}${firstBadge(x)}</span></span>
   <span class="amt ${esc(x.direction)}">${signed(x)}</span></button>`;
 
 function overviewHtml(d) {
@@ -869,7 +875,7 @@ function renderImport(form) {
   const opts = (dir, sel) => `<option value="">${esc(T.importLater)}</option>${(dir === 'in' ? [...c.income, ...c.fixed] : [...c.expense, ...c.fixed]).map((x) => `<option ${x === sel ? 'selected' : ''}>${esc(x)}</option>`).join('')}`;
   box.innerHTML = `<p class="imp-sum"><b>${esc(T.importRead(imp.rows.length))}</b> · ${esc(T.importKnown(known))} · <b>${esc(T.importNew(fresh.length))}</b></p>
     ${fresh.length ? `<div class="imp-list">${imp.rows.map((r, i) => (r.matchId ? '' : `<div class="imp-row" data-i="${i}">
-      <label class="check"><input type="checkbox" data-imp="on" checked><span><b>${esc(r.description || '—')}</b><small>${esc(dateLabel(r.date))}</small></span></label>
+      <label class="check"><input type="checkbox" data-imp="on" checked><span><b>${esc(r.description || T.noName)}</b><small>${esc(dateLabel(r.date))}</small></span></label>
       <span class="amt ${r.direction}">${r.direction === 'in' ? '+' : '−'}${rp(r.amount)}</span>
       <select data-imp="category" aria-label="${esc(T.category)}">${opts(r.direction, r.category)}</select></div>`)).join('')}</div>
       <p class="hint">${esc(T.importNote)}</p>` : `<p class="hint">${esc(T.importNothingNew)}</p>`}`;
@@ -1172,7 +1178,7 @@ function quickFromReview(text) {
     if (state.review && state.review.day) state.review.day.byHand += 1;
     return save('add', { kind: p.direction, amount: p.amount, category: p.category, stream: p.stream, date: p.date, description: desc, details: p.tags.map((t) => `#${t}`).join(' ') })
       .then(() => { if (state.tab === 'review') keepInputs(viewReview); })
-      .catch((e) => toast(`${T.notSaved}: ${label} — ${e.message}`, { kind: 'bad' }));
+      .catch((e) => toast(`${T.notSaved}: ${label} (${e.message})`, { kind: 'bad' }));
   }
   state.addKind = p.direction;
   state.quickText = text;
@@ -1212,7 +1218,7 @@ function categoryDetail(category) {
     ${budget ? `<p class="budget-note ${budget.ratio > 1 ? 'over' : ''}">${esc(budget.ratio > 1 ? T.overBudget(rp(budget.spent - budget.budget), rp(budget.budget)) : T.ofBudget(rp(budget.budget), rp(budget.budget - budget.spent)))}</p>` : ''}
     <div class="chart cat-chart">${data.map((d) => `<button class="m ${state.filters.month === d.m ? 'on' : ''}" data-action="trendmonth" data-month="${d.m}" aria-label="${esc(`${monthLabel(d.m)}: ${rp(d.v)}`)}"><span class="bars"><i class="${dir}" style="height:${Math.round((d.v / top) * 100)}%"></i></span><span>${esc(monthShort(d.m))}</span></button>`).join('')}</div>
     ${topPlaces.length ? `<h3 class="sub-title">${esc(T.topPlaces)}</h3><div class="rows">${topPlaces.map((p) => `<button class="rowi" data-action="drill" data-q="${esc(p.name)}"><span class="what"><b>${esc(p.name)}</b><span class="meta">${p.n}×</span></span><span class="amt">${rp(p.v)}</span></button>`).join('')}</div>` : ''}
-    ${biggest.length ? `<h3 class="sub-title">${esc(T.biggestTitle)}</h3><div class="rows">${biggest.map((x) => `<button class="rowi" data-action="edit" data-id="${esc(x.id)}"><span class="what"><b>${esc(x.description || '—')}</b><span class="meta">${esc(dateLabel(x.date))}</span></span><span class="amt">${rp(x.amount)}</span></button>`).join('')}</div>` : ''}
+    ${biggest.length ? `<h3 class="sub-title">${esc(T.biggestTitle)}</h3><div class="rows">${biggest.map((x) => `<button class="rowi" data-action="edit" data-id="${esc(x.id)}"><span class="what"><b>${esc(x.description || T.noName)}</b><span class="meta">${esc(dateLabel(x.date))}</span></span><span class="amt">${rp(x.amount)}</span></button>`).join('')}</div>` : ''}
   </section>`;
 }
 
@@ -1226,10 +1232,10 @@ function healthCard(h) {
   const n1 = (v) => Number(v).toLocaleString(locale(), { maximumFractionDigits: 1 });
   const rows = [
     [T.healthFund, h.months == null ? T.healthFundNone : T.healthFundMonths(n1(h.months)), h.months == null ? T.healthFundNoneHint : T.healthFundHint(rp(h.fund), rp(h.monthly)), h.monthsLevel],
-    [T.healthSaving, h.saving == null ? '—' : `${Math.round(h.saving * 100)}%`, h.saving == null ? T.healthNoIncome : T.healthSavingHint, h.savingLevel],
+    [T.healthSaving, h.saving == null ? T.none : `${Math.round(h.saving * 100)}%`, h.saving == null ? T.healthNoIncome : T.healthSavingHint, h.savingLevel],
     [T.healthDebt, `${Math.round(h.debt * 100)}%`, h.debts ? T.healthDebtHint(rp(h.debts)) : T.healthNoDebt, h.debtLevel],
   ];
-  return `<section class="card health"><h2 class="row-title">${esc(T.healthTitle)}<button class="link" data-action="interest">${esc(T.interestOpen)}</button></h2><p class="lead">${esc(T.healthHint)}</p>
+  return `<section class="card health"><h2 class="row-title">${esc(T.healthTitle)}<button class="link" data-action="interest">${esc(T.interestOpen)}</button></h2><p class="lead">${esc(T.healthHint)} ${esc(T.healthRule)}</p>
     <div class="rows">${rows.map(([label, value, hint, lvl]) => `<div class="rowi"><span class="lvl ${lvl || 'none'}" aria-hidden="true"></span><span class="what"><b>${esc(label)}</b><span class="meta">${esc(hint)}</span></span>
       <span class="amt">${esc(value)}${lvl ? `<small class="lvl-word ${lvl}">${esc(T[`health_${lvl}`])}</small>` : ''}</span></div>`).join('')}</div></section>`;
 }
@@ -1336,7 +1342,7 @@ function claimBox(x) {
 /** Overview, under the greeting: what has a deadline or needs a decision, nearest first. Nothing to show: no card. */
 function attentionCard(d) {
   const rows = [];
-  for (const c of (d.claims || []).filter((x) => x.daysLeft <= 7)) rows.push({ icon: '💊', bad: c.daysLeft <= 3, title: T.attnClaim(c.description || '—', rp(c.amount)), meta: T.claimDue(dateLabel(c.due, { weekday: false }), c.daysLeft), act: `data-action="edit" data-id="${esc(c.id)}"` });
+  for (const c of (d.claims || []).filter((x) => x.daysLeft <= 7)) rows.push({ icon: '💊', bad: c.daysLeft <= 3, title: T.attnClaim(c.description || T.noName, rp(c.amount)), meta: T.claimDue(dateLabel(c.due, { weekday: false }), c.daysLeft), act: `data-action="edit" data-id="${esc(c.id)}"` });
   for (const w of (d.warranties || []).filter((x) => x.daysLeft <= 30)) rows.push({ icon: '🛡️', bad: w.daysLeft <= 7, title: T.attnWarranty(w.name), meta: T.warrantyLine(dateLabel(w.date, { weekday: false }), w.daysLeft), act: 'data-action="go" data-tab="settings" data-section="assets"' });
   for (const i of ((d.recurring && d.recurring.items) || []).filter((x) => x.change === 'up' || x.change === 'late')) {
     rows.push({ icon: '🔁', bad: false, title: i.change === 'up' ? T.attnSubUp(i.name, rp(i.was), rp(i.amount)) : T.attnSubLate(i.name), meta: T.attnSubMeta, act: 'data-action="subs"' });
@@ -1434,7 +1440,7 @@ function sharedCard(sh) {
 /** Overview: claims still to make, nearest deadline first. */
 function claimsCard(list) {
   if (!list || !list.length) return '';
-  const rows = list.map((c) => `<button class="lrow" data-action="edit" data-id="${esc(c.id)}"><span class="what"><b>${esc(c.description || '—')}</b><span class="meta">${esc(T.claimDue(dateLabel(c.due, { weekday: false }), c.daysLeft))}${c.daysLeft <= 3 ? ` <span class="badge ${c.daysLeft < 0 ? 'bad' : 'warn'}">${esc(c.daysLeft < 0 ? T.claimLate : T.claimSoon)}</span>` : ''}</span></span><span class="amt">${rp(c.amount)}</span></button>`).join('');
+  const rows = list.map((c) => `<button class="lrow" data-action="edit" data-id="${esc(c.id)}"><span class="what"><b>${esc(c.description || T.noName)}</b><span class="meta">${esc(T.claimDue(dateLabel(c.due, { weekday: false }), c.daysLeft))}${c.daysLeft <= 3 ? ` <span class="badge ${c.daysLeft < 0 ? 'bad' : 'warn'}">${esc(c.daysLeft < 0 ? T.claimLate : T.claimSoon)}</span>` : ''}</span></span><span class="amt">${rp(c.amount)}</span></button>`).join('');
   return `<section class="card"><h2>${esc(T.claimsTitle)}</h2><p class="lead">${esc(T.claimsHint(rp(list.reduce((t, c) => t + c.amount, 0))))}</p><div class="rows">${rows}</div></section>`;
 }
 
@@ -1630,11 +1636,11 @@ function showResults() {
   };
   const items = rows.map((x) => `${dayHead(x)}
     <button class="trow${state.selecting ? ' picking' : ''}${state.picked.has(String(x.id)) ? ' picked' : ''}" data-action="${state.selecting ? 'pick' : 'edit'}" data-id="${esc(x.id)}" ${state.selecting ? `aria-pressed="${state.picked.has(String(x.id))}"` : ''}>
-      <span class="c-date">${state.selecting ? `<span class="pick-box" aria-hidden="true">${state.picked.has(String(x.id)) ? '✓' : ''}</span>` : ''}${esc(timeLabel(x.time) || '—')}</span>
-      <span class="c-desc">${icon(x.category)}<span>${esc(x.description || '—')}${x.details ? `<small>${esc(x.details)}</small>` : ''}</span></span>
+      <span class="c-date">${state.selecting ? `<span class="pick-box" aria-hidden="true">${state.picked.has(String(x.id)) ? '✓' : ''}</span>` : ''}${esc(timeLabel(x.time) || '')}</span>
+      <span class="c-desc">${icon(x.category)}<span>${esc(x.description || T.noName)}${x.details ? `<small>${esc(x.details)}</small>` : ''}</span></span>
       <span class="c-mobile-meta">${esc([timeLabel(x.time), x.stream || T.noAccount].filter(Boolean).join(' · '))}</span>
       <span class="c-cat">${tag(x.category)}${statusBadge(x.status)}${firstBadge(x)}</span>
-      <span class="c-acct">${esc(x.stream || '—')}</span>
+      <span class="c-acct">${esc(x.stream || T.noAccount)}</span>
       <span class="c-amt amt ${esc(x.direction)}">${signed(x)}</span>
     </button>`).join('');
   box.innerHTML = `${f.category ? categoryDetail(f.category) : ''}
@@ -1848,7 +1854,7 @@ function submitAdd(form) {
   state.addForce = false;
   if (dups.length) {
     $('#addDup').innerHTML = `<div class="dup-warning" role="alert"><b>⚠ ${esc(T.dupTitle)}</b><p>${esc(T.dupHint)}</p>
-      <div class="rows">${dups.map((x) => `<div class="rowi"><span class="what"><b>${esc(x.description || '—')}</b><span class="meta">${esc(when(x))} · ${esc(x.stream)} · ${tag(x.category)}</span></span><span class="amt ${esc(x.direction)}">${signed(x)}</span></div>`).join('')}</div>
+      <div class="rows">${dups.map((x) => `<div class="rowi"><span class="what"><b>${esc(x.description || T.noName)}</b><span class="meta">${esc(when(x))} · ${esc(x.stream)} · ${tag(x.category)}</span></span><span class="amt ${esc(x.direction)}">${signed(x)}</span></div>`).join('')}</div>
       <div class="actions"><button class="btn secondary" type="button" data-action="dupcancel">${esc(T.dupCancel)}</button><button class="btn primary" type="button" data-action="dupsave">${esc(T.dupSave)}</button></div></div>`;
     $('#addDup .btn.primary').focus();
     return;
@@ -1867,7 +1873,7 @@ function submitAdd(form) {
   state.allStale = true;
   save('add', { kind: k, ...d, amount })
     .then(() => { if ($('#addState') === st) { st.className = 'state ok'; st.textContent = `✓ ${T.addedNamed(label)}`; } })
-    .catch((e) => { if ($('#addState') === st) { st.className = 'state bad'; st.textContent = `${T.notSaved}: ${e.message}`; } toast(`${T.notSaved}: ${label} — ${e.message}`, { kind: 'bad' }); });
+    .catch((e) => { if ($('#addState') === st) { st.className = 'state bad'; st.textContent = `${T.notSaved}: ${e.message}`; } toast(`${T.notSaved}: ${label} (${e.message})`, { kind: 'bad' }); });
   el('amount').focus();
 }
 
@@ -1916,7 +1922,7 @@ function telegramSection(s) {
 /** Settings → Pasangan: both of you, the same for each. Either of you can change any of it. */
 function householdSection(s) {
   const h = s.household || {};
-  const when = (c) => (c.at ? new Date(c.at).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—');
+  const when = (c) => (c.at ? new Date(c.at).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : T.none);
   const card = (m, i) => {
     const mine = m.role === h.myRole;
     return `<fieldset class="acct-row hh-member" data-role="${m.role}"><legend>${esc(m.name || T.hhNobody)}${mine ? ` · ${esc(T.hhYouTag)}` : ''}</legend>
@@ -1942,7 +1948,7 @@ const NOTIF_EVENTS = ['new', 'big', 'bills', 'payday', 'close'];
 function notifSection(s) {
   const p = s.push;
   if (!p) return `<section class="card"><h2>${esc(T.notifTitle)}</h2><p class="lead">${esc(T.notifNotSetUp)}</p></section>`;
-  const devs = p.devices.sort((a, b) => Number(b.mine) - Number(a.mine)).map((d) => `<div class="rowi"><span class="what"><b>${esc(d.label || T.notifDevice)}</b><span class="meta">${esc([d.owner, T.notifSince(d.at ? dateLabel(d.at.slice(0, 10), { weekday: false }) : '—')].filter(Boolean).join(' · '))}</span></span></div>`).join('');
+  const devs = p.devices.sort((a, b) => Number(b.mine) - Number(a.mine)).map((d) => `<div class="rowi"><span class="what"><b>${esc(d.label || T.notifDevice)}</b><span class="meta">${esc([d.owner, T.notifSince(d.at ? dateLabel(d.at.slice(0, 10), { weekday: false }) : T.none)].filter(Boolean).join(' · '))}</span></span></div>`).join('');
   return `<section class="card"><h2>${esc(T.notifTitle)}</h2><p class="lead">${esc(T.notifPushHint)}</p>
       ${devs ? `<div class="rows">${devs}</div>` : `<p class="hint">${esc(T.notifNone)}</p>`}
       <div class="actions" style="justify-content:flex-start"><a class="btn primary" target="_top" href="${esc(p.link)}">${esc(T.notifAdd)}</a>${devs ? `<button class="btn secondary" type="button" data-action="pushtest">${esc(T.notifTest)}</button>` : ''}</div>
@@ -2058,7 +2064,7 @@ async function viewSettings(local) {
         </div>${saveRow(T.saveChanges)}</form>`,
     more: `
       <section class="card"><h2>${esc(T.more)}</h2>
-        <div class="rows"><div class="rowi"><span class="what"><b>${esc(T.selftest)}</b><span class="meta">${esc(s.selftest || '—')}</span></span></div>
+        <div class="rows"><div class="rowi"><span class="what"><b>${esc(T.selftest)}</b><span class="meta">${esc(s.selftest || T.noName)}</span></span></div>
           ${s.push ? `<a class="rowi" target="_top" href="${esc(s.push.site)}/pasang"><span class="what"><b>${esc(T.installTitle)}</b><span class="meta">${esc(T.installHint)}</span></span><span class="chev">↗</span></a>` : ''}
           ${(s.archives || []).map((a) => `<a class="rowi" target="_blank" rel="noopener" href="${esc(a.url)}"><span class="what"><b>${esc(T.archiveOf(a.year))}</b><span class="meta">${esc(T.archiveHint)}</span></span><span class="chev">↗</span></a>`).join('')}</div>
         <div class="actions"><a class="btn secondary" target="_blank" rel="noopener" href="${esc(state.boot.sheetUrl || '#')}">${esc(T.openSheet)} ↗</a></div></section>`,
