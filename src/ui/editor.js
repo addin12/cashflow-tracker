@@ -4,6 +4,7 @@ import { sharedToggle } from './cards.js';
 import { dateLabel, esc, locale, rp } from './format.js';
 import { accountOptions, categoryOptions, field, gmailLink } from './render.js';
 import { splitSummary } from './split.js';
+import { openModal } from './modal.js';
 import { $, T, state } from './state.js';
 
 /** Insurance claim marks on a payment, in its editor. */
@@ -53,7 +54,7 @@ export function openEditor(id) {
     <div class="danger-zone"><button class="btn danger" type="button" data-action="delete" data-id="${esc(x.id)}">${esc(T.deleteTransaction)}</button>
       ${x.gmail_id ? `<p class="hint">${esc(T.deleteEmailHint)}</p>` : ''}</div>
   </div>`;
-  $('#modal').classList.add('open');
+  openModal();
   const first = $('#modal input[name=description]');
   if (first && window.matchMedia && window.matchMedia('(min-width: 900px)').matches) first.focus();
 }
@@ -75,4 +76,3 @@ export function updateTagih(form) {
   if (!each.dataset.touched) each.value = names.length && n ? String(Math.round((Number(x.amount) || 0) / n)) : '';
 }
 
-export const closeModal = () => { $('#modal').classList.remove('open'); $('#modal').innerHTML = ''; };

@@ -12,7 +12,8 @@ import { applyQuick, showCalc, submitAdd } from './add.js';
 import { FRESH_MS, TIMING_KEY, readCache, writeCache } from './cache.js';
 import { updateInterest } from './cards.js';
 import { absorb } from './data.js';
-import { closeModal, updateTagih } from './editor.js';
+import { updateTagih } from './editor.js';
+import { closeModal, trapTab } from './modal.js';
 import { onChange, onClick, onSubmit } from './events.js';
 import { esc } from './format.js';
 import { previewRule, updateBalRow } from './forms.js';
@@ -58,6 +59,7 @@ export async function start() {
   document.addEventListener('submit', onSubmit);
   document.addEventListener('change', onChange);
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab' && $('#modal').classList.contains('open')) trapTab(e);
     if (e.key === 'Escape' && $('#modal').classList.contains('open')) closeModal();
     if (e.key === 'Enter' && e.target.id === 'quickIn') { e.preventDefault(); const f = $('form[data-form=add]'); if (f) submitAdd(f); return; }
     if (e.key === 'Enter' && e.target.id === 'quickDay' && e.target.value.trim()) { e.preventDefault(); const t = e.target.value; e.target.value = ''; quickFromReview(t); return; }

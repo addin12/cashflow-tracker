@@ -309,6 +309,26 @@ describe('web app', () => {
     await until(() => store.t[TABS.transactions].find((r) => r.id === 't3').amount === 320000, 'update saved');
   });
 
+  it('a pop-up shuts the page behind it, keeps Tab inside, and gives focus back when it closes', async () => {
+    const key = (k, extra = {}) => doc.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...extra }));
+    const row = doc.querySelector('.trow[data-id="t3"]');
+    click(row);
+    const modal = doc.querySelector('#modal');
+    expect(modal.classList.contains('open')).toBe(true);
+    expect(doc.querySelector('.shell').hasAttribute('inert')).toBe(true); // nothing behind it can be reached
+    expect(modal.contains(doc.activeElement)).toBe(true); // focus is in the pop-up, even on a phone
+    const items = [...modal.querySelectorAll('input, select, textarea, button, a[href], summary')].filter((e) => !e.disabled);
+    items[items.length - 1].focus();
+    key('Tab');
+    expect(doc.activeElement).toBe(items[0]); // Tab from the last control wraps to the first
+    key('Tab', { shiftKey: true });
+    expect(doc.activeElement).toBe(items[items.length - 1]); // and Shift+Tab back
+    key('Escape');
+    expect(modal.classList.contains('open')).toBe(false);
+    expect(doc.querySelector('.shell').hasAttribute('inert')).toBe(false);
+    expect(doc.activeElement).toBe(doc.querySelector('.trow[data-id="t3"]')); // back on the row that was tapped
+  });
+
   it('splits a transaction into two categories, then joins it back', async () => {
     await until(() => calls.filter((c) => c === 'update').length && !doc.querySelector('#stale.show:not(.done)'), 'queue empty');
     click(doc.querySelector('.trow[data-id="t3"]'));

@@ -6,6 +6,7 @@ import { viewDashboard } from './dashboard.js';
 import { esc, locale } from './format.js';
 import { updateBell } from './notifications.js';
 import { viewReview } from './review.js';
+import { placeThumbs } from './seg.js';
 import { $, $$, T, state } from './state.js';
 import { showResults } from './transactions.js';
 
@@ -15,9 +16,26 @@ export function setView(html) {
   const chart = $('.year-chart');
   const on = chart && (chart.querySelector('.m.on') || chart.querySelector('.m:not(:disabled):last-of-type'));
   if (on) chart.scrollLeft = on.offsetLeft - (chart.clientWidth - on.offsetWidth) / 2;
+  placeThumbs();
 }
 
-export const skeleton = (title) => setView(`<header class="page-head"><div><h1>${esc(title)}</h1></div></header>${'<div class="skeleton"></div>'.repeat(4)}`);
+// Grey blocks where a screen's first blocks will be, so the page hardly moves when the data arrives. Each height is
+// [on a phone, on a PC] as measured on the real screens (scripts/skeleton-check.mjs keeps them honest).
+const SKELETONS = {
+  list: { head: [228, 112], blocks: [[54, 54], [54, 54], [160, 192], [420, 420]] }, // Transactions: title and tools, two chip rows, the filters, the list
+  overview: { head: [204, 112], blocks: [[322, 283], [520, 520]] }, // Summary: title and switches, the greeting card, then the cards
+  review: { head: [120, 120], blocks: [[96, 96], [360, 360]] }, // Review: title and sync, the day card, the first waiting transaction
+};
+const size = ([phone, pc]) => `--h:${phone}px;--h-pc:${pc}px`;
+export function skeleton(title, shape = 'list') {
+  const bar = (h) => `<div class="skeleton" style="${size(h)}"></div>`;
+  if (shape === 'settings') { // one list of sections
+    setView(`<div class="sk-settings"><h1 class="sk-title">${esc(title)}</h1>${[40, 300, 40, 300].map((h) => bar([h, h])).join('')}</div>`);
+    return;
+  }
+  const { head, blocks } = SKELETONS[shape];
+  setView(`<header class="page-head sk" style="${size(head)}"><div><h1>${esc(title)}</h1></div></header>${blocks.map(bar).join('')}`);
+}
 
 export function failed(e) {
   setView(`<div class="card empty error"><b>${esc(T.error)}</b>${esc(e.message)}<div class="actions" style="justify-content:center"><button class="btn primary" data-action="reload">${esc(T.retry)}</button></div></div>`);
@@ -125,10 +143,23 @@ export const ownPendingCount = (d) => (state.review ? state.review.pending.filte
 export const otherOwner = (x) => (x.owner && (state.boot.members || []).length > 1 && x.owner !== state.boot.me ? ` · ${esc(x.owner)}` : '');
 
 export function toast(msg, { kind = 'ok', undo } = {}) {
-  const el = $('#toast');
-  el.innerHTML = `<span>${esc(msg)}</span>${undo ? `<button type="button" data-toast="undo">${esc(T.undo)}</button>` : ''}`;
-  el.className = `toast show ${kind}`;
-  toast.undo = undo || null;
-  clearTimeout(toast.t);
-  toast.t = setTimeout(() => { el.className = 'toast'; toast.undo = null; }, undo ? 6000 : kind === 'bad' ? 7000 : 3000);
+  const host = $('#toast');
+  const item = document.createElement('div');
+  item.className = `toast ${kind}`;
+  item.innerHTML = `<span>${esc(msg)}</span>${undo ? `<button type="button" data-toast="undo">${esc(T.undo)}</button>` : ''}`;
+  item.undo = undo || null;
+  host.prepend(item); // the newest first: the one Undo that a tap finds first is the latest change
+  while (host.children.length > MAX_TOASTS) dismissToast(host.lastElementChild, true);
+  requestAnimationFrame(() => item.classList.add('show'));
+  item.timer = setTimeout(() => dismissToast(item), undo ? 6000 : kind === 'bad' ? 7000 : 3000);
+}
+const MAX_TOASTS = 3;
+
+/** Fades a message out and removes it; `now` removes it without waiting. */
+export function dismissToast(item, now = false) {
+  if (!item) return;
+  clearTimeout(item.timer);
+  item.undo = null;
+  item.classList.remove('show');
+  if (now) item.remove(); else setTimeout(() => item.remove(), 220);
 }

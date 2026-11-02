@@ -15,7 +15,7 @@ import { firstBadge, tag } from './visuals.js';
 
 export function viewReview() {
   const r = state.review;
-  if (!r) return skeleton(T.reviewTitle);
+  if (!r) return skeleton(T.reviewTitle, 'review');
   const n = r.pending.filter(mineRow).length + (r.salary || []).length;
   // Salary: no email reports it, so each payday without one asks for the amount.
   const salary = (r.salary || []).map((x) => `

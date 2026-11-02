@@ -1,6 +1,6 @@
 // The bell: what needs you, and which notices you have seen.
 
-import { closeModal } from './editor.js';
+import { closeModal, openModal } from './modal.js';
 import { currentMonth, dateLabel, esc, rp } from './format.js';
 import { mineRow } from './render.js';
 import { show } from './router.js';
@@ -83,7 +83,7 @@ export function openNotifications() {
       <span class="go">${esc(n.goLabel)} ›</span></button>`).join('')}</div>`
     : `<div class="empty"><div class="big" aria-hidden="true">✓</div><b>${esc(T.notifEmpty)}</b>${esc(T.notifEmptySub)}</div>`}
     <div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.close)}</button></div></div>`;
-  $('#modal').classList.add('open');
+  openModal();
   try { window.localStorage.setItem(SEEN_KEY, JSON.stringify(list.map((n) => n.id))); } catch (e) { /* storage unavailable */ }
   updateBell();
 }

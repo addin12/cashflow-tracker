@@ -8,7 +8,7 @@ Reading this as: a personal money app for two adults, used every day on a phone,
 
 - ENERGY 1: people open it to check a number, not to be entertained.
 - RHYTHM 2: list screens repeat on purpose (a ledger should look like a ledger); the overview has one hero card for variety.
-- MOTION 1: press and hover feedback, 120-200 ms transitions, nothing that moves on its own; `prefers-reduced-motion` is honoured.
+- MOTION 1: press and hover feedback, nothing that moves on its own. Durations and easing are tokens (`--dur-quick` 120 ms, `--dur-base` 200 ms, `--ease-out`); nothing transitions "all"; a person who asks for less motion gets none, for every transition and animation (`test/motion.test.js`, `scripts/motion-check.mjs`).
 
 ## Decisions and reasons
 
@@ -26,6 +26,54 @@ Reading this as: a personal money app for two adults, used every day on a phone,
 | Claims | No statistic, tax rule or verdict without a source or a "rule of thumb" label (done for the interest calculator and the health check) | A wrong number about money is worse than none |
 | Gradient | One soft accent tint on the overview greeting card and the payday card | The focal point of the screen; carries no information, so it can never mislead |
 | Badges | Only for state (waiting, first time, problem); a category is shown by its icon and a word | A chip on every row is noise |
+| Pop-ups | Opening one makes the page behind it inert, moves focus into it (the pop-up itself on a phone, so no keyboard opens), keeps Tab inside, and Escape or the backdrop closes it and puts focus back on what opened it (`src/ui/modal.js`) | A keyboard or screen-reader user must not wander into a page they cannot see |
+| Messages | They stack (three at most, the newest at the bottom); each keeps its own Undo until it fades | A second message must never take the first one's Undo away |
+| Switches | The white thumb of the Us / Me / name and similar switches slides to the active choice (`transform` only, 120 ms) and is placed where it was across redraws (`src/ui/seg.js`) | The one visible motion: it shows what changed, and is gone when motion is reduced |
+| Loading | Each screen has a skeleton shaped like its first blocks (`scripts/skeleton-check.mjs` keeps the first screenful within 20%) | The page should not jump when the data arrives |
+
+## Tokens
+
+The values every screen is built from. `test/tokens.test.js` checks this table against `src/ui/styles.css` (both themes, and that the two copies of the dark palette are identical), so the two cannot drift apart: change a value in the stylesheet and the test names the line to change here. A new token needs a row.
+
+| Token | Light | Dark | Used for |
+|---|---|---|---|
+| `--bg` | `#f5f5f7` | `#000000` | Page background |
+| `--card` | `#ffffff` | `#1c1c1e` | Cards, pop-ups and the active switch thumb |
+| `--ink` | `#1d1d1f` | `#f5f5f7` | Main text |
+| `--ink-2` | `#424245` | `#d1d1d6` | Secondary text and icons |
+| `--muted` | `#66666b` | `#a1a1a6` | Hints and captions (4.5:1 on cards) |
+| `--line` | `#e3e3e6` | `#38383a` | Borders |
+| `--line-soft` | `#f0f0f2` | `#2c2c2e` | Row dividers and the switch track |
+| `--accent` | `#0066cc` | `#2997ff` | Links, selected state, the focus ring |
+| `--accent-press` | `#0057ad` | `#4aa8ff` | Accent while pressed |
+| `--accent-soft` | `#e8f1fb` | `#10263f` | Accent tint: selected rows, the greeting card |
+| `--on-accent` | `#ffffff` | same | Text on an accent fill |
+| `--accent-btn` | `#0066cc` | `#0a67cf` | Fill of primary buttons (deeper than the accent, so white text passes 4.5:1) |
+| `--accent-btn-press` | `#0057ad` | `#0a58b0` | Primary button while pressed |
+| `--success` | `#1a7f37` | `#4cc76c` | Money in, done |
+| `--success-soft` | `#e4f4e8` | `#11301b` | Background of success states |
+| `--warning` | `#8a5300` | `#f0b44c` | Needs attention (text) |
+| `--warning-soft` | `#fff3d6` | `#3a2a0c` | Background of attention states |
+| `--critical` | `#c9252c` | `#ff6b6b` | Money out over budget, errors |
+| `--critical-soft` | `#fdecec` | `#3d1414` | Background of error states |
+| `--field` | `#ffffff` | `#2c2c2e` | Input background |
+| `--field-line` | `#c8c8cd` | `#48484a` | Input border |
+| `--zebra` | `#fafafb` | `#222224` | Alternate row tint |
+| `--bar` | `#f5f5f7` | `#161618` | The top and bottom bars (opaque on purpose: contrast cannot depend on what scrolls underneath) |
+| `--shadow-modal` | `0 16px 48px -8px rgba(0, 0, 0, .25)` | same | Elevation of pop-ups and messages |
+| `--r-card` | `18px` | same | Cards and sheets |
+| `--r-field` | `12px` | same | Fields and small panels |
+| `--r-tag` | `6px` | same | Tags |
+| `--r-pill` | `999px` | same | What you tap to act: buttons, chips, switches, count badges |
+| `--nav-w` | `248px` | same | Width of the sidebar on a PC |
+| `--toast` | `#1d1d1f` | same | Message bar (dark in both themes) |
+| `--on-toast` | `#f5f5f7` | same | Text on the message bar |
+| `--hit` | `44px` | same | The smallest a tappable thing may be, in height and width |
+| `--dur-quick` | `120ms` | same | Press, hover, a chevron turning |
+| `--dur-base` | `200ms` | same | Something entering or leaving: messages, a card sliding away |
+| `--ease-out` | `cubic-bezier(0.2, 0.8, 0.2, 1)` | same | The one easing curve |
+
+Category hues: eight, `--t0` to `--t7` (the tint behind a tag or icon) with `--t0i` to `--t7i` (the text or icon on it), and `--ch0` to `--ch7` (the same hues as chart series). A category always gets the same hue (a hash of its name), in both themes.
 
 ## Per screen
 

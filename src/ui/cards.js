@@ -7,6 +7,7 @@ import { amountValue } from './add.js';
 import { bigRp, monthName } from './dashboard.js';
 import { dateLabel, esc, locale, rp } from './format.js';
 import { downloadCsv, field, toast } from './render.js';
+import { openModal } from './modal.js';
 import { call } from './server.js';
 import { $, T, state } from './state.js';
 import { acctIcon, icon } from './visuals.js';
@@ -87,7 +88,7 @@ export function openSubs() {
     }).join('') || `<p class="hint">${esc(T.nothingYet)}</p>`}</div>
     <p class="hint">${esc(T.yearlyScanHint)}</p>
     <div class="actions"><button class="btn secondary left" type="button" data-action="scanyearly">${esc(T.yearlyScan)}</button><button class="btn primary" type="button" data-action="close">${esc(T.close)}</button></div></div>`;
-  $('#modal').classList.add('open');
+  openModal();
 }
 
 /** Bills due in the next week (planned transactions and subscriptions). */
@@ -97,7 +98,7 @@ export function openBills() {
   $('#modal').innerHTML = `<div class="sheet"><h2>${esc(T.billsTitle)}</h2><p class="lead">${esc(T.billsTotal(rp(bills.reduce((t, b) => t + b.amount, 0))))}</p>
     <div class="rows">${bills.map((b) => `<div class="rowi"><span class="what"><b>${esc(b.name)}</b><span class="meta">${esc(b.daysLeft === 0 ? T.recurringToday : T.recurringNext(dateLabel(b.date, { weekday: false }), b.daysLeft))} · ${esc(b.kind === 'plan' ? T.billPlan : b.kind === 'card' ? T.billCard : T.billSub)}</span></span><span class="amt">${rp(b.amount)}</span></div>`).join('') || `<p class="hint">${esc(T.nothingYet)}</p>`}</div>
     <div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.close)}</button></div></div>`;
-  $('#modal').classList.add('open');
+  openModal();
 }
 
 /** Trips and events: #tags with a budget, spent against it. */
@@ -121,7 +122,7 @@ export function openTagBudget(tag, budget) {
     ${field(T.eventTag, `<input name="tag" autocomplete="off" placeholder="#bali" value="${esc(tag ? `#${tag}` : '')}">`)}
     ${field(T.eventBudget, `<input name="amount" class="calc-input" inputmode="decimal" autocomplete="off" value="${esc(budget || '')}"><em class="calc-out"></em>`, { help: T.eventBudgetHelp })}
     <div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.cancel)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.save)}</button></div></form></div>`;
-  $('#modal').classList.add('open');
+  openModal();
   $('#modal [name=tag]').focus();
 }
 
@@ -154,7 +155,7 @@ export function openInterest() {
       ${field(T.interestSbn, `<input name="sbn" inputmode="decimal" autocomplete="off" placeholder="${esc(T.interestSbnHelp)}" value="${esc(saved.sbn || '')}">`)}
     </div><div id="interestOut" role="status"></div><p class="hint">${esc(T.interestTax)}</p>
     <div class="actions"><button class="btn secondary" type="button" data-action="close">${esc(T.close)}</button></div></form></div>`;
-  $('#modal').classList.add('open');
+  openModal();
   updateInterest($('#modal form'));
 }
 
@@ -186,7 +187,7 @@ export const sptCard = (year) => `<section class="card"><h2>${esc(T.sptTitle)}</
 
 export async function openSpt(year) {
   $('#modal').innerHTML = `<div class="sheet"><h2>${esc(T.sptTitle)}</h2><p class="hint">${esc(T.loading)}</p></div>`;
-  $('#modal').classList.add('open');
+  openModal();
   try {
     const s = await call('spt', { year });
     state.spt = s;

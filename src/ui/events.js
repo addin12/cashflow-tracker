@@ -9,12 +9,13 @@ import { amountValue, showCalc, submitAdd, useUsual, viewAdd } from './add.js';
 import { copyRecap, openBills, openInterest, openSpt, openSubs, openTagBudget, sptCsv } from './cards.js';
 import { viewDashboard } from './dashboard.js';
 import { patchRow, setAll } from './data.js';
-import { closeModal, openEditor, tagihForm, updateTagih } from './editor.js';
+import { openEditor, tagihForm, updateTagih } from './editor.js';
+import { closeModal, trigger } from './modal.js';
 import { rp } from './format.js';
 import { importChosen, readAccounts, readAssets, readBackup, readCards, readGoals, readPlans, readRules, readStatement, sendSummaryNow, updateBalRow } from './forms.js';
 import { applyLanguage } from './language.js';
 import { goNotification, openNotifications } from './notifications.js';
-import { categoryOptions, fieldMessage, keepInputs, repaint, toast, updateNav } from './render.js';
+import { categoryOptions, dismissToast, fieldMessage, keepInputs, repaint, toast, updateNav } from './render.js';
 import { approve, fillBudgets, hideRecurring, ignore, saveSalary, skipSalary, viewReview } from './review.js';
 import { show } from './router.js';
 import { call, refresh, save, scheduleRefresh, syncNow } from './server.js';
@@ -26,14 +27,15 @@ import { applyPicked, drill, exportCsv, setKind, setPreset, showResults, viewTra
 
 export function onClick(e) {
   if (e.target.closest('[data-toast=undo]')) {
-    const u = toast.undo;
-    $('#toast').className = 'toast';
-    toast.undo = null;
+    const item = e.target.closest('.toast');
+    const u = item && item.undo;
+    dismissToast(item);
     if (u) u();
     return null;
   }
   if (e.target.id === 'modal') return closeModal();
   const el = e.target.closest('[data-action],[data-tab]');
+  if (el && !$('#modal').classList.contains('open')) trigger.el = el; // where focus returns when a pop-up opened by this closes
   if (!el) return null;
   const a = el.dataset.action;
   const card = el.closest('[data-id]');

@@ -14,7 +14,7 @@ import { EYE, EYE_OFF, acctIcon, firstBadge, icon } from './visuals.js';
 export async function viewDashboard() {
   let d = state.dashByMonth[state.month];
   if (!d) {
-    skeleton(T.tabDashboard);
+    skeleton(T.tabDashboard, 'overview');
     d = await call('dashboard', { month: state.month, owner: state.who || '' });
     state.dashByMonth[d.month] = d;
     if (state.tab !== 'dashboard' || d.month !== state.month) return;
@@ -28,7 +28,7 @@ export async function viewDashboard() {
   // The year view: one request per year, fetched again whenever the month data was.
   const yr = Number(d.month.slice(0, 4));
   if (report && state.reportYearly && !(state.yearly && state.yearly.forDash === d && state.yearly.data.year === yr)) {
-    skeleton(T.tabDashboard);
+    skeleton(T.tabDashboard, 'overview');
     state.yearly = { forDash: d, data: await call('yearly', { year: yr, owner: state.who || '' }) };
     if (state.tab !== 'dashboard' || state.dashView !== 'report') return;
   }

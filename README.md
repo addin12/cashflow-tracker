@@ -8,6 +8,7 @@ A personal cashflow tracker that reads bank transaction emails from Gmail (read-
 
 | File | What |
 |---|---|
+| [docs/UI-DIRECTION.md](docs/UI-DIRECTION.md) | The UI direction and design tokens: read it before changing the interface (a test keeps the tokens in step with the stylesheet) |
 | [docs/DESIGN.md](docs/DESIGN.md) | Architecture, data model, sync pipeline, screens, security, build plan, decisions |
 | [docs/TEMPLATE-ANALYSIS.md](docs/TEMPLATE-ANALYSIS.md) | How the template works, plus 14 problems found and their fixes |
 | [docs/EMAIL-SOURCES.md](docs/EMAIL-SOURCES.md) | Bank emails that can be parsed and the rules for each |

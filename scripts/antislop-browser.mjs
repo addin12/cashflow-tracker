@@ -56,6 +56,7 @@ window.google = { script: { get run() { var ok; var r = { withSuccessHandler: fu
     var data = name === 'dashboard' ? (A['dashboard:' + p.month] || A.init.dashboard) : name === 'init' ? A.init : A[name] || { ok: true };
     setTimeout(function () { ok(JSON.stringify({ data: data })); }, 50); } }; return r; } } };
 Object.defineProperty(navigator, 'language', { value: 'id-ID' });
+window.__cls = 0; try { new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { window.__cls += e.value; }); }).observe({ type: 'layout-shift', buffered: true }); } catch (x) { /* not supported */ }
 setTimeout(function () { ${click} }, 400);
 setTimeout(function () {
   function vis(e) { var r = e.getBoundingClientRect(); var cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none'; }
@@ -87,7 +88,7 @@ setTimeout(function () {
   var badges = [].slice.call(document.querySelectorAll('.badge, .tag')).filter(vis).length; var chips = [].slice.call(document.querySelectorAll('.chip, .hchip, .chip-btn')).filter(vis).length;
   var cards = document.querySelectorAll('.card').length;
   var heads = [].slice.call(document.querySelectorAll('h1, h2, h3')).filter(vis).length;
-  var out = JSON.stringify({ interactive: interactive.length, smallTargets: small, overflowX: document.documentElement.scrollWidth > W + 1, overflowEls: overflow, noFocusIndicator: noFocus, decoration: { gradients: gradients, shadows: shadows, pills: pills, uppercase: upper, emoji: emoji, arrows: arrows, badges: badges, chips: chips, cards: cards, headings: heads }, textChars: text.length });
+  var out = JSON.stringify({ interactive: interactive.length, smallTargets: small, overflowX: document.documentElement.scrollWidth > W + 1, overflowEls: overflow, noFocusIndicator: noFocus, decoration: { gradients: gradients, shadows: shadows, pills: pills, uppercase: upper, emoji: emoji, arrows: arrows, badges: badges, chips: chips, cards: cards, headings: heads }, layoutShift: Math.round((window.__cls || 0) * 1000) / 1000, textChars: text.length });
   if (window.parent !== window) parent.postMessage({ a11y: out }, '*'); else { var p = document.createElement('pre'); p.id = 'a11y'; p.textContent = out; document.body.appendChild(p); }
 }, 2200);
 </script>`;

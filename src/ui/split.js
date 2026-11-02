@@ -1,7 +1,7 @@
 // Splitting one transaction into parts with their own category, and joining them back.
 
 import { patchRow } from './data.js';
-import { closeModal } from './editor.js';
+import { closeModal } from './modal.js';
 import { esc, rp } from './format.js';
 import { categoryOptions, field, fieldMessage, repaint, toast } from './render.js';
 import { save, scheduleRefresh } from './server.js';

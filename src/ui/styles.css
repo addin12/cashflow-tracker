@@ -11,6 +11,7 @@
   --r-card: 18px; --r-field: 12px; --r-tag: 6px; --r-pill: 999px; /* the scale: pill = what you tap to act, 12 = fields and small panels, 18 = cards and sheets */ --nav-w: 248px;
   --toast: #1d1d1f; --on-toast: #f5f5f7; /* the message bar is dark in both themes */
   --hit: 44px; /* the smallest a tappable thing may be, in height and width */
+  --dur-quick: 120ms; --dur-base: 200ms; --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1); /* motion: press and hover, then enter and leave */
   color-scheme: light;
 }
 /* Dark: chosen in the app (data-theme="dark"), or the device is dark and light wasn't chosen. */
@@ -134,7 +135,7 @@ button, input, select, textarea { font: inherit; letter-spacing: inherit; color:
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 20px; border-radius: var(--r-pill);
   border: 1px solid transparent; font-size: 17px; font-weight: 500; text-decoration: none; cursor: pointer; white-space: nowrap;
-  transition: transform .1s ease, background-color .15s ease;
+  transition: transform var(--dur-quick) var(--ease-out), background-color var(--dur-quick) var(--ease-out);
 }
 .btn:active { transform: scale(.97); }
 .btn.primary { background: var(--accent-btn); color: var(--on-accent); }
@@ -178,12 +179,22 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 @media (min-width: 640px) { .fields2 .field:nth-child(2) { margin-top: 0; } }
 .amount-input { font-size: 32px; font-weight: 700; min-height: 64px; letter-spacing: -0.02em; }
 
+#view:focus { outline: none; } /* focus lands here only when a pop-up closes and its opener is gone */
 button:focus-visible, a:focus-visible, [tabindex]:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 /* ---------- segmented control */
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--line-soft); border-radius: var(--r-field); padding: 4px; gap: 4px; }
 .seg button { min-height: var(--hit); border: 0; background: transparent; border-radius: calc(var(--r-field) - 4px); font-size: 16px; font-weight: 500; color: var(--ink-2); cursor: pointer; padding: 0 6px; }
 .seg button.on { background: var(--card); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+/* Once seg.js has placed the thumb, it is the thumb that is white and slides; the active button only changes its text. */
+.seg { position: relative; }
+.seg.thumb::before {
+  content: ''; position: absolute; top: 4px; bottom: 4px; left: 0; width: var(--seg-w); transform: translateX(var(--seg-x)); background: var(--card);
+  border-radius: calc(var(--r-field) - 4px); box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+  transition: transform var(--dur-quick) var(--ease-out), width var(--dur-quick) var(--ease-out);
+}
+.seg.thumb button { position: relative; z-index: 1; }
+.seg.thumb button.on { background: transparent; box-shadow: none; }
 
 /* ---------- review */
 .txcard .top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
@@ -191,7 +202,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, select:focus-vi
 .txcard .amt { font-size: 19px; }
 .txcard .meta { margin-top: 4px; }
 .txcard .field { margin-top: 16px; }
-.txcard.leaving { opacity: 0; transform: translateX(24px); transition: opacity .18s ease, transform .18s ease; }
+.txcard.leaving { opacity: 0; transform: translateX(24px); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
 .notice { display: flex; gap: 12px; align-items: flex-start; border-radius: var(--r-card); padding: 16px 20px; background: var(--warning-soft); color: var(--warning); border: 0; text-align: left; width: 100%; font-size: 17px; cursor: pointer; }
 .notice b { font-weight: 600; }
 .notice .go { margin-left: auto; font-weight: 600; white-space: nowrap; }
@@ -297,20 +308,24 @@ button.rowi:hover { background: var(--zebra); }
 .sheet .danger-zone { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line-soft); }
 @media (min-width: 900px) { .modal { align-items: center; } .sheet { border-radius: var(--r-card); padding: 28px; } }
 
-/* ---------- toast & status */
-.toast {
-  position: fixed; z-index: 12; left: 50%; bottom: calc(88px + env(safe-area-inset-bottom)); transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
-  display: flex; align-items: center; gap: 16px; max-width: min(92vw, 520px); padding: 12px 12px 12px 20px; border-radius: var(--r-field);
-  background: var(--toast); color: var(--on-toast); font-size: 16px; box-shadow: var(--shadow-modal); transition: opacity .2s ease, transform .2s ease;
+/* ---------- messages & status */
+/* The messages stack (the newest at the bottom, closest to the thumb), so a second one never takes the first one's Undo away. */
+.toasts {
+  position: fixed; z-index: 12; left: 50%; bottom: calc(88px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  display: flex; flex-direction: column-reverse; align-items: center; gap: 8px; width: max-content; max-width: min(92vw, 520px); pointer-events: none;
 }
-.toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.toast {
+  display: flex; align-items: center; gap: 16px; max-width: 100%; padding: 12px 12px 12px 20px; border-radius: var(--r-field); opacity: 0; transform: translateY(16px);
+  background: var(--toast); color: var(--on-toast); font-size: 16px; box-shadow: var(--shadow-modal); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+.toast.show { opacity: 1; transform: none; pointer-events: auto; }
 .toast.bad { background: var(--critical); color: #fff; }
 .toast button { border: 0; background: rgba(255, 255, 255, .16); color: inherit; font: inherit; font-weight: 600; min-height: var(--hit); padding: 0 14px; border-radius: var(--r-pill); cursor: pointer; white-space: nowrap; }
-@media (min-width: 900px) { .toast { left: calc(50% + var(--nav-w) / 2); bottom: 32px; } }
+@media (min-width: 900px) { .toasts { left: calc(50% + var(--nav-w) / 2); bottom: 32px; } }
 .status {
   position: fixed; z-index: 11; top: calc(10px + env(safe-area-inset-top)); right: 12px; display: flex; align-items: center; gap: 8px;
   padding: 6px 14px; border-radius: var(--r-pill); background: var(--card); border: 1px solid var(--line); color: var(--ink-2); font-size: 14px;
-  opacity: 0; transform: translateY(-6px); transition: opacity .2s, transform .2s; pointer-events: none; box-shadow: 0 2px 10px rgba(0, 0, 0, .08);
+  opacity: 0; transform: translateY(-6px); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); pointer-events: none; box-shadow: 0 2px 10px rgba(0, 0, 0, .08);
 }
 .status.show { opacity: 1; transform: none; }
 .status.done { color: var(--success); }
@@ -318,8 +333,17 @@ button.rowi:hover { background: var(--zebra); }
 .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; }
 .status.done .spin { display: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .spin { animation: none; } .btn, .toast, .status, .txcard.leaving { transition: none; } }
-.skeleton { height: 72px; border-radius: var(--r-field); background: linear-gradient(90deg, var(--line-soft), var(--zebra), var(--line-soft)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; margin-top: 12px; }
+/* Whoever asks for less motion gets none: every transition and animation, present and future (1ms, not 0, so "transitionend" still fires). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 1ms !important; transition-delay: 0s !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+  .spin, .skeleton { animation: none; }
+}
+.page-head.sk { align-items: flex-start; min-height: var(--h); } /* the title stays where the real one will be */
+@media (min-width: 900px) { .page-head.sk { min-height: var(--h-pc); } }
+.sk-settings { min-height: calc(100vh - 110px); }
+.sk-title { margin: 0 0 8px; padding-top: 28px; font-size: 32px; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; }
+.skeleton { height: var(--h, 72px); border-radius: var(--r-field); background: linear-gradient(90deg, var(--line-soft), var(--zebra), var(--line-soft)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; margin-top: 12px; }
+@media (min-width: 900px) { .skeleton { height: var(--h-pc, var(--h, 72px)); } }
 @keyframes shimmer { to { background-position: -200% 0; } }
 .field .msg { font-style: normal; }
 @media (max-width: 520px) { .seg.wrap { grid-auto-flow: row; grid-template-columns: 1fr 1fr; } }
@@ -708,7 +732,7 @@ button.rowi:hover { background: var(--zebra); }
 /* ---------------------------------------------------------------- small things */
 .day-card.compact summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; cursor: pointer; list-style: none; }
 .day-card.compact summary::-webkit-details-marker { display: none; }
-.day-card.compact summary::after { content: '›'; font-size: 22px; color: var(--muted); transition: transform .15s; }
+.day-card.compact summary::after { content: '›'; font-size: 22px; color: var(--muted); transition: transform var(--dur-quick) var(--ease-out); }
 .day-card.compact[open] summary { margin-bottom: 12px; }
 .day-card.compact[open] summary::after { transform: rotate(90deg); }
 .day-card.closed .row-top { gap: 8px; }

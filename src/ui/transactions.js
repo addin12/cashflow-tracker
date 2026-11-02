@@ -77,7 +77,7 @@ function categoryDetail(category) {
 export async function viewTransactions() {
   if (state.filters.month == null) state.filters.month = state.month;
   if (!state.all) {
-    skeleton(T.tabTransactions);
+    skeleton(T.tabTransactions, 'list');
     setAll((await call('list', { limit: 1000000 })).rows);
     if (state.tab !== 'transactions') return;
   } else if (state.allStale) {

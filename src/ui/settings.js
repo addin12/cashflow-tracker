@@ -71,7 +71,7 @@ function notifSection(s) {
 
 export async function viewSettings(local) {
   // `local`: re-render from unsaved local data (e.g. after "add account") without a server round trip.
-  if (!local) skeleton(T.tabSettings);
+  if (!local) skeleton(T.tabSettings, 'settings');
   const s = local || await call('settings');
   if (state.tab !== 'settings') return;
   if (state.prefillAccount) { // from "Perlu perhatian": an account the emails mention, with its bank and number filled in
