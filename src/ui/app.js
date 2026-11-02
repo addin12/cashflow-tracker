@@ -6,6 +6,7 @@
 // queue is empty. If Google refuses a change, it is put back on screen with the reason.
 /* global google */
 import { STRINGS, pickLanguage } from './i18n.js';
+import { svgIcon } from './icons.js';
 import { filterTransactions, ruleFromApproval, pendingMatching, renamedCategories } from '../core/app.js';
 import { buildCategorySlots } from '../core/categories.js';
 import { compileRule } from '../core/rules.js';
@@ -58,22 +59,22 @@ function tag(name) {
 }
 // A picture per category, found from words in its name (the owner can rename categories freely).
 const ICONS = [
-  [/pemasukan|income/i, '💰'], [/food|makan|minum|kopi|coffee|resto|jajan/i, '🍜'], [/harian|grocer|sembako/i, '🛒'], [/online|shop/i, '🛍️'],
-  [/servis|cuci|kendaraan|bengkel/i, '🔧'], [/transport|bensin|parkir|ojek/i, '🛵'], [/langganan|subscription|digital/i, '📺'],
-  [/hobi|game|board/i, '🎲'], [/buku|book/i, '📚'], [/kesehatan|optik|health|obat/i, '💊'], [/skincare|kecantikan|beauty/i, '🧴'],
-  [/barber|cukur|salon/i, '💈'], [/tagihan|utilitas|listrik|bill/i, '🧾'], [/pulsa|internet/i, '📱'], [/rumah|house|home/i, '🏠'],
-  [/pakaian|baju|cloth/i, '👕'], [/nongkrong|hiburan|entertain/i, '🎬'], [/hadiah|sosial|gift/i, '🎁'], [/iuran|patungan/i, '🤝'],
-  [/pendidikan|kursus|educ/i, '🎓'], [/admin|biaya|fee/i, '🏦'], [/gaji|salary/i, '💼'], [/proyek|freelance/i, '💻'],
-  [/dividen|bunga|invest|saham/i, '📈'], [/cashback|refund/i, '↩️'], [/penyesuaian|adjust/i, '⚖️'], [/transfer/i, '🔁'], [/lainnya|other/i, '📦'],
+  [/pemasukan|income/i, 'coins'], [/food|makan|minum|kopi|coffee|resto|jajan/i, 'utensils'], [/harian|grocer|sembako/i, 'cart'], [/online|shop/i, 'bag'],
+  [/servis|cuci|kendaraan|bengkel/i, 'car'], [/transport|bensin|parkir|ojek/i, 'bus'], [/langganan|subscription|digital/i, 'play'],
+  [/hobi|game|board/i, 'dice'], [/buku|book/i, 'book'], [/kesehatan|optik|health|obat/i, 'heart'], [/skincare|kecantikan|beauty/i, 'drop'],
+  [/barber|cukur|salon/i, 'scissors'], [/tagihan|utilitas|listrik|bill/i, 'receipt'], [/pulsa|internet/i, 'phone'], [/rumah|house|home/i, 'home'],
+  [/pakaian|baju|cloth/i, 'shirt'], [/nongkrong|hiburan|entertain/i, 'ticket'], [/hadiah|sosial|gift/i, 'gift'], [/iuran|patungan/i, 'users'],
+  [/pendidikan|kursus|educ/i, 'cap'], [/admin|biaya|fee/i, 'bank'], [/gaji|salary/i, 'briefcase'], [/proyek|freelance/i, 'laptop'],
+  [/dividen|bunga|invest|saham/i, 'trend'], [/cashback|refund/i, 'undo'], [/penyesuaian|adjust/i, 'scale'], [/transfer/i, 'swap'], [/lainnya|other/i, 'box'],
 ];
 function icon(category) {
   const found = category && ICONS.find(([re]) => re.test(category));
-  return `<span class="cat-ic ${category ? `c${hashOf(category)}` : 'none'}" aria-hidden="true">${found ? found[1] : '•'}</span>`;
+  return `<span class="cat-ic ${category ? `c${hashOf(category)}` : 'none'}" aria-hidden="true">${svgIcon(found ? found[1] : 'dot')}</span>`;
 }
 // A picture per account, from words in its name, else from its type (Saving or Spending). Order matters: "Dana Darurat" is not the DANA wallet.
 const ACCT_ICONS = [
-  [/darurat|emergency/i, '🛟'], [/saham|sekuritas|stock|reksa|invest|crypto|kripto/i, '📈'], [/cash|tunai|dompet/i, '💵'],
-  [/gopay|ovo|\bdana\b|shopeepay|linkaja|e-?wallet|flip/i, '📱'], [/kredit|credit|paylater/i, '💳'],
+  [/darurat|emergency/i, 'lifebuoy'], [/saham|sekuritas|stock|reksa|invest|crypto|kripto/i, 'trend'], [/cash|tunai|dompet/i, 'banknote'],
+  [/gopay|ovo|\bdana\b|shopeepay|linkaja|e-?wallet|flip/i, 'phone'], [/kredit|credit|paylater/i, 'card'],
 ];
 // Bank and wallet logos, loaded from Google's favicon service so no logo artwork lives in the repo.
 // A colour = the logo's own background, so a square logo blends into the circle (others sit on white). Order matters: "Mandiri Sekuritas" before Mandiri, "Jago Dana Darurat" before DANA.
@@ -86,11 +87,11 @@ const ACCT_LOGOS = [
 const logoUrl = (domain) => `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`;
 function acctIcon(stream, type) {
   const found = ACCT_ICONS.find(([re]) => re.test(stream));
-  const emoji = found ? found[1] : type === 'Saving' ? '🐷' : '🏦';
+  const name = found ? found[1] : type === 'Saving' ? 'safe' : 'wallet';
   const logo = ACCT_LOGOS.find(([re]) => re.test(stream));
-  // A logo that fails to load is swapped back to the emoji (see the 'error' listener in start()).
-  if (logo) return `<span class="cat-ic logo" aria-hidden="true"${logo[2] ? ` style="background:${logo[2]}"` : ''} data-fallback="${emoji}"><img src="${logoUrl(logo[1])}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`;
-  return `<span class="cat-ic c${hashOf(stream)}" aria-hidden="true">${emoji}</span>`;
+  // A logo that fails to load is swapped back to the drawn icon (see the 'error' listener in start()).
+  if (logo) return `<span class="cat-ic logo" aria-hidden="true"${logo[2] ? ` style="background:${logo[2]}"` : ''} data-fallback="${name}"><img src="${logoUrl(logo[1])}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>`;
+  return `<span class="cat-ic c${hashOf(stream)}" aria-hidden="true">${svgIcon(name)}</span>`;
 }
 const statusBadge = (s) => (s === 'pending' ? `<span class="badge warn">● ${esc(T.statusPending)}</span>`
   : s === 'ignored' ? `<span class="badge neutral">${esc(T.statusIgnored)}</span>` : '');
@@ -291,7 +292,7 @@ function syncLine() {
   if (!c || !c.last_sync) return esc(T.neverSynced);
   const at = new Date(c.last_sync).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   const bad = /^ERROR/.test(String(c.last_status || '')); // a failed sync writes "ERROR: …"
-  return `${esc(T.lastSync)} ${esc(at)}${bad ? ` <span class="badge bad">⚠ ${esc(T.syncProblem)}</span>` : ''}`;
+  return `${esc(T.lastSync)} ${esc(at)}${bad ? ` <span class="badge bad">${svgIcon('alert')} ${esc(T.syncProblem)}</span>` : ''}`;
 }
 
 function updateNav() {
@@ -565,10 +566,10 @@ function overviewHtml(d) {
   const greet = hour < 11 ? T.greetMorning : hour < 15 ? T.greetNoon : hour < 18 ? T.greetAfternoon : T.greetEvening;
   const chips = [
     // Your own waiting transactions, the same number as the Review badge (the other person's are not yours to chase).
-    ownPendingCount(d) ? `<button class="hchip warn" data-action="go" data-tab="review">⚠ ${esc(T.pendingNote(ownPendingCount(d)))}</button>` : '',
-    (d.salaryMissing || []).length ? `<button class="hchip warn" data-action="go" data-tab="review">💼 ${esc(T.salaryNotice(dateLabel(d.salaryMissing[0].date, { weekday: false })))}</button>` : '',
-    bills.length ? `<button class="hchip" data-action="bills">📅 ${esc(T.billsThisWeek(bills.length))}</button>` : '',
-    state.boot.today.slice(5, 7) === '12' && Number(state.boot.today.slice(8)) >= 15 ? `<button class="hchip" data-action="recap">✨ ${esc(T.recapChip(state.boot.today.slice(0, 4)))}</button>` : '',
+    ownPendingCount(d) ? `<button class="hchip warn" data-action="go" data-tab="review">${svgIcon('alert')} ${esc(T.pendingNote(ownPendingCount(d)))}</button>` : '',
+    (d.salaryMissing || []).length ? `<button class="hchip warn" data-action="go" data-tab="review">${svgIcon('briefcase')} ${esc(T.salaryNotice(dateLabel(d.salaryMissing[0].date, { weekday: false })))}</button>` : '',
+    bills.length ? `<button class="hchip" data-action="bills">${svgIcon('calendar')} ${esc(T.billsThisWeek(bills.length))}</button>` : '',
+    state.boot.today.slice(5, 7) === '12' && Number(state.boot.today.slice(8)) >= 15 ? `<button class="hchip" data-action="recap">${svgIcon('trend')} ${esc(T.recapChip(state.boot.today.slice(0, 4)))}</button>` : '',
   ].join('');
   const todayLong = new Date(`${state.boot.today}T00:00:00`).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
   const hero = isNow ? `<section class="hero">
@@ -636,7 +637,7 @@ function overviewHtml(d) {
             <button data-action="drill"><span>${esc(T.netThisMonth)}</span><b class="amt ${s.balance < 0 ? 'bad' : ''}">${s.balance < 0 ? '' : '+'}${rp(s.balance)}</b></button>
             ${isNow ? `<div><span>${esc(T.perDay)}</span><b class="amt">${rp(d.perDay.perDay)}</b><small>${esc(T.daysToPayday(d.perDay.daysLeft, dateLabel(d.perDay.nextPayday, { weekday: false })))}</small></div>` : ''}
           </div>
-          ${isNow && d.perDay.spending < 0 ? `<p><button class="link" data-action="go" data-tab="settings" data-section="accounts">⚠ ${esc(T.negativeSpending)}</button></p>` : ''}
+          ${isNow && d.perDay.spending < 0 ? `<p><button class="link" data-action="go" data-tab="settings" data-section="accounts">${svgIcon('alert')} ${esc(T.negativeSpending)}</button></p>` : ''}
         </section>
         <section><h2 class="section-title">${esc(T.whereItWent)}<small>${esc(T.expenseByCategoryHint)}</small></h2>
           <div class="card list-card">${catRows || `<p class="hint">${esc(T.nothingYet)}</p>`}${foot}</div></section>
@@ -1099,7 +1100,7 @@ function assetsForm(s) {
     </div>
     <div class="actions"><button class="btn danger small" type="button" data-action="delasset" data-i="${i}">${esc(T.assetDelete)}</button></div></fieldset>`;
   }).join('');
-  return `<form class="card" data-form="assets" novalidate><h2>${esc(T.assetsTitle)}</h2><p class="lead">${esc(T.assetsHint)}</p>${s.prices && s.prices.failed ? `<p class="hint bad">⚠ ${esc(T.pricesFailed(s.prices.failed, s.prices.tried, s.prices.at, s.prices.reasons.join('; ')))}</p>` : ''}${rows || `<p class="hint">${esc(T.noAssets)}</p>`}
+  return `<form class="card" data-form="assets" novalidate><h2>${esc(T.assetsTitle)}</h2><p class="lead">${esc(T.assetsHint)}</p>${s.prices && s.prices.failed ? `<p class="hint bad">${svgIcon('alert')} ${esc(T.pricesFailed(s.prices.failed, s.prices.tried, s.prices.at, s.prices.reasons.join('; ')))}</p>` : ''}${rows || `<p class="hint">${esc(T.noAssets)}</p>`}
     <div class="actions"><button class="btn secondary left" type="button" data-action="addasset">＋ ${esc(T.addAsset)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveAssets)}</button></div></form>`;
 }
 const readAssets = (form) => $$('.asset-row', form).map((row, i) => ({
@@ -1165,7 +1166,7 @@ function openTagBudget(tag, budget) {
 /** Review: today's box, to log what no email reports and close the day. */
 function dayCard(day, compact = false) {
   if (!day) return '';
-  const streak = day.streak ? `<span class="streak" title="${esc(T.streakHint)}">🔥 ${esc(T.streak(day.streak))}</span>` : '';
+  const streak = day.streak ? `<span class="streak" title="${esc(T.streakHint)}">${svgIcon('flame')} ${esc(T.streak(day.streak))}</span>` : '';
   const yesterday = day.yesterday ? `<div class="yesterday"><p>${esc(T.dayYesterdayOpen)}</p><button class="btn secondary small" data-action="closeday" data-date="${esc(day.yesterday)}">${esc(T.dayCloseYesterday)}</button></div>` : '';
   // Closed: one quiet row.
   if (day.closed) return `<section class="card day-card closed"><div class="row-top"><span class="what"><b>✓ ${esc(T.dayClosed)}</b></span>${streak}<button class="btn plain small" data-action="reopenday">${esc(T.dayReopen)}</button></div>${yesterday}</section>`;
@@ -1236,7 +1237,7 @@ function categoryDetail(category) {
 
 // ---------------------------------------------------------------- Round 17 pieces
 /** "Pertama kali": the first payment to a place (from an email or a statement). */
-const firstBadge = (x) => (x.first ? ` <span class="badge new" title="${esc(T.firstHint)}">✦ ${esc(T.firstTime)}</span>` : '');
+const firstBadge = (x) => (x.first ? ` <span class="badge new" title="${esc(T.firstHint)}">${esc(T.firstTime)}</span>` : '');
 
 /** Three plain checks: emergency fund in months, what was kept this month, debts against what you own. */
 function healthCard(h) {
@@ -1354,28 +1355,28 @@ function claimBox(x) {
 /** Overview, under the greeting: what has a deadline or needs a decision, nearest first. Nothing to show: no card. */
 function attentionCard(d) {
   const rows = [];
-  for (const c of (d.claims || []).filter((x) => x.daysLeft <= 7)) rows.push({ icon: '💊', bad: c.daysLeft <= 3, title: T.attnClaim(c.description || T.noName, rp(c.amount)), meta: T.claimDue(dateLabel(c.due, { weekday: false }), c.daysLeft), act: `data-action="edit" data-id="${esc(c.id)}"` });
-  for (const w of (d.warranties || []).filter((x) => x.daysLeft <= 30)) rows.push({ icon: '🛡️', bad: w.daysLeft <= 7, title: T.attnWarranty(w.name), meta: T.warrantyLine(dateLabel(w.date, { weekday: false }), w.daysLeft), act: 'data-action="go" data-tab="settings" data-section="assets"' });
+  for (const c of (d.claims || []).filter((x) => x.daysLeft <= 7)) rows.push({ icon: 'pill', bad: c.daysLeft <= 3, title: T.attnClaim(c.description || T.noName, rp(c.amount)), meta: T.claimDue(dateLabel(c.due, { weekday: false }), c.daysLeft), act: `data-action="edit" data-id="${esc(c.id)}"` });
+  for (const w of (d.warranties || []).filter((x) => x.daysLeft <= 30)) rows.push({ icon: 'shield', bad: w.daysLeft <= 7, title: T.attnWarranty(w.name), meta: T.warrantyLine(dateLabel(w.date, { weekday: false }), w.daysLeft), act: 'data-action="go" data-tab="settings" data-section="assets"' });
   for (const i of ((d.recurring && d.recurring.items) || []).filter((x) => x.change === 'up' || x.change === 'late')) {
-    rows.push({ icon: '🔁', bad: false, title: i.change === 'up' ? T.attnSubUp(i.name, rp(i.was), rp(i.amount)) : T.attnSubLate(i.name), meta: T.attnSubMeta, act: 'data-action="subs"' });
+    rows.push({ icon: 'swap', bad: false, title: i.change === 'up' ? T.attnSubUp(i.name, rp(i.was), rp(i.amount)) : T.attnSubLate(i.name), meta: T.attnSubMeta, act: 'data-action="subs"' });
   }
   for (const name of state.boot.notConnected || []) {
     const mine = name === state.boot.me;
-    rows.push({ icon: '📧', bad: false, title: mine ? T.notifGmailMine : T.notifGmailOther(name), meta: mine ? T.notifGmailMineSub : T.notifGmailOtherSub, act: 'data-action="go" data-tab="settings" data-section="household"' });
+    rows.push({ icon: 'mail', bad: false, title: mine ? T.notifGmailMine : T.notifGmailOther(name), meta: mine ? T.notifGmailMineSub : T.notifGmailOtherSub, act: 'data-action="go" data-tab="settings" data-section="household"' });
   }
   const su = state.boot.setup;
   if (su && (state.boot.members || []).length > 1) {
-    if (!su.accounts) rows.push({ icon: '🏦', bad: false, title: T.stepAccounts, meta: T.stepAccountsMeta, act: 'data-action="go" data-tab="settings" data-section="accounts"' });
-    if (su.bankName === false) rows.push({ icon: '🪪', bad: false, title: T.stepBankName, meta: T.stepBankNameMeta, act: 'data-action="go" data-tab="settings" data-section="household"' });
-    if (!su.payday) rows.push({ icon: '💼', bad: false, title: T.stepPayday, meta: T.stepPaydayMeta, act: 'data-action="go" data-tab="settings" data-section="prefs"' });
+    if (!su.accounts) rows.push({ icon: 'bank', bad: false, title: T.stepAccounts, meta: T.stepAccountsMeta, act: 'data-action="go" data-tab="settings" data-section="accounts"' });
+    if (su.bankName === false) rows.push({ icon: 'idcard', bad: false, title: T.stepBankName, meta: T.stepBankNameMeta, act: 'data-action="go" data-tab="settings" data-section="household"' });
+    if (!su.payday) rows.push({ icon: 'briefcase', bad: false, title: T.stepPayday, meta: T.stepPaydayMeta, act: 'data-action="go" data-tab="settings" data-section="prefs"' });
   }
-  for (const n of (state.boot.newAccounts || []).slice(0, 2)) rows.push({ icon: '🏦', bad: false, title: T.attnNewAccount(n.institution, n.hint, n.count), meta: T.attnNewAccountMeta, act: `data-action="newaccount" data-inst="${esc(n.institution)}" data-hint="${esc(n.hint)}"` });
-  for (const a of ((su && su.unchecked) || []).slice(0, 2)) rows.push({ icon: '⚖️', bad: false, title: T.stepBalance(a), meta: T.stepBalanceMeta, act: 'data-action="go" data-tab="settings" data-section="monthend"' });
+  for (const n of (state.boot.newAccounts || []).slice(0, 2)) rows.push({ icon: 'bank', bad: false, title: T.attnNewAccount(n.institution, n.hint, n.count), meta: T.attnNewAccountMeta, act: `data-action="newaccount" data-inst="${esc(n.institution)}" data-hint="${esc(n.hint)}"` });
+  for (const a of ((su && su.unchecked) || []).slice(0, 2)) rows.push({ icon: 'scale', bad: false, title: T.stepBalance(a), meta: T.stepBalanceMeta, act: 'data-action="go" data-tab="settings" data-section="monthend"' });
   const rv = state.review || {};
-  for (const e of (rv.errors || []).slice(0, 2)) rows.push({ icon: '✉️', bad: false, title: T.attnUnread(e.subject || e.from), meta: T.attnUnreadMeta, act: 'data-action="go" data-tab="review"' });
-  if (rv.ruleable) rows.push({ icon: '🏷️', bad: false, title: T.attnRules(rv.ruleable), meta: T.attnRulesMeta, act: 'data-action="go" data-tab="review"' });
+  for (const e of (rv.errors || []).slice(0, 2)) rows.push({ icon: 'mail', bad: false, title: T.attnUnread(e.subject || e.from), meta: T.attnUnreadMeta, act: 'data-action="go" data-tab="review"' });
+  if (rv.ruleable) rows.push({ icon: 'tag', bad: false, title: T.attnRules(rv.ruleable), meta: T.attnRulesMeta, act: 'data-action="go" data-tab="review"' });
   if (!rows.length) return '';
-  return `<section class="card attn"><h2>${esc(T.attnTitle)}</h2><div class="rows">${rows.slice(0, 6).map((r) => `<button class="lrow" ${r.act}><span class="cat-ic ${r.bad ? 'c3' : 'c6'}" aria-hidden="true">${r.icon}</span><span class="what"><b>${esc(r.title)}</b><span class="meta">${esc(r.meta)}</span></span></button>`).join('')}</div></section>`;
+  return `<section class="card attn"><h2>${esc(T.attnTitle)}</h2><div class="rows">${rows.slice(0, 6).map((r) => `<button class="lrow" ${r.act}><span class="cat-ic ${r.bad ? 'c3' : 'c6'}" aria-hidden="true">${svgIcon(r.icon)}</span><span class="what"><b>${esc(r.title)}</b><span class="meta">${esc(r.meta)}</span></span></button>`).join('')}</div></section>`;
 }
 
 /** "Terakhir diubah oleh <nama>, 19 Okt 10.05": two people edit the same rows. */
@@ -1865,7 +1866,7 @@ function submitAdd(form) {
   const dups = state.addForce ? [] : possibleDuplicates({ kind: k, amount, date: d.date, stream: d.stream, toStream: d.toStream });
   state.addForce = false;
   if (dups.length) {
-    $('#addDup').innerHTML = `<div class="dup-warning" role="alert"><b>⚠ ${esc(T.dupTitle)}</b><p>${esc(T.dupHint)}</p>
+    $('#addDup').innerHTML = `<div class="dup-warning" role="alert"><b>${svgIcon('alert')} ${esc(T.dupTitle)}</b><p>${esc(T.dupHint)}</p>
       <div class="rows">${dups.map((x) => `<div class="rowi"><span class="what"><b>${esc(x.description || T.noName)}</b><span class="meta">${esc(when(x))} · ${esc(x.stream)} · ${tag(x.category)}</span></span><span class="amt ${esc(x.direction)}">${signed(x)}</span></div>`).join('')}</div>
       <div class="actions"><button class="btn secondary" type="button" data-action="dupcancel">${esc(T.dupCancel)}</button><button class="btn primary" type="button" data-action="dupsave">${esc(T.dupSave)}</button></div></div>`;
     $('#addDup .btn.primary').focus();
@@ -2018,7 +2019,7 @@ async function viewSettings(local) {
     const failed = /^ERROR/.test(st);
     const note = !c.last_sync ? T.neverSynced : failed ? `${T.syncProblem}: ${st.replace(/^ERROR:s*/, '').split(' | ')[0]}` : T.syncHealthy;
     const at = c.last_sync ? new Date(c.last_sync).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
-    return `<div class="rowi"><span class="what"><b>${esc(c.gmail)}</b><span class="meta">${at ? `${esc(T.lastSync)} ${esc(at)} · ` : ''}${failed ? `<span class="badge bad">⚠ ${esc(note)}</span>` : `<span class="badge ok">✓ ${esc(note)}</span>`}</span></span></div>`;
+    return `<div class="rowi"><span class="what"><b>${esc(c.gmail)}</b><span class="meta">${at ? `${esc(T.lastSync)} ${esc(at)} · ` : ''}${failed ? `<span class="badge bad">${svgIcon('alert')} ${esc(note)}</span>` : `<span class="badge ok">✓ ${esc(note)}</span>`}</span></span></div>`;
   }).join('');
   // One section at a time (Apple Settings style): the list of sections, then the open one. On a
   // phone the list and the section are two screens; on a PC the list stays on the left.
@@ -2083,7 +2084,7 @@ async function viewSettings(local) {
     goals: goalsForm(s),
   };
   const conn = (s.connections || [])[0];
-  const syncNote = !conn || !conn.last_sync ? T.neverSynced : /^ERROR/.test(String(conn.last_status || '')) ? `⚠ ${T.syncProblem}` : T.syncHealthy;
+  const syncNote = !conn || !conn.last_sync ? T.neverSynced : /^ERROR/.test(String(conn.last_status || '')) ? T.syncProblem : T.syncHealthy;
   const emailsOn = ['weekly_email', 'monthly_email', 'payday_email', 'bill_email'].filter((k) => cfg[k] !== 'off').length + (cfg.close_email === 'on' ? 1 : 0);
   const lang = cfg.language === 'en' ? 'English' : cfg.language === 'id' ? 'Bahasa Indonesia' : T.languageAuto;
   const groups = [
@@ -2859,7 +2860,7 @@ function onSubmit(e) {
   if (kind === 'weekly') {
     const v = (n) => (form.querySelector(`[name=${n}]`).checked ? 'on' : 'off');
     return saveForm(form, 'saveConfig', { weekly_email: v('weekly_email'), monthly_email: v('monthly_email'), payday_email: v('payday_email'), bill_email: v('bill_email'), close_email: v('close_email'), calendar_sync: v('calendar_sync') }, (r) => {
-      if (r && r.calendar) form.querySelector('.state').textContent = r.calendar.error ? `⚠ ${T.calendarFailed}` : `✓ ${T.calendarDone(r.calendar.events)}`;
+      if (r && r.calendar) form.querySelector('.state').textContent = r.calendar.error ? T.calendarFailed : `✓ ${T.calendarDone(r.calendar.events)}`;
     });
   }
   return null;
@@ -2919,7 +2920,7 @@ export async function start() {
   document.addEventListener('toggle', (e) => { if (e.target.matches && e.target.matches('details.day-card')) state.dayOpen = e.target.open; }, true); // stays open while you type
   document.addEventListener('error', (e) => { // load errors don't bubble, so this listens while capturing
     const box = e.target?.parentElement;
-    if (e.target?.tagName === 'IMG' && box?.classList.contains('logo')) { box.classList.remove('logo'); box.textContent = box.dataset.fallback; }
+    if (e.target?.tagName === 'IMG' && box?.classList.contains('logo')) { box.classList.remove('logo'); box.innerHTML = svgIcon(box.dataset.fallback); }
   }, true);
   document.addEventListener('submit', onSubmit);
   document.addEventListener('change', onChange);

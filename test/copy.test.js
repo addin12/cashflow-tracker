@@ -24,3 +24,11 @@ describe('copy rules', () => {
     expect(offenders(/^(get started|learn more|click here|submit)$/i)).toEqual([]);
   });
 });
+
+describe('icons', () => {
+  it('no emoji left in the UI code: the drawn set in icons.js is the only icon source', () => {
+    const app = readFileSync(new URL('../src/ui/app.js', import.meta.url), 'utf8');
+    expect([...app.matchAll(/[\u{1F300}-\u{1FAFF}\u{2B50}\u{FE0F}]/gu)].map((m) => m[0])).toEqual([]);
+    expect([...source.matchAll(/[\u{1F300}-\u{1FAFF}\u{2B50}\u{FE0F}]/gu)].map((m) => m[0])).toEqual([]);
+  });
+});

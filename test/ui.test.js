@@ -172,12 +172,13 @@ describe('web app', () => {
     expect(view()).toContain('Lebih Rp100.000 dari budget Rp200.000'); // said in words, not only red
     expect(view()).toContain('Belum ada pembayaran hari ini');
     expect(view()).toContain('Terbaru');
-    // Accounts: a bank gets its logo, cash an emoji; a logo that fails to load falls back to the emoji.
+    // Accounts: a bank gets its logo, cash a drawn icon; a logo that fails to load falls back to the drawn icon.
     const logo = doc.querySelector('[data-stream=BCA] .cat-ic.logo img');
     expect(logo.getAttribute('src')).toContain('url=https://mybca.bca.co.id');
-    expect(doc.querySelector('[data-stream=Cash] .cat-ic').textContent).toBe('💵');
+    expect(doc.querySelector('[data-stream=Cash] .cat-ic svg.ico')).not.toBeNull(); // the banknote
     logo.dispatchEvent(new dom.window.Event('error'));
-    expect(doc.querySelector('[data-stream=BCA] .cat-ic').textContent).toBe('🏦');
+    expect(doc.querySelector('[data-stream=BCA] .cat-ic svg.ico')).not.toBeNull(); // the wallet
+    expect(doc.querySelector('[data-stream=BCA] .cat-ic img')).toBeNull();
     // Money health, and deposit vs SBN worked out as the rates are typed.
     expect(view()).toContain('Cek kesehatan keuangan');
     click(doc.querySelector('[data-action=interest]'));

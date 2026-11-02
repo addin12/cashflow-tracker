@@ -18,7 +18,7 @@ Reading this as: a personal money app for two adults, used every day on a phone,
 | Colour | Neutrals plus one accent (light `#0066cc`, dark `#2997ff`; button fill `--accent-btn`, deeper, so white text passes 4.5:1). Semantic only: green money in, red money out or over budget, amber needs attention | Colour carries meaning; one accent keeps focus on actions |
 | Category colours | Eight hues, each in three intensities (tag background, tag text, chart series); used only behind category tags, icons and chart series | Colour-coding that never competes with the money figures |
 | Radius | Pill for what you tap to act (buttons, chips, switches, count badges); 12 for fields and small panels; 18 for cards and sheets; 6 for tags | One scale: the shape tells you whether it is a control, a field or a container |
-| Icons | Emoji for categories and notices today (no assets, familiar). To do: decide between keeping them and one inline SVG set | Emoji look different on each OS; a drawn set would be consistent |
+| Icons | One drawn set (`src/ui/icons.js`, 45 icons, 24px grid, 1.8 stroke, round ends, text colour), each named for what it stands for; a plain dot when a category has no match; bank logos stay as logos | Emoji look different on every phone; one set looks like one product |
 | Targets | 44px minimum for every control (`--hit`); the yearly chart scrolls sideways so each month keeps a 44px target | Thumb use, and the owner's rule |
 | Contrast | WCAG AA in light and dark, checked by axe on 48 screens | People read amounts in sunlight and at night |
 | Themes | Follow the system, with a manual toggle; every screen works in both | Daily-use app |
