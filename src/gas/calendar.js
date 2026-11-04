@@ -2,7 +2,7 @@
 // card due dates, yearly renewals and payday for the next 45 days, as all-day events with a reminder
 // at 09:00 the day before. Rebuilt every morning and when switched on. Only events this app made
 // (marked in their description) are changed or removed.
-/* global CalendarApp, Session */
+/* global CalendarApp */
 
 import { createApi } from '../core/api.js';
 import { TABS } from '../core/schema.js';
@@ -10,7 +10,7 @@ import { upcomingBills } from '../core/wealth.js';
 import { nextPayday } from '../core/payday.js';
 import { sheetStore } from './sheetstore.js';
 import { configValue, setConfigValue } from './setup.js';
-import { whoAmI, roleKey } from './members.js';
+import { whoAmI, roleKey, activeEmail } from './members.js';
 
 const MARK = '[cashflow]';
 const DAYS = 45;
@@ -100,7 +100,7 @@ export function syncCalendar(ss, today = new Date()) {
       ev.addPopupReminder(15 * 60); // all-day events start at 00:00: 15 hours before is 09:00 the day before
       added += 1;
     }
-    setConfigValue(ss, key('calendar_status'), `${stamp} ok: ${want.size} events (+${added} −${removed})${strays ? `, ${strays} old calendar(s) removed` : ''} [named ${named().length}, saved calendar ${idFound ? 'found' : 'missing'}, ${seen} marked events seen, made under ${Session.getEffectiveUser().getEmail()}]`);
+    setConfigValue(ss, key('calendar_status'), `${stamp} ok: ${want.size} events (+${added} −${removed})${strays ? `, ${strays} old calendar(s) removed` : ''} [named ${named().length}, saved calendar ${idFound ? 'found' : 'missing'}, ${seen} marked events seen, made under ${activeEmail()}]`);
     return { events: want.size, added, removed, strays };
   } catch (e) {
     setConfigValue(ss, key('calendar_status'), `${stamp} ERROR: ${e.message}`);
