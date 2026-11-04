@@ -14,12 +14,13 @@ const norm = (e) => String(e || '').trim().toLowerCase();
  * and kept for 6 hours in that person's own cache.
  */
 export function activeEmail() {
+  let cache = null;
+  try { cache = CacheService.getUserCache(); } catch (e) { /* a trigger has no user cache: the profile is asked every time */ }
   try {
-    const cache = CacheService.getUserCache();
-    const known = cache.get('ME');
+    const known = cache && cache.get('ME');
     if (known) return known;
     const email = norm(Session.getActiveUser().getEmail()) || norm(Gmail.Users.getProfile('me').emailAddress);
-    if (email) cache.put('ME', email, 21600);
+    if (email && cache) cache.put('ME', email, 21600);
     return email;
   } catch (e) { return ''; }
 }

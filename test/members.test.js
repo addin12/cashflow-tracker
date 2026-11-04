@@ -49,4 +49,11 @@ describe('who is using it', () => {
     as('', '');
     expect(whoAmI(ss)).toMatchObject({ name: 'Me', owner: true });
   });
+  it('a trigger has no user cache (getUserCache gives null): the profile still says who it is', () => {
+    const ss = sheet({ ...base, owner_email: 'me@example.com' });
+    as('', 'dewi@example.com');
+    globalThis.CacheService = { getUserCache: () => null };
+    expect(whoAmI(ss)).toMatchObject({ name: 'Dewi', owner: false });
+    expect(roleKey(ss, 'calendar_id')).toBe('partner_calendar_id');
+  });
 });

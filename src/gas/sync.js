@@ -23,7 +23,7 @@ import { createApi } from '../core/api.js';
 import { sheetStore } from './sheetstore.js';
 import { installMailTriggers, scheduleSelfTest, sendSyncAlert } from './weekly.js';
 import { rolloverYear } from './rollover.js';
-import { syncCalendar } from './calendar.js';
+import { tidyCalendar } from './calendar.js';
 import { pollTelegram } from './telegram.js';
 import { memberName, bankNames, isOwnerEmail, ownerEmails, sharePartner, rememberMember } from './members.js';
 
@@ -177,7 +177,7 @@ function syncOnce(opts) {
       // After an upgrade: make sure this person's triggers exist, and (the owner's) check the reports again.
       try { installTrigger(); installMailTriggers(); if (owner) scheduleSelfTest(); } catch (e) { /* tried again at the next upgrade */ }
       // The Cashflow calendar (when switched on) is tidied: leftover copies from earlier versions go.
-      try { syncCalendar(ss); } catch (e) { /* the reason is in Config calendar_status */ }
+      try { tidyCalendar(ss); } catch (e) { /* the reason is in Config calendar_status */ }
       // Everyone listed in Settings → Pasangan can open the spreadsheet, and so the app.
       try { sharePartner(ss); } catch (e) { /* Settings shows who is connected; tried again at the next upgrade */ }
     }

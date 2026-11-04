@@ -59,6 +59,12 @@ export function removeStrayCalendars(keepId, today = new Date()) {
   return removed;
 }
 
+/** After an upgrade: fill the calendar when it is on; when it is off, take away the copies earlier versions left. */
+export function tidyCalendar(ss) {
+  if (String(configValue(ss, roleKey(ss, 'calendar_sync')) || 'off') === 'on') return syncCalendar(ss);
+  return { strays: removeStrayCalendars('') };
+}
+
 export function syncCalendar(ss, today = new Date()) {
   const key = (base) => roleKey(ss, base); // the owner's setting, or the partner's own
   if (String(configValue(ss, key('calendar_sync')) || 'off') !== 'on') return { skipped: 'off' };
