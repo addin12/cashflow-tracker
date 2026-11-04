@@ -44,6 +44,7 @@ const P = {
   known: 'SYNC_KNOWN_IDS', // ids the quick look's searches returned right after that run
   lastFull: 'SYNC_LAST_FULL_MS',
   setup: 'SYNC_SETUP_VERSION',
+  calendar: 'SYNC_CALENDAR_TIDY', // the setup version at which this person's calendar was last tidied
   stamp: 'SYNC_DATA_STAMP', // changes when a sync adds or changes rows (the open app refreshes)
   checked: 'SYNC_LAST_CHECK_MS', // last time Gmail was looked at, quick or full
 };
@@ -176,10 +177,17 @@ function syncOnce(opts) {
       runSetup(ss, opts.seed);
       // After an upgrade: make sure this person's triggers exist, and (the owner's) check the reports again.
       try { installTrigger(); installMailTriggers(); if (owner) scheduleSelfTest(); } catch (e) { /* tried again at the next upgrade */ }
-      // The Cashflow calendar (when switched on) is tidied: leftover copies from earlier versions go.
-      try { tidyCalendar(ss); } catch (e) { /* the reason is in Config calendar_status */ }
       // Everyone listed in Settings → Pasangan can open the spreadsheet, and so the app.
       try { sharePartner(ss); } catch (e) { /* Settings shows who is connected; tried again at the next upgrade */ }
+    }
+    // The Cashflow calendar is each person's own, so each person's sync tidies it once per upgrade (the upgrade above is done by
+    // whichever of the accounts syncs first): filled when switched on, and the copies earlier versions left are removed.
+    {
+      const mineProps = PropertiesService.getUserProperties();
+      if (mineProps.getProperty(P.calendar) !== String(SETUP_VERSION)) {
+        try { tidyCalendar(ss); } catch (e) { /* the reason is in Config calendar_status */ }
+        mineProps.setProperty(P.calendar, String(SETUP_VERSION));
+      }
     }
     rememberMember(me);
     const mode = modeOf(ss, opts.defaultMode || 'preview');
