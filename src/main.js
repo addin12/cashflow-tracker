@@ -11,6 +11,7 @@ import { sheetStore } from './gas/sheetstore.js';
 import { createApi, API_METHODS } from './core/api.js';
 import { scanYearly } from './gas/yearly.js';
 import { syncCalendar } from './gas/calendar.js';
+import { mailCoverage } from './gas/coverage.js';
 import { pushSite, sendPush, acceptDevice } from './gas/push.js';
 import { tokenSet, saveToken, removeToken } from './gas/telegram.js';
 import { activeEmail, isMember, rememberMember, isOwnerEmail, memberName, sharePartner, roleKey } from './gas/members.js';
@@ -29,6 +30,7 @@ export function onOpen() {
     .addItem('Uji otomatis / Self-test', 'menuSelfTest')
     .addItem('Kirim ringkasan mingguan / Send weekly summary', 'menuWeeklySummary')
     .addItem('Perbarui harga aset / Update asset prices', 'menuPrices')
+    .addItem('Cek cakupan email / Mail coverage', 'menuCoverage')
     .addToUi();
 }
 
@@ -201,6 +203,15 @@ export function selfTestTrigger() {
   const r = runSelfTest(ss, SEED);
   if (!r.ok) try { sendSyncAlert(ss, { selftest: r }); } catch (e) { /* the result is in Config and the Self-test tab */ }
   return r;
+}
+
+/** Which senders look financial but have no reader (domains and counts only, nothing is saved). */
+export function menuCoverage() {
+  const ui = SpreadsheetApp.getUi();
+  const r = mailCoverage();
+  const lines = r.uncovered.slice(0, 15).map((x) => `${x.domain}: ${x.count}`);
+  const head = `${r.checked} email 90 hari terakhir / emails in the last 90 days`;
+  ui.alert('Cakupan email / Mail coverage', [head, '', ...(lines.length ? lines : ['Semua pengirim sudah terbaca / every sender has a reader'])].join('\n'), ui.ButtonSet.OK);
 }
 
 export function menuPrices() {

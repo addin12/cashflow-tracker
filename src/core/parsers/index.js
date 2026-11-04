@@ -1,5 +1,5 @@
 // Routes an email to its bank parser. See common.js for the result shapes.
-import { bodyToTokens } from '../text.js';
+import { bodyToTokens, maskedOutline } from '../text.js';
 import { bca } from './bca.js';
 import { livin } from './livin.js';
 import { blu } from './blu.js';
@@ -30,6 +30,13 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
  * @returns {{status: 'ok'|'skip'|'error', events?: object[], reason?: string, parser?: string}}
  */
 export function parseEmail(email) {
+  const out = readEmail(email);
+  // An email nobody could read is logged with its masked outline (no names, numbers or amounts), so a reader can be fixed from the log.
+  if (out.status === 'error') out.reason = `${out.reason} [outline: ${maskedOutline(bodyToTokens(email.body || '', email.isHtml))}]`;
+  return out;
+}
+
+function readEmail(email) {
   const from = String(email.from || '').replace(/^.*<([^>]+)>.*$/, '$1').trim().toLowerCase();
   const tokens = bodyToTokens(email.body || '', email.isHtml);
   const msg = { ...email, from, subject: String(email.subject || ''), tokens, text: tokens.join('\n') };
@@ -50,4 +57,13 @@ export function parseEmail(email) {
     }
   }
   return { ...res, parser: parser.id };
+}
+
+/**
+ * Does a reader already exist for mail like this? Only the sender and subject are known here, so a parser that also needs the
+ * body to recognise its mail counts as missing: the coverage report may list a sender that is in fact read.
+ */
+export function hasReader(from, subject) {
+  const address = String(from || '').replace(/^.*<([^>]+)>.*$/, '$1').trim().toLowerCase();
+  return PARSERS.some((p) => { try { return p.matches({ from: address, subject: String(subject || ''), tokens: [], text: '' }); } catch (e) { return false; } });
 }

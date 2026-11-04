@@ -34,8 +34,8 @@ What is left after round 29 (2026-11-04). Nothing here is broken; each item is w
 
 - A monthly "what changed" email for both people (spending per person, the shared balance).
 - Savings goals shared between the two people.
-- A masked outline of unreadable bank emails in the Inbox Log (labels only, no names or amounts), so a reader can be fixed without reading the mail.
-- A mail coverage report: which other senders look financial and have no reader (domain and counts only).
+- ~~A masked outline of unreadable bank emails~~ Done (round 30): an email no parser could read is logged with its shape, e.g. `[outline: <text:2> | nama penerima: | <text:2> | nominal: | <amount>]` (`maskedOutline` in `src/core/text.js`, `test/outline.test.js`). Read it in the Inbox Log reason column.
+- ~~A mail coverage report~~ Done (round 30): spreadsheet menu "Cek cakupan email / Mail coverage" lists the sender domains of financial-looking mail (last 90 days, up to 200 messages) that no parser reads, with counts only; nothing is saved (`src/gas/coverage.js`). Not run against the real mailbox yet; a parser that needs the body to recognise its mail may show up as missing.
 - Receipt photo to transaction (only with a measured accuracy check first).
 
 ## Operations

@@ -39,6 +39,30 @@ export function textToTokens(text) {
     .filter((t) => t && t !== ':');
 }
 
+/**
+ * The shape of an email with everything personal taken out, so an unreadable one can be fixed without reading it:
+ * short labels ("Tanggal:") are kept, every other piece of text becomes what it looks like (an amount, a date, a number, so many words).
+ * Runs of the same shape are counted, e.g. "<text:2> | tanggal: | <date> | nominal: | <amount>".
+ */
+export function maskedOutline(tokens, max = 400) {
+  const shapes = [];
+  for (const raw of tokens) {
+    const s = clean(String(raw));
+    if (!s) continue;
+    let shape;
+    if (s.length <= 30 && s.endsWith(':') && !/\d/.test(s)) shape = s.toLowerCase();
+    else if (/^\d{1,2}[:.]\d{2}([:.]\d{2})?(\s?(wib|wita|wit))?$/i.test(s)) shape = '<time>';
+    else if (/\d{4}-\d{2}-\d{2}|\d{1,2}[\s/-](\d{1,2}|[a-z]{3,9})[\s/-]\d{2,4}/i.test(s) && s.length <= 30) shape = '<date>';
+    else if (/^(rp|idr|usd)\.?\s?-?[\d.,]+$/i.test(s) || /^-?\d{1,3}([.,]\d{3})+([.,]\d{1,2})?$/.test(s)) shape = '<amount>';
+    else if (/\d{6,}/.test(s.replace(/[\s.-]/g, ''))) shape = '<number>';
+    else shape = `<text:${s.split(/\s+/).length}>`;
+    const last = shapes[shapes.length - 1];
+    if (last && last.shape === shape && !shape.endsWith(':')) last.n += 1; else shapes.push({ shape, n: 1 });
+  }
+  const out = shapes.map((x) => (x.n > 1 ? `${x.shape}×${x.n}` : x.shape)).join(' | ');
+  return out.length > max ? `${out.slice(0, max)}…` : out;
+}
+
 export function bodyToTokens(body, isHtml) {
   return isHtml ? htmlToTokens(body) : textToTokens(body);
 }
