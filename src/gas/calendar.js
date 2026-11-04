@@ -36,21 +36,25 @@ export function calendarEvents({ plans, recurringItems, cards, payday, today, la
 const NAME = 'Cashflow';
 const SUMMARY = 'Tagihan, langganan dan gajian dari aplikasi Cashflow';
 
-/** The calendars this app made for this person: owned, named Cashflow, with the app's own description. */
-const ownCalendars = () => CalendarApp.getOwnedCalendarsByName(NAME).filter((c) => c.getDescription() === SUMMARY);
+/** Every calendar of this person named Cashflow: the app's own, or one a person made by hand with the same name. */
+const named = () => CalendarApp.getOwnedCalendarsByName(NAME);
+const isMarked = (ev) => String(ev.getDescription() || '').includes(MARK);
 
 /**
  * Earlier versions could leave several "Cashflow" calendars behind, each with its own copy of every bill and payday.
- * Everything but the one in use goes, but only a calendar whose events (a year back to a year ahead) are all marked as
- * this app's: anything a person added by hand keeps the calendar.
+ * A copy is the app's when it has the app's description, or when it holds events (a year back to a year ahead) and
+ * every one of them is marked as the app's. Everything but the one in use goes; anything a person added by hand,
+ * in a calendar with the same name, keeps that calendar.
  */
 export function removeStrayCalendars(keepId, today = new Date()) {
   const from = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
   const to = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
   let removed = 0;
-  for (const c of ownCalendars()) {
+  for (const c of named()) {
     if (c.getId() === keepId) continue;
-    if (c.getEvents(from, to).every((ev) => String(ev.getDescription() || '').includes(MARK))) { c.deleteCalendar(); removed += 1; }
+    const events = c.getEvents(from, to);
+    const ours = c.getDescription() === SUMMARY || events.length > 0;
+    if (ours && events.every(isMarked)) { c.deleteCalendar(); removed += 1; }
   }
   return removed;
 }
@@ -62,8 +66,9 @@ export function syncCalendar(ss, today = new Date()) {
   try {
     const id = String(configValue(ss, key('calendar_id')) || '');
     let cal = id ? CalendarApp.getCalendarById(id) : null;
+    const idFound = Boolean(cal);
     if (!cal) { // the saved one is gone or was never saved: take one the app already made before making another
-      cal = ownCalendars()[0] || CalendarApp.createCalendar(NAME, { summary: SUMMARY });
+      cal = named().find((c) => c.getDescription() === SUMMARY) || CalendarApp.createCalendar(NAME, { summary: SUMMARY });
       setConfigValue(ss, key('calendar_id'), cal.getId());
     }
     const strays = removeStrayCalendars(cal.getId(), today);
@@ -77,9 +82,11 @@ export function syncCalendar(ss, today = new Date()) {
     const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
     const to = new Date(today.getFullYear(), today.getMonth(), today.getDate() + DAYS + 2);
     let removed = 0;
+    let seen = 0;
     const have = new Set();
     for (const ev of cal.getEvents(from, to)) {
-      if (!String(ev.getDescription() || '').includes(MARK)) continue;
+      if (!isMarked(ev)) continue;
+      seen += 1;
       const key = `${iso(ev.getAllDayStartDate())}|${ev.getTitle()}`;
       if (want.has(key) && !have.has(key)) have.add(key);
       else { ev.deleteEvent(); removed += 1; }
@@ -93,7 +100,7 @@ export function syncCalendar(ss, today = new Date()) {
       ev.addPopupReminder(15 * 60); // all-day events start at 00:00: 15 hours before is 09:00 the day before
       added += 1;
     }
-    setConfigValue(ss, key('calendar_status'), `${stamp} ok: ${want.size} events (+${added} −${removed})${strays ? `, ${strays} old calendar(s) removed` : ''}`);
+    setConfigValue(ss, key('calendar_status'), `${stamp} ok: ${want.size} events (+${added} −${removed})${strays ? `, ${strays} old calendar(s) removed` : ''} [named ${named().length}, saved calendar ${idFound ? 'found' : 'missing'}, ${seen} marked events seen]`);
     return { events: want.size, added, removed, strays };
   } catch (e) {
     setConfigValue(ss, key('calendar_status'), `${stamp} ERROR: ${e.message}`);
