@@ -1,12 +1,12 @@
 # Backlog
 
-What is left after round 26 (2026-10-23). Nothing here is broken; each item is waiting for a decision or for a person.
+What is left after round 29 (2026-11-04). Nothing here is broken; each item is waiting for a decision or for a person.
 
 ## Waiting for a person
 
 | Item | Who | Why it matters |
 |---|---|---|
-| Put categories on the partner's waiting transactions (about 30) | partner | Their reports stay empty until then. "Always use this category" on the first of each kind settles the rest. |
+| ~~Put categories on the partner's waiting transactions~~ | partner | Done: Review was empty on 2 Nov. New waiting rows are categorised the same way. |
 | Enter your name as the bank writes it (Settings → Pasangan) | partner (or the owner for them) | Money between the two of you is then a transfer, not spending. A first-step row asks for it. |
 | Opening balance of the partner's account (Settings → Month-end balance check) | partner | The balance starts at 0 until a real balance is entered. A first-step row asks for it. |
 | Payday and salary of the partner (Settings → Preferences) | partner | The salary card and the "Hari gajian" plan only appear with a payday. |
@@ -21,6 +21,14 @@ What is left after round 26 (2026-10-23). Nothing here is broken; each item is w
 | E-wallet top-ups (OVO, ShopeePay, e-money, GoPay, Dana) count as spending | Leave as spending; or one "digital wallet" account and treat top-ups as transfers into it; or per-wallet accounts. |
 | Telegram logging (built, off) | Paste a BotFather token in Settings → Telegram. |
 | Accounts list order on the Settings screen | Own accounts first would help, but the order of the Accounts tab maps to blocks in the spreadsheet; needs a safe way (display only, sorted back on save). |
+
+## Paused by the owner
+
+- The partner's three Gmail sign-ins in n8n, and the 24/7 Oracle Always Free server: see `D:\Project\n8n\BACKLOG.md`.
+
+## Open, found in round 29
+
+- The Cashflow calendar can hold leftover copies of itself from earlier versions (each with its own copy of every bill and payday). From round 29 the sync removes the app's own leftovers (only calendars whose events are all marked as the app's) and reuses an existing one instead of creating another. It runs the next time Settings → Email & pengingat is saved with the calendar on, or at the next morning run.
 
 ## Ideas, not started
 

@@ -33,6 +33,28 @@ export function calendarEvents({ plans, recurringItems, cards, payday, today, la
   return [...out.keys()];
 }
 
+const NAME = 'Cashflow';
+const SUMMARY = 'Tagihan, langganan dan gajian dari aplikasi Cashflow';
+
+/** The calendars this app made for this person: owned, named Cashflow, with the app's own description. */
+const ownCalendars = () => CalendarApp.getOwnedCalendarsByName(NAME).filter((c) => c.getDescription() === SUMMARY);
+
+/**
+ * Earlier versions could leave several "Cashflow" calendars behind, each with its own copy of every bill and payday.
+ * Everything but the one in use goes, but only a calendar whose events (a year back to a year ahead) are all marked as
+ * this app's: anything a person added by hand keeps the calendar.
+ */
+export function removeStrayCalendars(keepId, today = new Date()) {
+  const from = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+  const to = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+  let removed = 0;
+  for (const c of ownCalendars()) {
+    if (c.getId() === keepId) continue;
+    if (c.getEvents(from, to).every((ev) => String(ev.getDescription() || '').includes(MARK))) { c.deleteCalendar(); removed += 1; }
+  }
+  return removed;
+}
+
 export function syncCalendar(ss, today = new Date()) {
   const key = (base) => roleKey(ss, base); // the owner's setting, or the partner's own
   if (String(configValue(ss, key('calendar_sync')) || 'off') !== 'on') return { skipped: 'off' };
@@ -40,10 +62,11 @@ export function syncCalendar(ss, today = new Date()) {
   try {
     const id = String(configValue(ss, key('calendar_id')) || '');
     let cal = id ? CalendarApp.getCalendarById(id) : null;
-    if (!cal) {
-      cal = CalendarApp.createCalendar('Cashflow', { summary: 'Tagihan, langganan dan gajian dari aplikasi Cashflow' });
+    if (!cal) { // the saved one is gone or was never saved: take one the app already made before making another
+      cal = ownCalendars()[0] || CalendarApp.createCalendar(NAME, { summary: SUMMARY });
       setConfigValue(ss, key('calendar_id'), cal.getId());
     }
+    const strays = removeStrayCalendars(cal.getId(), today);
     const store = sheetStore(ss);
     const w = whoAmI(ss);
     const d = createApi(store, { now: () => today, meName: w.name, isOwner: w.owner, myEmail: w.email }).dashboard({});
@@ -70,8 +93,8 @@ export function syncCalendar(ss, today = new Date()) {
       ev.addPopupReminder(15 * 60); // all-day events start at 00:00: 15 hours before is 09:00 the day before
       added += 1;
     }
-    setConfigValue(ss, key('calendar_status'), `${stamp} ok: ${want.size} events (+${added} −${removed})`);
-    return { events: want.size, added, removed };
+    setConfigValue(ss, key('calendar_status'), `${stamp} ok: ${want.size} events (+${added} −${removed})${strays ? `, ${strays} old calendar(s) removed` : ''}`);
+    return { events: want.size, added, removed, strays };
   } catch (e) {
     setConfigValue(ss, key('calendar_status'), `${stamp} ERROR: ${e.message}`);
     throw e;
