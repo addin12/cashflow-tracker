@@ -56,4 +56,11 @@ describe('who is using it', () => {
     expect(whoAmI(ss)).toMatchObject({ name: 'Dewi', owner: false });
     expect(roleKey(ss, 'calendar_id')).toBe('partner_calendar_id');
   });
+  it('a trigger where Session.getActiveUser throws: the profile still says who it is', () => {
+    const ss = sheet({ ...base, owner_email: 'me@example.com' });
+    as('', 'dewi@example.com');
+    globalThis.CacheService = { getUserCache: () => null };
+    globalThis.Session = { getActiveUser: () => { throw new Error('not allowed in a trigger'); } };
+    expect(whoAmI(ss)).toMatchObject({ name: 'Dewi', owner: false });
+  });
 });

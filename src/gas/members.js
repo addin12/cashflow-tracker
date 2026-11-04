@@ -16,13 +16,14 @@ const norm = (e) => String(e || '').trim().toLowerCase();
 export function activeEmail() {
   let cache = null;
   try { cache = CacheService.getUserCache(); } catch (e) { /* a trigger has no user cache: the profile is asked every time */ }
-  try {
-    const known = cache && cache.get('ME');
-    if (known) return known;
-    const email = norm(Session.getActiveUser().getEmail()) || norm(Gmail.Users.getProfile('me').emailAddress);
-    if (email && cache) cache.put('ME', email, 21600);
-    return email;
-  } catch (e) { return ''; }
+  const known = cache && cache.get('ME');
+  if (known) return known;
+  // each source on its own: in a trigger Session.getActiveUser() can throw, and the profile must still be asked
+  let email = '';
+  try { email = norm(Session.getActiveUser().getEmail()); } catch (e) { /* the profile is next */ }
+  if (!email) { try { email = norm(Gmail.Users.getProfile('me').emailAddress); } catch (e) { /* unknown: the owner, as before */ } }
+  if (email && cache) cache.put('ME', email, 21600);
+  return email;
 }
 const listOf = (ss, key) => String(configValue(ss, key) || '').split(',').map(norm).filter(Boolean);
 /** Each person's Google addresses (Config owner_email / partner_email, comma-separated: one person may use two). */
