@@ -32,14 +32,14 @@ export const livin = {
   matches: (m) => /livin@bankmandiri\.co\.id$/i.test(m.from),
   parse(m) {
     const t = m.tokens;
-    const get = (l) => valueAfter(t, l, LABELS);
+    const get = (l) => valueAfter(t, l, LABELS, true); // HTML mail has the label and value apart, plain-text mail on one line
     if (/tidak berhasil|gagal/i.test(m.subject)) return skip('failed transaction');
     if (!/berhasil/i.test(m.subject)) return skip('not a transaction email');
     const day = parseDateTime(get('Tanggal'));
     if (!day) throw new Error('no transaction date');
     const when = { date: day.date, time: parseTime(get('Jam')) };
     const account = { institution: 'Mandiri', hint: sourceHint(m.text) };
-    const refNo = firstValue(t, ['No. Referensi', 'Nomor Referensi', 'No. Referensi BI Fast'], LABELS);
+    const refNo = firstValue(t, ['No. Referensi', 'Nomor Referensi', 'No. Referensi BI Fast'], LABELS, true);
 
     if (/top-?up/i.test(m.subject)) {
       const [provider] = blockAfter(t, 'Penyedia Jasa');
@@ -56,7 +56,7 @@ export const livin = {
       const payee = splitPayee(...blockAfter(t, 'Penerima'));
       return ok({
         type: 'transfer', direction: 'out', ...when,
-        amount: amountOf(firstValue(t, ['Jumlah Transfer', 'Nominal Transfer'], LABELS)), fee: feeOf(get('Biaya Transfer')),
+        amount: amountOf(firstValue(t, ['Jumlah Transfer', 'Nominal Transfer'], LABELS, true)), fee: feeOf(get('Biaya Transfer')),
         account, counterparty: payee, description: payee.name,
         details: joinDetails(remark(get('Keterangan')), /bi ?fast/i.test(m.subject) ? 'BI-FAST' : ''), refNo,
       });

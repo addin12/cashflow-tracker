@@ -1,0 +1,133 @@
+=== bri-qris
+from: Bank BRI <bankbri@bri.co.id>
+subject: Pembelian QRIS Berhasil
+epoch: 1793000000000
+---
+BRImo Transaction Details
+Halo DEWI CONTOH,
+Berikut detail transaksi kamu di BRImo:
+Total Transaksi
+25.000
+Tujuan
+WARUNG CONTOH
+QRIS Bayar
+9360000000000000000
+Nomor Referensi 123456789012
+Tanggal Transaksi 06 Nov 2026, 12:34:56 WIB
+Rekening Sumber Dana 1111 **** **** 222
+Nama Sumber Dana DEWI CONTOH
+Jenis Transaksi QRIS Bayar
+Nama Merchant WARUNG CONTOH
+Lokasi Merchant JAKARTA PUSAT
+Nama Penerbit BRI
+Nama Pengakuisisi BRI
+Kode PAN Pelanggan 9360000000000000000
+Merchant PAN 9360000000000000001
+ID Terminal A01
+Catatan -
+Nominal Rp25.000
+Biaya Admin Rp0
+INFORMASI:
+Biaya Termasuk PPN (Apabila Dikenakan/Apabila Ada)
+PT. Bank Rakyat Indonesia (Persero) Tbk.
+
+=== bri-qr-tampil
+from: Bank BRI <bankbri@bri.co.id>
+subject: Pembayaran QR Berhasil
+epoch: 1793000000000
+---
+BRImo Transaction Details
+Halo DEWI CONTOH,
+Berikut detail transaksi kamu di BRImo:
+Total Transaksi
+4.500
+Tujuan
+TOKO CONTOH
+QRIS Tampil
+0A0A00000000000000000F
+Nomor Referensi 123456789
+Tanggal Transaksi 06 November 2026, 09:08:07 WIB
+Rekening Sumber Dana 1111 **** **** 222
+Nama Sumber Dana DEWI CONTOH
+Jenis Transaksi QRIS Tampil
+Nama Merchant TOKO CONTOH
+Lokasi Merchant JAKARTA UTARA
+Nominal Rp4.500
+Biaya Admin Rp0
+
+=== bri-topup
+from: Bank BRI <bankbri@bri.co.id>
+subject: Top Up OVO Berhasil
+epoch: 1793000000000
+---
+Email Notif Revamp
+Halo DEWI CONTOH,
+Berikut ini adalah informasi transaksi yang telah Anda lakukan di Aplikasi BRImo
+04 November 2026, 20:15:00 WIB
+Total Transaksi
+Rp101.000
+No. Ref
+123456789012
+Sumber Dana
+DEWI CONTOH
+BANK BRI
+1111 **** **** 222
+Tujuan
+OVO
+OVO 081200000000
+081200000000
+Nominal
+Rp100.000
+Biaya Admin
+Rp1.000
+Catatan
+-
+
+=== bri-transfer
+from: Bank BRI <bankbri@bri.co.id>
+subject: Pemindahan Dana Sesama Rekening BRI
+epoch: 1793000000000
+---
+Transaction
+Halo, DEWI CONTOH
+Berikut ini adalah informasi transaksi yang telah Anda lakukan di Aplikasi BRImo
+Transaksi Berhasil
+Tanggal 02 November 2026 &#44; 11:47:28 WIB
+Nomor Referensi 123456789012
+Sumber Dana DEWI CONTOH
+1111 **** **** 222
+Jenis Transaksi Transfer Bank BRI
+Bank Tujuan BANK BRI
+Nomor Tujuan 3333 4444 5555 666
+Nama Tujuan RATNA CONTOH
+Catatan -
+Nominal Rp3.500.000
+Biaya Admin Rp0
+Total Rp3.500.000
+
+=== bri-notif-in
+from: Bank BRI <bankbri@bri.co.id>
+subject: Notification BRI
+epoch: 1793000000000
+---
+Sobat BRI!
+Dana Rp 1.250.000,00 masuk ke rekening ***1234 pada 05/11/26 10:20:30. Ket.: BFST123456789
+JANGAN MEMBERIKAN DATA PRIBADI KEPADA SIAPAPUN TERMASUK PETUGAS BRI
+
+=== bri-notif-out
+from: Bank BRI <bankbri@bri.co.id>
+subject: Notification BRI
+epoch: 1793000000000
+---
+Sobat BRI!
+Dana Rp 75.000,00 keluar dari rekening 9999***1234 pada 05/11/26 11:21:31. Ket.: BRIVA12345
+JANGAN MEMBERIKAN DATA PRIBADI KEPADA SIAPAPUN TERMASUK PETUGAS BRI
+
+=== bri-notif-qris
+from: Bank BRI <bankbri@bri.co.id>
+subject: Notification BRI
+epoch: 1793000000000
+---
+Sobat BRI!
+Dana Rp 25.000,00 keluar dari rekening ***1234 pada 06/11/26 12:34:56. Ket.: QRISRNS123
+JANGAN MEMBERIKAN DATA PRIBADI KEPADA SIAPAPUN TERMASUK PETUGAS BRI

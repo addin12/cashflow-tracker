@@ -54,3 +54,9 @@ What is left after round 29 (2026-11-04). Nothing here is broken; each item is w
 - **Flaky tests:** ten full runs (five local zone, five UTC) passed every time.
 - **Mutation testing** (Stryker with the vitest runner, 574 mutants over `transfers`, `rules`, `money`, `goals`, `payday`, `shared` in src/core): 83.3% killed. The weakest were `rules.js` (73.4%) and `transfers.js` (79.1%); `test/rules-edges.test.js` and more cases in `test/transfers.test.js` brought them to 93.6% and 98.5% (what survives is equivalent: code that behaves the same either way). Not run on the larger files (`plan.js`, `api.js`, `insights.js`); `money.js` (82%) and `goals.js` (86%) have survivors worth a look. Stryker is not a project dependency: install it in a temporary folder, point \`plugins\` at its vitest runner's \`dist/src/index.js\`, and delete the \`.stryker-tmp\` it leaves in the project.
 - **Dead code:** the scan found no unused function; 24 lines of CSS for features that no longer exist (KPI cards, two-column grid, the bar rows, the old rule rows) were removed.
+
+## Partner's bank mail (2026-11-09)
+
+- **BRI reader added** (`src/core/parsers/bri.js`): her BRI account had no reader, so it held manual rows only. A dry run on her real mail against a copy of the live sheet: 35 rows would be added (7 money in, 28 out; most wait in Review for a category), none matching an existing row. They arrive at the next sync of each of her connected Gmail accounts.
+- **The BRI HTML form is unseen.** n8n returns the plain-text part of an email and the app's Gmail reader prefers the HTML part. The reader handles both forms, but only the text form was seen: after the first sync, check the Inbox Log for BRI rows with status "error" (each carries its masked outline).
+- Grab e-receipts (8 in 120 days) and Bibit purchase emails have no reader. A Grab receipt could name the shop on the matching BRI row, like the other shop receipts.

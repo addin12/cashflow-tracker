@@ -27,7 +27,7 @@ Out of scope for v1: partner collaboration (§12), bank API/scraping, receipts O
 
 ```
  ┌──────────── Gmail: you@gmail.com ────────────┐      ┌ ─ ─ future (§12) ─ ─ ┐
- │  BCA · Livin' · blu · Jago · Mandiri Sekuritas · GoPay  │        partner's Gmail
+ │ BCA · Livin' · BRI · blu · Jago · Mandiri Sekuritas · GoPay │        partner's Gmail
  └─────────────────────────────┬───────────────────────────┘      └ ─ ─ ─ ─ ┬ ─ ─ ─ ─ ─ ┘
                                │ read-only, every 10 min (trigger runs as you)
                                ▼                                            ┊

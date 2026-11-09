@@ -2,17 +2,18 @@
 import { bodyToTokens, maskedOutline } from '../text.js';
 import { bca } from './bca.js';
 import { livin } from './livin.js';
+import { bri } from './bri.js';
 import { blu } from './blu.js';
 import { jago, sekuritas, gopay } from './others.js';
 import { apple } from './apple.js';
 import { SHOP_PARSERS, SHOP_QUERIES } from './shops.js';
 import { fail, skip } from './common.js';
 
-const PARSERS = [bca, livin, blu, jago, sekuritas, gopay, apple, ...SHOP_PARSERS];
+const PARSERS = [bca, livin, bri, blu, jago, sekuritas, gopay, apple, ...SHOP_PARSERS];
 
 /** Gmail search for every sender a parser exists for. */
 export const SENDERS = [
-  'bca@bca.co.id', 'noreply.livin@bankmandiri.co.id', 'receipts@blubybcadigital.id', 'noreply@jago.com',
+  'bca@bca.co.id', 'noreply.livin@bankmandiri.co.id', 'receipts@blubybcadigital.id', 'noreply@jago.com', 'bankbri@bri.co.id',
   'corporate_action@mandirisekuritas.co.id', 'no-reply@customers.go-pay.co.id',
 ];
 

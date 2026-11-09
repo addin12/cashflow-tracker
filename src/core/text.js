@@ -71,9 +71,10 @@ const norm = (s) => clean(String(s)).replace(/\s*:$/, '').toLowerCase();
 
 /**
  * Value of the first token after `label` (exact, case-insensitive). Returns '' when the label
- * is missing or when the next token is itself one of `labels` (an empty field).
+ * is missing or when the next token is itself one of `labels` (an empty field). With `inline`, a token that starts with the label and
+ * carries the value after it ("Tanggal 6 Nov 2026", as plain-text mail has it) counts too, when no token is the label alone.
  */
-export function valueAfter(tokens, label, labels = []) {
+export function valueAfter(tokens, label, labels = [], inline = false) {
   const want = norm(label);
   const stop = new Set(labels.map(norm));
   for (let i = 0; i < tokens.length - 1; i += 1) {
@@ -84,13 +85,22 @@ export function valueAfter(tokens, label, labels = []) {
       return stop.has(norm(v)) ? '' : v.replace(/^:\s*/, '').trim();
     }
   }
+  if (!inline) return '';
+  // A longer known label that starts the same way ("Nominal" and "Nominal Transaksi") is not this one.
+  const longer = [...stop].filter((l) => l.length > want.length && l.startsWith(`${want} `));
+  for (const t of tokens) {
+    const n = norm(t);
+    if (!n.startsWith(`${want} `) || longer.some((l) => n.startsWith(`${l} `) || n === l)) continue;
+    const v = clean(t).slice(want.length + 1).replace(/^:\s*/, '').trim();
+    if (v) return v;
+  }
   return '';
 }
 
 /** First of several labels that has a value. */
-export function firstValue(tokens, labels, allLabels = labels) {
+export function firstValue(tokens, labels, allLabels = labels, inline = false) {
   for (const l of labels) {
-    const v = valueAfter(tokens, l, allLabels);
+    const v = valueAfter(tokens, l, allLabels, inline);
     if (v) return v;
   }
   return '';

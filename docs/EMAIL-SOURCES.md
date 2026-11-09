@@ -15,6 +15,7 @@ The allow-list below is shared by all connected accounts. Adding a parser for a 
 | `receipts@blubybcadigital.id` | Transaksimu Pakai blu Berhasil(!) · Info Transaksi Masuk ke blu Kamu | debit card / QRIS / transfer (out, fee only when actually charged), incoming transfer (in) | `blu` |
 | `noreply@jago.com` | Kamu telah melakukan transfer · Kamu memindahkan uang dari salah satu Kantong · *contact updates* | transfer (out), Kantong move (pocket ↔ main), **contact emails skipped** | `jago` |
 | `corporate_action@mandirisekuritas.co.id` | Pembayaran Dividen Tunai … · *Jadwal Pembagian Dividen …* | dividend (in) · **schedule skipped** | `sekuritas` |
+| `bankbri@bri.co.id` *(added 2026-11-09)* | Pembelian QRIS Berhasil · Pembayaran QR Berhasil · Top Up … Berhasil · Pemindahan Dana Sesama Rekening BRI · Notification BRI | QRIS payments, top-ups, transfers, and the one-line notices (money in as income) | `bri` |
 | `no-reply@customers.go-pay.co.id` | Ini total pengeluaranmu di <bulan> | monthly totals → **suggested Penyesuaian**, no per-transaction rows | `gopay` |
 | `no_reply@email.apple.com` *(added 2026-10-06, searched from the start date)* | Your receipt from Apple. · *Your Subscription is Expiring* | **no row**: names the app and item on the bank's `APPLE.COM/BILL` row · **other Apple emails skipped** | `apple` |
 
@@ -39,6 +40,17 @@ Indonesian text.
 - `Penerima` (merchant / payee), `Tanggal 3 Okt 2026`, `Jam 09:10:14 WIB` (Indonesian months), `Nominal Transaksi IDR 150.000,00` or `Rp 25.000,00`, `Biaya` (fee → own row if > 0), `Jumlah Transfer Rp 50.000` for transfers.
 - "dengan QR" in the body → Details `QRIS`.
 - Amount format: **dot thousands, comma decimals** (`150.000,00`).
+
+### BRI (BRImo) · `bankbri@bri.co.id` · `src/core/parsers/bri.js`
+
+Added 2026-11-09 after reading the partner's inbox (headers and layouts only). Four layouts; a label and its value may be on one line ("Tanggal Transaksi 06 Nov 2026, 12:34:56 WIB") or on two.
+
+- **QRIS** ("Pembelian QRIS Berhasil", "Pembayaran QR Berhasil"): merchant (`Nama Merchant`, else `Tujuan`), place, amount (`Nominal`), `Biaya Admin`, reference. Out, a payment.
+- **Top-up** ("Top Up OVO Berhasil"): wallet under `Tujuan` and its number two lines below. Out, a top-up.
+- **Transfer** ("Pemindahan Dana Sesama Rekening BRI"): `Nama Tujuan`, `Bank Tujuan`, `Nomor Tujuan`. The date is labelled "Tanggal" and a mail tool leaves an entity (`&#44;`) where the comma was. Out, a transfer.
+- **"Notification BRI"**: one line, "Dana Rp … keluar dari / masuk ke rekening ***1234 pada 06/11/26 12:34:56. Ket.: …". In is income, out is a payment, with no merchant (the note is kept as details). A note starting with QRIS is skipped: that payment has its own email, and both would count it twice.
+- The account hint is the last digits of the masked number ("1111 **** **** 222" gives 222). With one BRI account in Accounts it resolves without a hint.
+- A notice that matches the unlinked other side of a transfer is linked to it by the planner (any event type), whichever email arrives first.
 
 ### blu by BCA Digital · `receipts@blubybcadigital.id`
 - Outgoing (`Transaksimu Pakai blu Berhasil`): `Total Bayar` / `Total` / `Nominal` `Rp1.250.000,50`, merchant line after `bluAccount`, optional quoted note (`"catatan"`), `Biaya`.
@@ -91,6 +103,12 @@ Rows whose category came from a generic rule (Tokopedia, Shopee, Xendit) go back
 Over the scanned window, emails covered QRIS and transfers on BCA, Livin' and blu, card payments on blu, Jago transfers and Kantong moves, and a dividend. **Not covered by email:** GoPay individual spends, cash, and any debit-card swipe a bank doesn't email about. These are handled as described in DESIGN.md §6.
 
 Tip: in each bank app, turn on email notifications for *all* transactions. For example, myBCA emails "Internet Transaction Journal" for app transactions, but card swipes may need a separate setting.
+
+### Partner's inbox, read 2026-11-09
+
+Two Gmail accounts, read through n8n (headers, then layouts; nothing stored). The first account: BRI (QRIS 17, one OVO top-up), and Grab e-receipts (8, no reader yet: they could name the shop on the BRI row like the other shop receipts). The second: Livin' (25 in 180 days), BRI notices (12), Bibit (unit purchases and weekly newsletters, no reader) and KSEI notices. A dry run of the sync planner on these against a copy of the live sheet would add 35 BRI rows (7 money in, 28 out, mostly waiting for a category), none matching a row already in the sheet, and found the 25 Livin' emails already in Transactions.
+
+One thing to know when testing with n8n: its read tool returns the plain-text part of an email, while the app's own Gmail reader prefers the HTML part. The Livin' reader failed on every plain-text email ("no transaction date": the label and value are on one line there), though the app was never affected. It now reads both (`valueAfter` takes `inline`). The BRI reader handles both forms too, but its HTML form has not been seen: the Inbox Log shows any BRI email it cannot read, with its masked outline.
 
 ## 5. Implementation notes (Phase 1, 2026-10-05)
 

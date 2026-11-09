@@ -1,0 +1,47 @@
+=== livin-plain-qr
+from: Livin' by Mandiri <noreply.livin@bankmandiri.co.id>
+subject: Pembayaran Berhasil!
+epoch: 1793000000000
+---
+Livin' by Mandiri
+Pembayaran Berhasil
+Halo DEWI CONTOH,
+Berikut adalah detail transaksi Anda dengan QR:
+Penerima
+WARUNG CONTOH 1
+JAKARTA UTARA - ID
+Tanggal 6 Nov 2026
+Jam 12:34:56 WIB
+Nominal Transaksi Rp 25.000,00
+No. Referensi 123456789012345
+No. Ref. QRIS 123456789012
+Merchant PAN 1234567890123456
+Customer PAN 1234567890123456
+Pengakuisisi Bank BCA
+Terminal ID A01
+Sumber Dana
+DEWI CONTOH
+****1234
+Simpan email ini sebagai referensi transaksi Anda.
+
+=== livin-plain-transfer
+from: Livin' by Mandiri <noreply.livin@bankmandiri.co.id>
+subject: Transfer Berhasil
+epoch: 1793000000000
+---
+Livin' by Mandiri
+Transfer Berhasil
+Halo DEWI CONTOH,
+Berikut adalah detail transaksi Anda:
+Penerima
+RATNA CONTOH
+Bank Mandiri - 1234567890123
+Tanggal 6 Nov 2026
+Jam 12:34:56 WIB
+Jumlah Transfer Rp 100.000,00
+No. Referensi 123456789012345
+Keterangan -
+Rekening Sumber
+DEWI CONTOH
+****1234
+Simpan email ini sebagai referensi transaksi Anda.
