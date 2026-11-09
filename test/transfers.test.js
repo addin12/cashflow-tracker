@@ -9,6 +9,30 @@ const row = (o) => ({ id: 'r', date: '2026-11-02', time: '', owner: 'Dewi', stre
 const lone = row({ id: 'a', stream: 'BRI Dewi', direction: 'in', transfer_id: 't1', description: 'Transfer Antar Rekening' });
 const other = row({ id: 'b', stream: 'Mandiri Dewi', direction: 'out', time: '11:46:21', category: 'Lain' });
 
+describe('linkableTransfers: edges', () => {
+  it('only a row that carries a transfer id can be the lone side', () => {
+    expect(linkableTransfers([{ ...lone, transfer_id: '' }, other])).toEqual([]);
+  });
+  it('an ignored lone side, or a waiting or ignored candidate, is not offered', () => {
+    expect(linkableTransfers([{ ...lone, status: 'ignored' }, other])).toEqual([]);
+    expect(linkableTransfers([lone, { ...other, status: 'waiting' }])).toEqual([]);
+    expect(linkableTransfers([lone, { ...other, status: 'ignored' }])).toEqual([]);
+  });
+  it('a transfer that already has two sides is not offered, however well another row matches', () => {
+    expect(linkableTransfers([lone, { ...other, id: 'b2', transfer_id: 't1' }, { ...other, id: 'c' }])).toEqual([]);
+  });
+  it('counts days across a month end, and shows the date without a time', () => {
+    const l = { ...lone, date: '2026-11-30T09:15:00' };
+    expect(linkableTransfers([l, { ...other, date: '2026-12-01' }])).toEqual([expect.objectContaining({ date: '2026-11-30' })]);
+    expect(linkableTransfers([l, { ...other, date: '2026-12-02' }])).toEqual([]);
+  });
+  it('two lone sides each find their own other side', () => {
+    const l2 = { ...lone, id: 'a2', transfer_id: 't2', amount: 100000 };
+    const o2 = { ...other, id: 'b2', amount: 100000, stream: 'Jago Dewi' };
+    expect(linkableTransfers([lone, other, l2, o2]).map((x) => [x.id, x.withId])).toEqual([['a', 'b'], ['a2', 'b2']]);
+  });
+});
+
 describe('linkableTransfers', () => {
   it('finds the other side: same amount, opposite direction, same owner, another account, within a day', () => {
     expect(linkableTransfers([lone, other])).toEqual([{ id: 'a', withId: 'b', amount: 4500000, date: '2026-11-02', stream: 'BRI Dewi', withStream: 'Mandiri Dewi' }]);

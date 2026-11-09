@@ -48,3 +48,9 @@ What is left after round 29 (2026-11-04). Nothing here is broken; each item is w
 - A transfer recorded on one side only is offered for joining in "Needs attention" (`src/core/transfers.js`); the app never joins it by itself. Found on real data: Rp4.500.000 on 2 Nov between two of the partner's accounts; it becomes a joinable row once her bank name is set (the Mandiri email says her own name, which the app only knows as "her own" when Settings → Pasangan has it).
 - The mail coverage report (spreadsheet menu) has not been run on the real mailbox: run it once and see which senders it lists.
 - Dev dependencies: 10 npm audit findings remain in @google/clasp and exceljs (see the audit file); not worth a downgrade.
+
+## Test quality (2026-11-09)
+
+- **Flaky tests:** ten full runs (five local zone, five UTC) passed every time.
+- **Mutation testing** (Stryker with the vitest runner, 574 mutants over `transfers`, `rules`, `money`, `goals`, `payday`, `shared` in src/core): 83.3% killed. The weakest were `rules.js` (73.4%) and `transfers.js` (79.1%); `test/rules-edges.test.js` and more cases in `test/transfers.test.js` brought them to 93.6% and 98.5% (what survives is equivalent: code that behaves the same either way). Not run on the larger files (`plan.js`, `api.js`, `insights.js`); `money.js` (82%) and `goals.js` (86%) have survivors worth a look. Stryker is not a project dependency: install it in a temporary folder, point \`plugins\` at its vitest runner's \`dist/src/index.js\`, and delete the \`.stryker-tmp\` it leaves in the project.
+- **Dead code:** the scan found no unused function; 24 lines of CSS for features that no longer exist (KPI cards, two-column grid, the bar rows, the old rule rows) were removed.
