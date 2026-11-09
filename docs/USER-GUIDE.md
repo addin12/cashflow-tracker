@@ -133,5 +133,10 @@ Kalian berdua setara di aplikasi ini: hak yang sama, dan masing-masing punya pen
 - Email bank yang tidak bisa dibaca muncul di **Cek → Email yang belum terbaca** dengan link ke Gmail.
 - Kalau penyimpanan gagal, transaksinya kembali ke layar dengan alasannya. Kalau sinkron sedang berjalan, app menunggu dan mencoba lagi sendiri.
 - Di spreadsheet, menu **Cashflow Tracker → Sinkron sekarang** menjalankan sinkron langsung.
+- **Perlu perhatian → "keluar dari satu rekening dan masuk ke yang lain":** satu transfer antar rekeningmu baru tercatat satu sisi, dan ada satu transaksi lain dengan jumlah yang sama (selisih sehari) di rekening lain. Ketuk untuk menggabungkan keduanya; setelah itu tidak dihitung sebagai pengeluaran. App tidak pernah menggabungkan sendiri.
+- Email bank yang tidak bisa dibaca dicatat di **Inbox Log** dengan *outline*-nya: bentuk email tanpa nama, jumlah, nomor atau tanggal (mis. `<text:2> | nominal: | <amount>`), supaya pembacanya bisa diperbaiki tanpa membaca emailmu.
+- Di spreadsheet, menu **Cashflow Tracker → Cek cakupan email** menunjukkan pengirim (hanya domain dan jumlah) email berbau keuangan 90 hari terakhir yang belum punya pembaca. Tidak ada yang disimpan.
 
 > Settings → Gmail sync shows the last sync and whether it works normally. Emails that couldn't be read appear in Review with a Gmail link. If a save fails, the transaction comes back on screen with the reason; while a sync is running the app waits and retries by itself. In the spreadsheet, Cashflow Tracker → Sync now runs a sync immediately.
+
+> A transfer between your own accounts that is recorded on one side only, with exactly one matching row on another account (same amount, within a day), shows in "Needs attention": tap to join the two (it then does not count as spending); the app never joins them by itself. Unreadable bank emails are logged in the Inbox Log with an outline (the shape of the email, with no names, amounts, numbers or dates). The spreadsheet menu **Cashflow Tracker → Mail coverage** lists the sender domains (with counts only) of financial-looking mail from the last 90 days that has no reader yet; nothing is saved.

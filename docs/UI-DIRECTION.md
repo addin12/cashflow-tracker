@@ -62,7 +62,8 @@ The values every screen is built from. `test/tokens.test.js` checks this table a
 | `--critical` | `#c9252c` | `#ff6b6b` | Money out over budget, errors |
 | `--critical-soft` | `#fdecec` | `#3d1414` | Background of error states |
 | `--field` | `#ffffff` | `#2c2c2e` | Input background |
-| `--field-line` | `#c8c8cd` | `#48484a` | Input border |
+| `--field-line` | `#c8c8cd` | `#48484a` | Soft borders: secondary buttons, empty tags |
+| `--field-edge` | `#8a8a8f` | `#7a7a7f` | The edge of an input, select or text box: at least 3:1 against its surroundings (WCAG 1.4.11), which the soft line is not (1.9:1) |
 | `--zebra` | `#fafafb` | `#222224` | Alternate row tint |
 | `--bar` | `#f5f5f7` | `#161618` | The top and bottom bars (opaque on purpose: contrast cannot depend on what scrolls underneath) |
 | `--shadow-modal` | `0 16px 48px -8px rgba(0, 0, 0, .25)` | same | Elevation of pop-ups and messages |

@@ -257,6 +257,7 @@ export function onClick(e) {
   if (a === 'fillbudgets') return fillBudgets(el.closest('form'));
   if (a === 'ignore') return ignore(card);
   if (a === 'applyrules') { el.disabled = true; return call('applyRules').then((r) => { toast(T.rulesApplied(r.changed)); return refresh(); }).catch((err) => { el.disabled = false; toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }); }); }
+  if (a === 'linktx') { el.disabled = true; return call('linkTransfer', { id: el.dataset.id, withId: el.dataset.with }).then(() => { toast(T.attnLinked); return refresh(); }).catch((err) => { el.disabled = false; toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }); }); }
   if (a === 'dismissmail') { el.disabled = true; return call('dismissEmail', { gmailId: el.dataset.id }).then(() => { toast(T.mailDismissed); return refresh(); }).catch((err) => { el.disabled = false; toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }); }); }
   if (a === 'delete') {
     if (!window.confirm(T.confirmDelete)) return null;

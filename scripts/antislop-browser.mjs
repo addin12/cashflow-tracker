@@ -16,7 +16,8 @@ import { answers } from './demo-data.mjs';
 
 // ---- shots
 const built = readFileSync('dist/index.html', 'utf8');
-const sizes = { phone: [390, 1500], pc: [1440, Number((process.argv.find((a) => a.startsWith('--pc-height=')) || '=1000').split('=')[1])] };
+const phoneWidth = Number((process.argv.find((a) => a.startsWith('--phone-width=')) || '=390').split('=')[1]);
+const sizes = { phone: [phoneWidth, 1500], pc: [1440, Number((process.argv.find((a) => a.startsWith('--pc-height=')) || '=1000').split('=')[1])] };
 const shots = [
   ['review'], ['dashboard'], ['transactions'], ['add'], ['settings'],
   ['editor', "document.querySelector('.nav [data-tab=transactions]').click(); setTimeout(function(){ document.querySelector('.trow').click(); }, 300);"],
@@ -36,7 +37,7 @@ const shots = [
   ['household', "document.querySelector('.nav [data-tab=settings]').click(); setTimeout(function(){ document.querySelector('[data-section=household]').click(); }, 300);"],
   ['setbudgets', "document.querySelector('.nav [data-tab=settings]').click(); setTimeout(function(){ document.querySelector('[data-section=budgets]').click(); }, 300);"],
   ['bell', "document.querySelector('.nav [data-tab=dashboard]').click(); setTimeout(function(){ document.querySelector('#bellBtn').click(); }, 300);"],
-  ['darkmode', "document.querySelector('#themeBtn').click(); document.querySelector('.nav [data-tab=dashboard]').click();"],
+  ['darkmode', process.argv.includes('--dark') ? "document.querySelector('.nav [data-tab=dashboard]').click();" : "document.querySelector('#themeBtn').click(); document.querySelector('.nav [data-tab=dashboard]').click();"],
   ['dup', "document.querySelector('.nav [data-tab=add]').click(); setTimeout(function(){ var f = document.querySelector('form[data-form=add]'); f.querySelector('[name=amount]').value = '45000'; f.querySelector('[name=category]').value = 'Food & Beverages'; f.querySelector('[name=description]').value = 'Bakso'; f.querySelector('[type=submit]').click(); }, 600);"],
 ];
 
@@ -55,6 +56,7 @@ window.google = { script: { get run() { var ok; var r = { withSuccessHandler: fu
   api: function (name, json) { var p = JSON.parse(json || '{}'); var A = ${JSON.stringify(answers).replace(/</g, '\\u003c')};
     var data = name === 'dashboard' ? (A['dashboard:' + p.month] || A.init.dashboard) : name === 'init' ? A.init : A[name] || { ok: true };
     setTimeout(function () { ok(JSON.stringify({ data: data })); }, 50); } }; return r; } } };
+${dark ? "try { localStorage.setItem('cashflow.theme.v1', 'dark'); } catch (e) {}" : ''}
 Object.defineProperty(navigator, 'language', { value: 'id-ID' });
 window.__cls = 0; try { new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { window.__cls += e.value; }); }).observe({ type: 'layout-shift', buffered: true }); } catch (x) { /* not supported */ }
 setTimeout(function () { ${click} }, 400);

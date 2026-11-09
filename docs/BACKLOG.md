@@ -42,3 +42,9 @@ What is left after round 29 (2026-11-04). Nothing here is broken; each item is w
 
 - Every round so far is pushed and CI is green (build, string check, tests in UTC and Asia/Jakarta). Keep checking CI after each push.
 - Dev checks on real data (read-only): `node scripts/smoke-live.mjs [--audit]`, `node scripts/screens-live.mjs`.
+
+## Added 2026-11-09
+
+- A transfer recorded on one side only is offered for joining in "Needs attention" (`src/core/transfers.js`); the app never joins it by itself. Found on real data: Rp4.500.000 on 2 Nov between two of the partner's accounts; it becomes a joinable row once her bank name is set (the Mandiri email says her own name, which the app only knows as "her own" when Settings → Pasangan has it).
+- The mail coverage report (spreadsheet menu) has not been run on the real mailbox: run it once and see which senders it lists.
+- Dev dependencies: 10 npm audit findings remain in @google/clasp and exceljs (see the audit file); not worth a downgrade.

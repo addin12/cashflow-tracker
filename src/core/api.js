@@ -19,6 +19,7 @@ import {
   manualRows, balanceCorrection, renamedCategories, budgetUsage, filterTransactions, isoDate, newId, suggestBudgets, bigSpends, newestFromEmail, dailySpending, rowView,
 } from './app.js';
 import { compileRule, ruleUpdates } from './rules.js';
+import { linkableTransfers } from './transfers.js';
 import { unknownAccounts, adoptRows } from './newaccounts.js';
 import { recurringCharges, payee } from './recurring.js';
 import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth, paydayOf } from './salary.js';
@@ -249,7 +250,7 @@ export function createApi(store, env) {
     review() {
       const all = rows();
       const r = reviewItems(all, store.read(TABS.inboxLog), { today: now() });
-      return { ...r, pending: withFirst(r.pending, firstIds(all)), salary: salaries(all), day: dayState(all), ruleable: ruleUpdates(all, store.read(TABS.rules)).length };
+      return { ...r, pending: withFirst(r.pending, firstIds(all)), salary: salaries(all), day: dayState(all), ruleable: ruleUpdates(all, store.read(TABS.rules)).length, linkable: linkableTransfers(all.filter((r) => !owner() || r.owner === owner())) };
     },
 
     /** Runs the rules over the pending rows that have an account: categories filled, auto-approving rules approve. */
@@ -257,6 +258,15 @@ export function createApi(store, env) {
       const updates = ruleUpdates(rows(), store.read(TABS.rules));
       if (updates.length) store.update(TABS.transactions, updates.map((u) => ({ id: u.id, changes: touch(u.changes) })));
       return { ok: true, changed: updates.length };
+    },
+
+    /** Joins the two sides of a transfer between a person's own accounts: the other row becomes the transfer's second side. */
+    linkTransfer({ id, withId }) {
+      const link = linkableTransfers(rows()).find((x) => x.id === String(id) && x.withId === String(withId));
+      if (!link) throw new Error('these two rows can no longer be linked');
+      const lone = rows().find((r) => r.id === link.id);
+      store.update(TABS.transactions, [{ id: link.withId, changes: touch({ transfer_id: lone.transfer_id, category: lone.category, status: 'approved' }) }]);
+      return { ok: true };
     },
 
     /** An email that can't be read and isn't a transaction: its log line becomes "skip", so it is not shown or tried again. */
@@ -1182,5 +1192,5 @@ export const API_METHODS = [
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
   'yearly', 'importStatement', 'undoImport', 'updateMany', 'tagih', 'owedSet', 'owedRemove', 'savePlans', 'saveAssets', 'markRecurring',
-  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe', 'markClaim', 'saveHousehold', 'settleUp', 'undoSettlement', 'saveTelegramToken', 'telegramUnlink', 'telegramRemove', 'restoreBackup', 'applyRules', 'dismissEmail',
+  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe', 'markClaim', 'saveHousehold', 'settleUp', 'undoSettlement', 'saveTelegramToken', 'telegramUnlink', 'telegramRemove', 'restoreBackup', 'applyRules', 'dismissEmail', 'linkTransfer',
 ];

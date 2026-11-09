@@ -57,6 +57,8 @@ export async function openPage(file, { reduced = false, forced = false, dark = f
   await sleep(1500);
   return {
     run: async (expression) => (await send('Runtime.evaluate', { expression, returnByValue: true })).result.result.value,
+    /** The window as a PNG (base64). */
+    shot: async () => (await send('Page.captureScreenshot', { format: 'png' })).result.data,
     close: () => { ws.close(); proc.kill(); },
   };
 }
