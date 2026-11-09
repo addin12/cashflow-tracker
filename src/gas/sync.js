@@ -136,13 +136,14 @@ function upsertConnection(ss, gmail, changes) {
  * @returns {object} summary (also written to the Connections row)
  */
 export function runSync(opts = {}) {
+  // Once per account after a parser for a new sender (by the trigger or by "Sync now", whichever comes first): the checkpoint only moves
+  // forward, so mail from before it is read again from the start date (what is already in Transactions or logged is skipped, so a re-read
+  // costs only the listing).
+  try { runOnce('rescan-1', () => { const u = PropertiesService.getUserProperties(); u.setProperty(P.rescan, '1'); u.deleteProperty(P.checkpoint); }); } catch (e) { /* tried again at the next upgrade */ }
   // The every-minute trigger: nothing new in Gmail means nothing to do.
   if (opts.quick) {
     // Messages to the Telegram bot become transactions; the spreadsheet is opened only when there are any.
     try { pollTelegram(() => appSpreadsheet(), { onChange: () => PropertiesService.getScriptProperties().setProperty(P.stamp, String(Date.now())) }); } catch (e) { /* tried again next minute */ }
-    // Once per account after a parser for a new sender: the checkpoint only moves forward, so mail from before it is read again from the
-    // start date (what is already in Transactions or logged is skipped, so a re-read costs only the listing).
-    try { runOnce('rescan-1', () => { const u = PropertiesService.getUserProperties(); u.setProperty(P.rescan, '1'); u.deleteProperty(P.checkpoint); }); } catch (e) { /* tried again at the next upgrade */ }
     try { if (!needsFullRun(PropertiesService.getUserProperties())) return { status: 'idle' }; } catch (e) { /* look properly instead */ }
   }
   const lock = LockService.getScriptLock();
@@ -187,6 +188,7 @@ function syncOnce(opts) {
     // The Cashflow calendar is each person's own (the upgrade above is done by whichever account syncs first), so each person's sync
     // tidies it once: filled when switched on, and the copies earlier versions left are removed. The reason of a failure is in Config calendar_status.
     runOnce('calendar-tidy-1', () => tidyCalendar(ss));
+    try { ensureTrigger(); } catch (e) { /* tried again at the next run */ }
     rememberMember(me);
     const mode = modeOf(ss, opts.defaultMode || 'preview');
     let yearNote = '';
@@ -353,6 +355,17 @@ function resetPreviewIfStale(ss) {
   log.clear();
   log.getRange(1, 1, 1, INBOX_LOG_HEADERS.length).setValues([INBOX_LOG_HEADERS]).setFontWeight('bold');
   props.setProperty('PREVIEW_EPOCH', PREVIEW_EPOCH);
+}
+
+/**
+ * Puts the every-minute trigger back when this person has none (deleted, or switched off by Google after errors): their sync then
+ * runs again on its own. A person's triggers are theirs alone, so this is checked every time their own sync runs.
+ * @returns {boolean} whether it had to install one
+ */
+export function ensureTrigger() {
+  if (ScriptApp.getProjectTriggers().some((t) => t.getHandlerFunction() === TRIGGER_HANDLER)) return false;
+  installTrigger();
+  return true;
 }
 
 /** (Re)installs the every-minute trigger for the person running this. */
