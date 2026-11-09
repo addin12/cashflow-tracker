@@ -29,6 +29,13 @@ const listOf = (ss, key) => String(configValue(ss, key) || '').split(',').map(no
 /** Each person's Google addresses (Config owner_email / partner_email, comma-separated: one person may use two). */
 export const ownerEmails = (ss) => listOf(ss, 'owner_email');
 const partnerEmails = (ss) => listOf(ss, 'partner_email');
+/** Every Google address of the person this one belongs to (the owner's or the partner's), or just the address itself. */
+export function addressesOfPerson(ss, email) {
+  const e = norm(email);
+  if (ownerEmails(ss).includes(e)) return ownerEmails(ss);
+  if (partnerEmails(ss).includes(e)) return partnerEmails(ss);
+  return e ? [e] : [];
+}
 export const isPartner = (ss, email) => !!email && partnerEmails(ss).includes(norm(email));
 /** Is this the owner? Unknown (''): yes, as only people the spreadsheet is shared with get this far. Until an owner address is known, anyone who isn't the partner. */
 export const isOwnerEmail = (ss, email) => !norm(email) || (ownerEmails(ss).length ? ownerEmails(ss).includes(norm(email)) : !isPartner(ss, email));

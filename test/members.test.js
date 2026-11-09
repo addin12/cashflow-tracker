@@ -1,7 +1,7 @@
 // Who is who: only the owner's account is the owner, only the partner's accounts are the partner,
 // anyone else the spreadsheet happens to be shared with gets no name (and so no app).
 import { describe, expect, it } from 'vitest';
-import { memberName, isOwnerEmail, isPartner, whoAmI, roleKey } from '../src/gas/members.js';
+import { memberName, isOwnerEmail, isPartner, whoAmI, roleKey, addressesOfPerson } from '../src/gas/members.js';
 import { CONFIG_KEYS } from '../src/core/schema.js';
 
 function sheet(cfg) {
@@ -24,6 +24,16 @@ describe('members', () => {
     const ss = sheet(base);
     expect(memberName(ss, 'me@example.com')).toBe('Me');
     expect(memberName(ss, 'dewi@example.com')).toBe('Dewi');
+  });
+});
+
+describe('addressesOfPerson', () => {
+  it('all the addresses of the person an address belongs to, in any letter case; just itself for a stranger; nothing for nothing', () => {
+    const ss = sheet({ ...base, owner_email: 'me@example.com, me.two@example.com' });
+    expect(addressesOfPerson(ss, 'ME.TWO@example.com')).toEqual(['me@example.com', 'me.two@example.com']);
+    expect(addressesOfPerson(ss, 'dewi@example.com')).toEqual(['dewi@example.com', 'dewi.work@example.com']);
+    expect(addressesOfPerson(ss, 'friend@example.com')).toEqual(['friend@example.com']);
+    expect(addressesOfPerson(ss, '')).toEqual([]);
   });
 });
 

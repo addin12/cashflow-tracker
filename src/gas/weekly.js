@@ -43,8 +43,8 @@ function apiFor(ss, today = new Date()) {
   const w = whoAmI(ss);
   return { api: createApi(sheetStore(ss), { now: () => today, meName: w.name, isOwner: w.owner, myEmail: w.email }), w };
 }
-function send(ss, { subject, html, attachments }) {
-  const to = myAddress();
+function send(ss, { subject, html, attachments }, recipients) {
+  const to = recipients && recipients.length ? [...new Set(recipients)].join(',') : myAddress();
   MailApp.sendEmail({ to, subject, htmlBody: html, name: 'Cashflow', ...(attachments ? { attachments } : {}) });
   return { sent: true, to };
 }
@@ -118,13 +118,13 @@ export function runEvening(ss, today = new Date()) {
  * An alert about a sync problem, at most once per 12 hours for the same problem.
  * problem: { error?: string, unread?: [{subject, from, reason}] }
  */
-export function sendSyncAlert(ss, problem) {
-  const what = problem.selftest ? `s:${(problem.selftest.failures || []).length}` : problem.error ? `e:${problem.error}` : problem.stale ? `t:${problem.stale.map((s) => s.gmail).join('|')}` : `u:${(problem.unread || []).map((u) => u.subject).join('|')}`;
+export function sendSyncAlert(ss, problem, recipients) {
+  const what = problem.selftest ? `s:${(problem.selftest.failures || []).length}` : problem.error ? `e:${problem.error}` : problem.stale ? `to:${problem.stale.map((s) => s.gmail).join('|')}` : `u:${(problem.unread || []).map((u) => u.subject).join('|')}`;
   const key = `ALERT_${what.slice(0, 200)}`;
   const props = PropertiesService.getScriptProperties();
   const last = Number(props.getProperty(key) || 0);
   if (Date.now() - last < ALERT_EVERY_MS) return { sent: false, reason: 'sent recently' };
-  const r = send(ss, alertEmail(problem, { appUrl: appUrl(ss), lang: langOf(ss) }));
+  const r = send(ss, alertEmail(problem, { appUrl: appUrl(ss), lang: langOf(ss) }), recipients);
   props.setProperty(key, String(Date.now()));
   return r;
 }

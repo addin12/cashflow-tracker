@@ -27,7 +27,7 @@ import { staleSyncs } from '../core/synchealth.js';
 import { tidyCalendar } from './calendar.js';
 import { runOnce } from './once.js';
 import { pollTelegram } from './telegram.js';
-import { memberName, bankNames, isOwnerEmail, ownerEmails, sharePartner, rememberMember } from './members.js';
+import { memberName, bankNames, isOwnerEmail, ownerEmails, addressesOfPerson, sharePartner, rememberMember } from './members.js';
 
 const OVERLAP_MS = 2 * 24 * 3600 * 1000;
 const TIME_BUDGET_MS = 4.5 * 60 * 1000; // Apps Script stops a run at 6 minutes
@@ -348,7 +348,9 @@ function syncOnce(opts) {
     if (mode === 'live') {
       try {
         const stale = staleSyncs(readTable(ss, TABS.connections), new Date(), { skip: gmail });
-        if (stale.length) sendSyncAlert(ss, { stale: stale.map((x) => ({ ...x, who: memberName(ss, x.gmail) })) });
+        // To the owner, and to the other addresses of the person whose account went quiet: they are the one who can fix it.
+        const to = [...ownerEmails(ss), ...stale.flatMap((x) => addressesOfPerson(ss, x.gmail).filter((a) => a !== x.gmail.toLowerCase()))];
+        if (stale.length) sendSyncAlert(ss, { stale: stale.map((x) => ({ ...x, who: memberName(ss, x.gmail) })) }, to);
       } catch (e) { /* the app shows it too */ }
     }
     return summary;
