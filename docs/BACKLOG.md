@@ -24,7 +24,7 @@ What is left after round 29 (2026-11-04). Nothing here is broken; each item is w
 
 ## Paused by the owner
 
-- The partner's three Gmail sign-ins in n8n, and the 24/7 Oracle Always Free server: see `D:\Project\n8n\BACKLOG.md`.
+- ~~The partner's Gmail sign-ins in n8n~~ Done 2026-11-09: two accounts, both read through n8n. The 24/7 Oracle Always Free server stays paused: see `D:\Project\n8n\BACKLOG.md`.
 
 ## Open, found in round 29
 
