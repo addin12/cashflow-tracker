@@ -34,7 +34,7 @@ const shots = [
   ['household', "document.querySelector('.nav [data-tab=settings]').click(); setTimeout(function(){ document.querySelector('[data-section=household]').click(); }, 300);"],
   ['setbudgets', "document.querySelector('.nav [data-tab=settings]').click(); setTimeout(function(){ document.querySelector('[data-section=budgets]').click(); }, 300);"],
   ['bell', "document.querySelector('.nav [data-tab=dashboard]').click(); setTimeout(function(){ document.querySelector('#bellBtn').click(); }, 300);"],
-  ['darkmode', "document.querySelector('#themeBtn').click(); document.querySelector('.nav [data-tab=dashboard]').click();"],
+  ['darkmode', process.argv.includes('--dark') ? "document.querySelector('.nav [data-tab=dashboard]').click();" : "document.querySelector('#themeBtn').click(); document.querySelector('.nav [data-tab=dashboard]').click();"],
   ['dup', "document.querySelector('.nav [data-tab=add]').click(); setTimeout(function(){ var f = document.querySelector('form[data-form=add]'); f.querySelector('[name=amount]').value = '45000'; f.querySelector('[name=category]').value = 'Food & Beverages'; f.querySelector('[name=description]').value = 'Bakso'; f.querySelector('[type=submit]').click(); }, 600);"],
 ];
 
@@ -54,6 +54,7 @@ window.google = { script: { get run() { var ok; var r = { withSuccessHandler: fu
   api: function (name, json) { var p = JSON.parse(json || '{}'); var A = ${JSON.stringify(answers).replace(/</g, '\\u003c')};
     var data = name === 'dashboard' ? (A['dashboard:' + p.month] || A.init.dashboard) : name === 'init' ? A.init : A[name] || { ok: true };
     setTimeout(function () { ok(JSON.stringify({ data: data })); }, 50); } }; return r; } } };
+${dark ? "try { localStorage.setItem('cashflow.theme.v1', 'dark'); } catch (e) {}" : ''}
 Object.defineProperty(navigator, 'language', { value: 'id-ID' });
 setTimeout(function () { ${click} }, 400);
 setTimeout(function () {

@@ -34,6 +34,14 @@ describe('interface details', () => {
     expect(switches.length).toBe(8); // six email and calendar options, the push events, auto-approve of a rule
     expect(settings).not.toMatch(/<label class="check"><input type="checkbox" name="(weekly|monthly|payday|bill|close)_email"/);
   });
+  it('has no colour literal outside the token blocks (a colour is a token, so a theme change reaches it)', () => {
+    const outsideTokens = css
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/:root[^{]*\{[^}]*\}/g, '') // the token blocks: light, and both copies of dark (one sits inside a media query)
+      .replace(/url\("[^"]*"\)/g, '');
+    const literals = [...outsideTokens.matchAll(/#[0-9a-fA-F]{3,8}\b|rgba?\(/g)].map((m) => outsideTokens.slice(Math.max(0, m.index - 40), m.index + 24).replace(/\s+/g, ' '));
+    expect(literals).toEqual([]);
+  });
   it('keeps the switch big enough to touch and the off track dark enough to see', () => {
     const track = rule('.switch input');
     expect(track).toMatch(/width:\s*48px/);

@@ -65,4 +65,19 @@ async function settings(opts) {
   } finally { page.close(); }
 }
 
+{
+  // Hallmark gate 34 and 56: nothing scrolls sideways, and the sticky bar is not sticky next to the table header on a PC.
+  const phone = await settings({ width: 390 });
+  try {
+    check('nothing scrolls sideways on a phone (Settings)', await phone.run('document.documentElement.scrollWidth <= window.innerWidth'));
+  } finally { phone.close(); }
+  const pc = await openPage(pageFile(10), { width: 1280, height: 900 });
+  try {
+    await pc.run("document.querySelector('.nav [data-tab=transactions]').click()");
+    await sleep(900);
+    const pos = await pc.run("JSON.stringify({ appbar: getComputedStyle(document.querySelector('.appbar')).position, thead: (document.querySelector('.thead') ? getComputedStyle(document.querySelector('.thead')).position : 'none') })");
+    check('on a PC the app bar is not sticky, so it never stacks with the table header', JSON.parse(pos).appbar !== 'sticky', pos);
+  } finally { pc.close(); }
+}
+
 process.exit(results.every(Boolean) ? 0 : 1);

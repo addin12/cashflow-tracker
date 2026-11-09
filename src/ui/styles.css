@@ -3,13 +3,15 @@
    meaning never shown by colour alone. Phone: bottom tab bar. PC (900px+): sidebar. */
 :root {
   --bg: #f5f5f7; --card: #ffffff; --ink: #1d1d1f; --ink-2: #424245; --muted: #66666b; --line: #e3e3e6; --line-soft: #f0f0f2;
-  --accent: #0066cc; --accent-press: #0057ad; --accent-soft: #e8f1fb; --on-accent: #ffffff; --accent-btn: #0066cc; --accent-btn-press: #0057ad;
+  --accent: #0066cc; --accent-press: #0057ad; --accent-soft: #e8f1fb; --on-accent: #fbfdff; --accent-btn: #0066cc; --accent-btn-press: #0057ad;
   --success: #1a7f37; --success-soft: #e4f4e8; --warning: #8a5300; --warning-soft: #fff3d6; --critical: #c9252c; --critical-soft: #fdecec;
   --field: #ffffff; --field-line: #c8c8cd; --zebra: #fafafb; --bar: #f5f5f7; --shadow-modal: 0 16px 48px -8px rgba(0, 0, 0, .25);
   --t0: #e6e0f5; --t0i: #3d2a73; --t1: #dcecfa; --t1i: #0b4a7d; --t2: #d9f3e1; --t2i: #11602b; --t3: #ffe8d4; --t3i: #7a3a00;
   --t4: #fde0ec; --t4i: #8a1d50; --t5: #fef7d6; --t5i: #6b5200; --t6: #f0eeec; --t6i: #4a4740; --t7: #dff4f2; --t7i: #0d5e5a;
   --r-card: 18px; --r-field: 12px; --r-tag: 6px; --r-pill: 999px; /* the scale: pill = what you tap to act, 12 = fields and small panels, 18 = cards and sheets */ --nav-w: 248px;
   --toast: #1d1d1f; --on-toast: #f5f5f7; /* the message bar is dark in both themes */
+  --on-critical: #fffafa; --scrim: rgba(0, 0, 0, .4); --edge-shadow: 0 1px 3px rgba(0, 0, 0, .12); --soft-shadow: 0 2px 10px rgba(0, 0, 0, .08);
+  --toast-soft: rgba(255, 255, 255, .16); --hair-dim: rgba(0, 0, 0, .06); --accent-wash: rgba(0, 102, 204, .15); --logo-paper: #fdfdfc;
   --hit: 44px; /* the smallest a tappable thing may be, in height and width */
   --dur-quick: 120ms; --dur-base: 200ms; --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1); /* motion: press and hover, then enter and leave */
   color-scheme: light;
@@ -17,9 +19,10 @@
 /* Dark: chosen in the app (data-theme="dark"), or the device is dark and light wasn't chosen. */
 :root[data-theme="dark"] {
   --bg: #000000; --card: #1c1c1e; --ink: #f5f5f7; --ink-2: #d1d1d6; --muted: #a1a1a6; --line: #38383a; --line-soft: #2c2c2e;
-  --accent: #2997ff; --accent-press: #4aa8ff; --accent-soft: #10263f; --on-accent: #ffffff; --accent-btn: #0a67cf; --accent-btn-press: #0a58b0;
+  --accent: #2997ff; --accent-press: #4aa8ff; --accent-soft: #10263f; --on-accent: #fbfdff; --accent-btn: #0a67cf; --accent-btn-press: #0a58b0;
   --success: #4cc76c; --success-soft: #11301b; --warning: #f0b44c; --warning-soft: #3a2a0c; --critical: #ff6b6b; --critical-soft: #3d1414;
   --field: #2c2c2e; --field-line: #48484a; --zebra: #222224; --bar: #161618;
+  --on-critical: #2b0a0a; --hair-dim: rgba(255, 255, 255, .08); --accent-wash: rgba(41, 151, 255, .2);
   --t0: #2e2647; --t0i: #d7cdfa; --t1: #15324a; --t1i: #b9dcfa; --t2: #163a22; --t2i: #b5ecc5; --t3: #43290f; --t3i: #ffd3ad;
   --t4: #45192f; --t4i: #ffc2db; --t5: #3d3410; --t5i: #fbe7a1; --t6: #333230; --t6i: #dedad3; --t7: #113a37; --t7i: #b4ece6;
   color-scheme: dark;
@@ -27,9 +30,10 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #000000; --card: #1c1c1e; --ink: #f5f5f7; --ink-2: #d1d1d6; --muted: #a1a1a6; --line: #38383a; --line-soft: #2c2c2e;
-    --accent: #2997ff; --accent-press: #4aa8ff; --accent-soft: #10263f; --on-accent: #ffffff; --accent-btn: #0a67cf; --accent-btn-press: #0a58b0;
+    --accent: #2997ff; --accent-press: #4aa8ff; --accent-soft: #10263f; --on-accent: #fbfdff; --accent-btn: #0a67cf; --accent-btn-press: #0a58b0;
     --success: #4cc76c; --success-soft: #11301b; --warning: #f0b44c; --warning-soft: #3a2a0c; --critical: #ff6b6b; --critical-soft: #3d1414;
     --field: #2c2c2e; --field-line: #48484a; --zebra: #222224; --bar: #161618;
+    --on-critical: #2b0a0a; --hair-dim: rgba(255, 255, 255, .08); --accent-wash: rgba(41, 151, 255, .2);
     --t0: #2e2647; --t0i: #d7cdfa; --t1: #15324a; --t1i: #b9dcfa; --t2: #163a22; --t2i: #b5ecc5; --t3: #43290f; --t3i: #ffd3ad;
     --t4: #45192f; --t4i: #ffc2db; --t5: #3d3410; --t5i: #fbe7a1; --t6: #333230; --t6i: #dedad3; --t7: #113a37; --t7i: #b4ece6;
     color-scheme: dark;
@@ -38,7 +42,7 @@
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-html, body { margin: 0; background: var(--bg); color: var(--ink); }
+html, body { margin: 0; background: var(--bg); color: var(--ink); overflow-x: clip; } /* clip, not hidden: nothing may scroll sideways, and the sticky bars keep working */
 body {
   font: 17px/1.47 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
   letter-spacing: -0.01em; -webkit-font-smoothing: antialiased;
@@ -70,7 +74,7 @@ button, input, select, textarea { font: inherit; letter-spacing: inherit; color:
 .nav button.on { color: var(--accent); }
 .nav .count {
   position: absolute; top: 2px; left: calc(50% + 6px); min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill);
-  background: var(--critical); color: #fff; font: 600 12px/20px inherit; font-style: normal; text-align: center;
+  background: var(--critical); color: var(--on-critical); font: 600 12px/20px inherit; font-style: normal; text-align: center;
 }
 
 @media (min-width: 900px) {
@@ -111,7 +115,7 @@ button, input, select, textarea { font: inherit; letter-spacing: inherit; color:
 }
 
 /* ---------- cards */
-.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 20px; }
+.card { background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-card); padding: 20px; }
 .card + .card { margin-top: 0; }
 .card h2 { margin: 0 0 4px; font-size: 19px; font-weight: 600; letter-spacing: -0.01em; }
 .card .lead { margin: 0 0 16px; color: var(--muted); font-size: 15px; }
@@ -149,7 +153,7 @@ button, input, select, textarea { font: inherit; letter-spacing: inherit; color:
 .btn.plain { background: transparent; color: var(--accent); padding: 0 12px; }
 .btn.danger { background: transparent; color: var(--critical); border-color: var(--field-line); }
 .btn.small { min-height: var(--hit); padding: 0 14px; font-size: 15px; }
-.btn[disabled] { opacity: .55; cursor: default; }
+.btn[disabled], .btn.primary[disabled] { background: var(--line-soft); color: var(--muted); border-color: var(--line); cursor: not-allowed; }
 .btn.block { width: 100%; }
 /* The arrows are drawn here, not typed in the button, so the button's own text is just the month and its spoken name can match it. */
 .month-prev::before { content: '‹'; }
@@ -205,13 +209,13 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible, select:focus-vi
 /* ---------- segmented control */
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--line-soft); border-radius: var(--r-field); padding: 4px; gap: 4px; }
 .seg button { min-height: var(--hit); border: 0; background: transparent; border-radius: calc(var(--r-field) - 4px); font-size: 16px; font-weight: 500; color: var(--ink-2); cursor: pointer; padding: 0 6px; }
-.seg button.on { background: var(--card); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.seg button.on { background: var(--card); color: var(--ink); font-weight: 600; box-shadow: var(--edge-shadow); }
 /* Once seg.js has placed the thumb, it is the thumb that is white and slides; the active button only changes its text. */
 .seg { position: relative; }
 .seg.thumb::before {
   content: ''; position: absolute; top: 4px; bottom: 4px; left: 0; width: var(--seg-w); transform: translateX(var(--seg-x)); background: var(--card);
-  border-radius: calc(var(--r-field) - 4px); box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
-  transition: transform var(--dur-quick) var(--ease-out), width var(--dur-quick) var(--ease-out);
+  border-radius: calc(var(--r-field) - 4px); box-shadow: var(--edge-shadow);
+  transition: transform var(--dur-quick) var(--ease-out);
 }
 .seg.thumb button { position: relative; z-index: 1; }
 .seg.thumb button.on { background: transparent; box-shadow: none; }
@@ -284,7 +288,7 @@ button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .chip { display: inline-flex; align-items: center; gap: 6px; min-height: var(--hit); padding: 0 8px 0 14px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent); border: 0; font-size: 15px; font-weight: 500; cursor: pointer; }
 .chip .x { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 14px; }
-.chip:hover .x { background: rgba(0, 102, 204, .15); }
+.chip:hover .x { background: var(--accent-wash); }
 .summary-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; margin: 20px 0 10px; font-size: 16px; color: var(--ink-2); }
 .summary-bar b { color: var(--ink); }
 .table { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; }
@@ -327,7 +331,7 @@ button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
 .budget-grid .field { margin-top: 12px; }
 
 /* ---------- modal: bottom sheet on a phone, dialog on a PC */
-.modal { display: none; position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, .4); align-items: flex-end; justify-content: center; }
+.modal { display: none; position: fixed; inset: 0; z-index: 10; background: var(--scrim); align-items: flex-end; justify-content: center; }
 .modal.open { display: flex; }
 /* The pop-up eases in (it closes at once: the page behind is already waiting). Browsers without @starting-style just show it. */
 .modal { overscroll-behavior: contain; transition: opacity var(--dur-base) var(--ease-out); }
@@ -351,13 +355,13 @@ button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
   background: var(--toast); color: var(--on-toast); font-size: 16px; box-shadow: var(--shadow-modal); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
 .toast.show { opacity: 1; transform: none; pointer-events: auto; }
-.toast.bad { background: var(--critical); color: #fff; }
-.toast button { border: 0; background: rgba(255, 255, 255, .16); color: inherit; font: inherit; font-weight: 600; min-height: var(--hit); padding: 0 14px; border-radius: var(--r-pill); cursor: pointer; white-space: nowrap; }
+.toast.bad { background: var(--critical); color: var(--on-critical); }
+.toast button { border: 0; background: var(--toast-soft); color: inherit; font: inherit; font-weight: 600; min-height: var(--hit); padding: 0 14px; border-radius: var(--r-pill); cursor: pointer; white-space: nowrap; }
 @media (min-width: 900px) { .toasts { left: calc(50% + var(--nav-w) / 2); bottom: 32px; } }
 .status {
   position: fixed; z-index: 11; top: calc(10px + env(safe-area-inset-top)); right: 12px; display: flex; align-items: center; gap: 8px;
   padding: 6px 14px; border-radius: var(--r-pill); background: var(--card); border: 1px solid var(--line); color: var(--ink-2); font-size: 14px;
-  opacity: 0; transform: translateY(-6px); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); pointer-events: none; box-shadow: 0 2px 10px rgba(0, 0, 0, .08);
+  opacity: 0; transform: translateY(-6px); transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); pointer-events: none; box-shadow: var(--soft-shadow);
 }
 .status.show { opacity: 1; transform: none; }
 .status.done { color: var(--success); }
@@ -433,7 +437,7 @@ button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
 .dup-warning { margin-top: 20px; padding: 16px 20px; border-radius: var(--r-card); background: var(--warning-soft); color: var(--ink); }
 .dup-warning > b { color: var(--warning); font-size: 17px; }
 .dup-warning p { margin: 4px 0 8px; color: var(--ink-2); }
-.dup-warning .rowi { border-bottom-color: rgba(0, 0, 0, .06); }
+.dup-warning .rowi { border-bottom-color: var(--hair-dim); }
 #addDup:not(:empty) + .actions { display: none; } /* the warning has its own two choices */
 
 /* ---------- round 5: app bar (notifications, theme) */
@@ -446,7 +450,7 @@ button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
 .iconbtn { position: relative; width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
 .iconbtn:hover { background: var(--line-soft); }
 .iconbtn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.iconbtn .count { position: absolute; top: 4px; right: 2px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--critical); color: #fff; font: 600 12px/20px inherit; font-style: normal; text-align: center; }
+.iconbtn .count { position: absolute; top: 4px; right: 2px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--critical); color: var(--on-critical); font: 600 12px/20px inherit; font-style: normal; text-align: center; }
 /* the sun shows in dark mode (tap for light), the moon in light mode */
 .iconbtn .i-sun { display: none; }
 :root[data-theme="dark"] .iconbtn .i-sun { display: block; } :root[data-theme="dark"] .iconbtn .i-moon { display: none; }
@@ -482,14 +486,14 @@ button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
 .rec-row .rec-hide { min-height: 44px; padding: 0; font-size: 14px; }
 
 /* Salary card in Review: income, so the accent is green. */
-.salary-card { border-left: 4px solid var(--success); }
+.salary-card { border-color: var(--success); }
 .salary-card .fields2 { margin-top: 12px; }
 .notice + .notice { margin-top: 8px; }
 
 /* Settings: a list of sections, one section open at a time (Apple Settings style).
    Phone: the list and the open section are two screens ("‹ Pengaturan" goes back).
    PC: the list stays on the left (sticky), the open section on the right. */
-.settings .set-group { margin: 24px 4px 8px; font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.settings .set-group { margin: 24px 4px 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
 .settings .set-list { padding-top: 4px; padding-bottom: 4px; }
 .settings .set-row { width: 100%; min-height: 56px; text-align: left; border-radius: var(--r-field); }
 .settings .set-row .what { flex: 1; }
@@ -557,7 +561,7 @@ button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
 .ov-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 20px; }
 @media (min-width: 1100px) { .ov-grid { grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); align-items: start; } }
 .spend .k, .today-card .eyebrow { margin: 0 0 4px; color: var(--muted); font-size: 15px; }
-.today-card .eyebrow { text-transform: uppercase; letter-spacing: .04em; font-size: 13px; font-weight: 600; }
+.today-card .eyebrow { font-size: 14px; font-weight: 600; }
 .today-card h2 { margin: 0 0 8px; }
 .cmp { margin: 6px 0 0; font-size: 15px; font-weight: 500; }
 .cmp.up { color: var(--critical); } .cmp.down { color: var(--success); }
@@ -577,7 +581,7 @@ button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
 .ico { width: 1.15em; height: 1.15em; flex: none; vertical-align: -0.2em; }
 .cat-ic .ico { width: 22px; height: 22px; vertical-align: 0; }
 .logo svg { width: 60%; height: 60%; }
-.cat-ic.logo { background: #fff; overflow: hidden; }
+.cat-ic.logo { background: var(--logo-paper); overflow: hidden; }
 .cat-ic.logo img { width: 100%; height: 100%; padding: 4px; box-sizing: border-box; object-fit: contain; display: block; }
 .cat-ic.none { background: transparent; border: 1px dashed var(--field-line); color: var(--muted); }
 .cat-row, .lrow { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 0; border: 0; border-bottom: 1px solid var(--line-soft); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; min-height: 56px; }
@@ -608,8 +612,8 @@ button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
 .hm-cell.blank { background: none; cursor: default; }
 .hm-cell.l1 { background: color-mix(in srgb, var(--accent) 18%, var(--card)); }
 .hm-cell.l2 { background: color-mix(in srgb, var(--accent) 38%, var(--card)); }
-.hm-cell.l3 { background: color-mix(in srgb, var(--accent) 62%, var(--card)); color: #fff; }
-.hm-cell.l4 { background: var(--accent); color: #fff; }
+.hm-cell.l3 { background: color-mix(in srgb, var(--accent-btn) 62%, var(--card)); color: var(--ink); }
+.hm-cell.l4 { background: var(--accent-btn); color: var(--on-accent); }
 .hm-cell.future { background: none; border: 1px dashed var(--line); color: var(--muted); cursor: default; }
 .hm-cell.today { outline: 2px solid var(--ink); outline-offset: 1px; }
 .hm-legend { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 13px; color: var(--muted); }
@@ -646,7 +650,7 @@ button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
 .rank { width: 28px; text-align: center; color: var(--muted); font-weight: 600; flex: none; }
 .year-chart { position: relative; height: 220px; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; }
 .year-chart .m { flex: 1 0 var(--hit); min-width: var(--hit); }
-.year-chart .m:disabled { opacity: .35; cursor: default; }
+.year-chart .m:disabled { opacity: .35; color: var(--muted); cursor: not-allowed; }
 .stack-bar { flex: 1; width: 70%; max-width: 34px; display: flex; flex-direction: column-reverse; justify-content: flex-start; gap: 2px; }
 .stack-bar i { display: block; width: 100%; border-radius: 4px; min-height: 2px; }
 .avg-line { position: absolute; left: 0; right: 0; border-top: 1.5px dashed var(--muted); opacity: .7; pointer-events: none; }
@@ -675,7 +679,7 @@ button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
 .flow-node ul { list-style: none; margin: 6px 0 0 20px; padding: 0 0 0 16px; border-left: 2px dashed var(--line); }
 .flow-node li { display: flex; align-items: center; gap: 8px; padding: 6px 0; min-height: 40px; }
 .flow-node li .amt { margin-left: auto; }
-.flow-tag { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: var(--r-tag); border: 1px solid var(--line); color: var(--ink-2); flex: none; }
+.flow-tag { font-size: 13px; font-weight: 600; padding: 3px 8px; border-radius: var(--r-tag); border: 1px solid var(--line); color: var(--ink-2); flex: none; }
 .flow-tag.save { background: var(--success-soft); color: var(--success); border-color: transparent; }
 .flow-tag.spend { background: var(--line-soft); }
 

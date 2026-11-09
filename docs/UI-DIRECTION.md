@@ -52,7 +52,7 @@ The values every screen is built from. `test/tokens.test.js` checks this table a
 | `--accent` | `#0066cc` | `#2997ff` | Links, selected state, the focus ring |
 | `--accent-press` | `#0057ad` | `#4aa8ff` | Accent while pressed |
 | `--accent-soft` | `#e8f1fb` | `#10263f` | Accent tint: selected rows, the greeting card |
-| `--on-accent` | `#ffffff` | same | Text on an accent fill |
+| `--on-accent` | `#fbfdff` | same | Text on an accent fill (tinted toward the accent, not pure white) |
 | `--accent-btn` | `#0066cc` | `#0a67cf` | Fill of primary buttons (deeper than the accent, so white text passes 4.5:1) |
 | `--accent-btn-press` | `#0057ad` | `#0a58b0` | Primary button while pressed |
 | `--success` | `#1a7f37` | `#4cc76c` | Money in, done |
@@ -73,6 +73,14 @@ The values every screen is built from. `test/tokens.test.js` checks this table a
 | `--nav-w` | `248px` | same | Width of the sidebar on a PC |
 | `--toast` | `#1d1d1f` | same | Message bar (dark in both themes) |
 | `--on-toast` | `#f5f5f7` | same | Text on the message bar |
+| `--on-critical` | `#fffafa` | `#2b0a0a` | Text on a red fill (count badges, error messages): white on the dark theme's red is only 2.8:1 |
+| `--scrim` | `rgba(0, 0, 0, .4)` | same | The dimming behind a pop-up |
+| `--edge-shadow` | `0 1px 3px rgba(0, 0, 0, .12)` | same | The lift of the switch thumb |
+| `--soft-shadow` | `0 2px 10px rgba(0, 0, 0, .08)` | same | The lift of the sync status |
+| `--toast-soft` | `rgba(255, 255, 255, .16)` | same | A button on the message bar |
+| `--hair-dim` | `rgba(0, 0, 0, .06)` | `rgba(255, 255, 255, .08)` | A divider on a tinted row |
+| `--accent-wash` | `rgba(0, 102, 204, .15)` | `rgba(41, 151, 255, .2)` | Hover tint on the accent |
+| `--logo-paper` | `#fdfdfc` | same | The tile a bank logo sits on (off-white in both themes) |
 | `--hit` | `44px` | same | The smallest a tappable thing may be, in height and width |
 | `--dur-quick` | `120ms` | same | Press, hover, a chevron turning |
 | `--dur-base` | `200ms` | same | Something entering or leaving: messages, a card sliding away |
@@ -98,3 +106,7 @@ One file per screen or purpose in `src/ui/`: `app.js` starts the page; `router.j
 ## Identity
 
 The wallet mark and the round category icons. Nothing else is decorative.
+
+## Audit tools and accepted findings
+
+`node sloplint.mjs src/ui/index.html src/ui/styles.css --scope app` (Hallmark, MIT, from github.com/Nutlope/hallmark, not vendored) finds the mechanical slop in the stylesheet. It reads only the HTML and CSS, so the markup built in the JavaScript templates is checked by `scripts/antislop-static.mjs`, `scripts/antislop-browser.mjs` and axe (`scripts/a11y.mjs`, with `--dark` for the dark theme on every screen). The findings that stay, with the reasons, are in anti-slop/audit-001-2026-11-02.md ("Findings that stay").
