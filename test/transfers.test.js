@@ -55,6 +55,11 @@ describe('linking through the API', () => {
     expect(s.t[TABS.transactions].find((r) => r.id === 'b')).toMatchObject({ transfer_id: 't1', category: 'trf ke bank lain', status: 'approved' });
     expect(api.review().linkable).toEqual([]);
   });
+  it('does not let the other person join your rows, even with the right ids', () => {
+    const s = store([{ ...lone }, { ...other }]);
+    expect(() => apiFor(s, 'Me', true).linkTransfer({ id: 'a', withId: 'b' })).toThrow(/no longer be linked/);
+    expect(s.t[TABS.transactions].find((r) => r.id === 'b').transfer_id).toBe('');
+  });
   it('refuses two rows that are not a match', () => {
     const s = store([{ ...lone }, { ...other }]);
     expect(() => apiFor(s, 'Dewi', false).linkTransfer({ id: 'a', withId: 'zzz' })).toThrow(/no longer be linked/);

@@ -59,6 +59,8 @@ export function createApi(store, env) {
   const fixedNames = () => [FIXED_CATEGORIES.adjustment, String(store.config('cat_transfer') || FIXED_CATEGORIES.transfer)];
   const cats = () => categoryLists(store.slots(), fixedNames());
   const rows = () => store.read(TABS.transactions);
+  /** The rows of the person using the app (everyone's when who it is is not known): what they may be asked about and may change. */
+  const ownRows = (all) => all.filter((r) => !owner() || r.owner === owner());
   const accounts = () => store.read(TABS.accounts);
   const year = () => Number(String(store.config('start_date') || '').slice(0, 4)) || now().getFullYear();
   const findRow = (id) => {
@@ -250,7 +252,7 @@ export function createApi(store, env) {
     review() {
       const all = rows();
       const r = reviewItems(all, store.read(TABS.inboxLog), { today: now() });
-      return { ...r, pending: withFirst(r.pending, firstIds(all)), salary: salaries(all), day: dayState(all), ruleable: ruleUpdates(all, store.read(TABS.rules)).length, linkable: linkableTransfers(all.filter((r) => !owner() || r.owner === owner())) };
+      return { ...r, pending: withFirst(r.pending, firstIds(all)), salary: salaries(all), day: dayState(all), ruleable: ruleUpdates(all, store.read(TABS.rules)).length, linkable: linkableTransfers(ownRows(all)) };
     },
 
     /** Runs the rules over the pending rows that have an account: categories filled, auto-approving rules approve. */
@@ -262,7 +264,7 @@ export function createApi(store, env) {
 
     /** Joins the two sides of a transfer between a person's own accounts: the other row becomes the transfer's second side. */
     linkTransfer({ id, withId }) {
-      const link = linkableTransfers(rows()).find((x) => x.id === String(id) && x.withId === String(withId));
+      const link = linkableTransfers(ownRows(rows())).find((x) => x.id === String(id) && x.withId === String(withId));
       if (!link) throw new Error('these two rows can no longer be linked');
       const lone = rows().find((r) => r.id === link.id);
       store.update(TABS.transactions, [{ id: link.withId, changes: touch({ transfer_id: lone.transfer_id, category: lone.category, status: 'approved' }) }]);
