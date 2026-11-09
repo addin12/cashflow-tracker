@@ -46,6 +46,7 @@ const P = {
   lastFull: 'SYNC_LAST_FULL_MS',
   setup: 'SYNC_SETUP_VERSION',
   rescan: 'SYNC_RESCAN', // '1' until a full run has read this account's mail again from the start date (a new parser, for mail already in the inbox)
+  senders: 'SYNC_SENDERS', // the sender list this account's mail was last read with: a new sender means the mail already in the inbox is read again
   stamp: 'SYNC_DATA_STAMP', // changes when a sync adds or changes rows (the open app refreshes)
   checked: 'SYNC_LAST_CHECK_MS', // last time Gmail was looked at, quick or full
 };
@@ -54,6 +55,14 @@ const P = {
 function recentIds(checkpointMs) {
   const since = Math.floor(checkpointMs / 1000) - 60;
   return [...listMessageIds(`from:(${SENDERS.join(' OR ')}) after:${since}`, 20), ...listMessageIds(backfillQuery(since), 20), ...listMessageIds(`${NOTE_QUERY} after:${since}`, 20)];
+}
+
+/** A different sender list than this account was last read with: read its mail again from the start date. */
+export function rescanIfSendersChanged(props) {
+  if (props.getProperty(P.senders) === SENDERS.join(',')) return false;
+  props.setProperty(P.rescan, '1');
+  props.deleteProperty(P.checkpoint);
+  return true;
 }
 
 /** The quick look: does anything call for a full run? */
@@ -136,10 +145,10 @@ function upsertConnection(ss, gmail, changes) {
  * @returns {object} summary (also written to the Connections row)
  */
 export function runSync(opts = {}) {
-  // Once per account after a parser for a new sender (by the trigger or by "Sync now", whichever comes first): the checkpoint only moves
-  // forward, so mail from before it is read again from the start date (what is already in Transactions or logged is skipped, so a re-read
-  // costs only the listing).
-  try { runOnce('rescan-1', () => { const u = PropertiesService.getUserProperties(); u.setProperty(P.rescan, '1'); u.deleteProperty(P.checkpoint); }); } catch (e) { /* tried again at the next upgrade */ }
+  // A new sender in SENDERS (a new reader): the checkpoint only moves forward, so the mail that is already in the inbox is read again from
+  // the start date, by each account, whichever of the trigger and "Sync now" comes first (what is already in Transactions or logged is
+  // skipped, so a re-read costs only the listing).
+  try { rescanIfSendersChanged(PropertiesService.getUserProperties()); } catch (e) { /* tried again next run */ }
   // The every-minute trigger: nothing new in Gmail means nothing to do.
   if (opts.quick) {
     // Messages to the Telegram bot become transactions; the spreadsheet is opened only when there are any.
@@ -203,6 +212,7 @@ function syncOnce(opts) {
     const startMs = startDate instanceof Date ? startDate.getTime() : Date.parse(startDate) || 0;
     const rescan = PropertiesService.getUserProperties().getProperty(P.rescan) === '1';
     const checkpoint = mode === 'live' && !rescan ? Number(conn.checkpoint) || 0 : 0;
+    const rescanNote = rescan ? 'reading all mail from the start date' : '';
     const sinceMs = Math.max(startMs, checkpoint - OVERLAP_MS);
     const query = `from:(${SENDERS.join(' OR ')}) after:${Math.floor(sinceMs / 1000)}`;
 
@@ -233,7 +243,7 @@ function syncOnce(opts) {
 
     const emails = [];
     let complete = true;
-    let note = '';
+    let note = rescanNote;
     // A step that failed does not stop the run, but its message goes into the status line (Settings -> Sync) instead of being lost.
     const warn = (what, e) => { note = note ? `${note}; ${what}: ${e.message}` : `${what}: ${e.message}`; };
     for (const id of ids) {
@@ -322,7 +332,7 @@ function syncOnce(opts) {
       const now = String(Date.now());
       mine.setProperties({ [P.lastFull]: now, [P.setup]: String(SETUP_VERSION) });
       shared.setProperty(P.checked, now);
-      if (complete) { mine.setProperties({ [P.checkpoint]: String(newest), [P.known]: JSON.stringify(recentIds(newest)) }); mine.deleteProperty(P.rescan); }
+      if (complete) { mine.setProperties({ [P.checkpoint]: String(newest), [P.known]: JSON.stringify(recentIds(newest)), [P.senders]: SENDERS.join(',') }); mine.deleteProperty(P.rescan); }
       else mine.deleteProperty(P.known); // a partial run keeps the rescan flag: the next minute goes on from the start date
       if (plan.add.length || plan.update.length) shared.setProperty(P.stamp, now);
     }
