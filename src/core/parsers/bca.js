@@ -1,4 +1,4 @@
-// myBCA "Internet Transaction Journal" (English, "| Label | : | Value |" table).
+// myBCA "Internet Transaction Journal" and "Cash Withdrawal Successful" (English, "| Label | : | Value |" table, or one label and value per line).
 import { parseDateTime, trailingDigits } from '../money.js';
 import { valueAfter, firstValue } from '../text.js';
 import { ok, skip, amountOf, feeOf, remark, joinDetails, institutionOf } from './common.js';
@@ -10,12 +10,12 @@ const LABELS = [
   'Save to Beneficiary List', 'Transfer Amount', 'Remarks', 'Beneficiary Bank', 'Beneficiary Account No.',
   'Amount', 'Fee', 'Transfer Method', 'Transaction Purpose', 'Pocket Name', 'Purpose', 'Category',
   'Pocket Account No.', 'Initial Deposit', 'Target', 'Source Pocket', 'Source Pocket Account No.',
-  'BCA Virtual Account No.', 'Name', 'Company/Product Name', 'Bill Total', 'Description',
+  'BCA Virtual Account No.', 'Name', 'Company/Product Name', 'Bill Total', 'Description', 'Phone No.', 'ATM Code',
 ];
 
 export const bca = {
   id: 'bca',
-  matches: (m) => /@bca\.co\.id$/i.test(m.from) && /Transaction Journal/i.test(m.subject),
+  matches: (m) => /@bca\.co\.id$/i.test(m.from) && /Transaction Journal|Cash Withdrawal/i.test(m.subject),
   parse(m) {
     const t = m.tokens;
     const get = (l) => valueAfter(t, l, LABELS);
@@ -48,6 +48,13 @@ export const bca = {
     }
 
     const transferType = get('Transfer Type');
+    if (/withdraw cash|cash withdrawal/i.test(`${transferType} ${m.subject}`)) {
+      // Cardless cash from an ATM: money leaves the account, and no payee is named. It waits in Review for the person to say where it went.
+      return ok({
+        type: 'payment', direction: 'out', ...when, amount: amountOf(get('Amount')), fee: feeOf(get('Fee')), account,
+        counterparty: { name: 'ATM' }, description: 'Tarik tunai ATM', details: joinDetails('Cardless', get('ATM Code')), refNo,
+      });
+    }
     if (/virtual account/i.test(transferType)) {
       // Paying a bill/order through a BCA Virtual Account. "Name" is the account holder (often
       // the owner), so the payee is the company/product, never "Name".

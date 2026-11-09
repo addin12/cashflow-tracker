@@ -18,6 +18,13 @@ export const SENDERS = [
 ];
 
 /**
+ * What every account's mail was last read with. When it changes (a new sender, or PARSERS_REVISION bumped because a reader now
+ * understands mail it used to skip), each account reads its mail again from the start date once.
+ */
+export const PARSERS_REVISION = 2; // 1: BRI · 2: BCA cash withdrawal
+export const READ_SIGNATURE = `${SENDERS.join(',')}#${PARSERS_REVISION}`;
+
+/**
  * Receipt searches run from the start date on every run (not only the last two days), so
  * receipts from before a parser existed are read too. Few emails, and read ones are skipped.
  */

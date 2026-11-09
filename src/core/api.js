@@ -20,6 +20,7 @@ import {
 } from './app.js';
 import { compileRule, ruleUpdates } from './rules.js';
 import { linkableTransfers } from './transfers.js';
+import { staleSyncs } from './synchealth.js';
 import { unknownAccounts, adoptRows } from './newaccounts.js';
 import { recurringCharges, payee } from './recurring.js';
 import { missingSalaries, salaryCategory, paydayPeriod, currentPaydayMonth, paydayOf } from './salary.js';
@@ -112,6 +113,8 @@ export function createApi(store, env) {
       return ids.has(String(r.id)) || m ? { ...r, ...(ids.has(String(r.id)) ? { first: true } : {}), ...(m ? { claim: m.s, claimDue: m.due } : {}) } : r;
     });
   };
+  /** The person (owner or partner) a Google account belongs to. */
+  const memberOf = (gmail) => [memberInfo('owner'), memberInfo('partner')].find((m) => m.emails.includes(String(gmail).toLowerCase()));
   /** One person of the household: name, Google accounts, bank names, and whether their Gmail is connected. */
   const memberInfo = (role) => {
     const p = role === 'partner' ? 'partner_' : 'owner_';
@@ -232,6 +235,8 @@ export function createApi(store, env) {
         newAccounts: unknownAccounts(store.read(TABS.inboxLog), memberInfo(isOwner() ? 'owner' : 'partner').emails, accounts().filter((a) => !a.owner || a.owner === owner())).slice(0, 3),
         myEmails: memberInfo(isOwner() ? 'owner' : 'partner').emails, // the Google accounts that are yours: only their mail can be opened from here
         connections: store.read(TABS.connections).map((x) => ({ gmail: x.gmail, last_sync: x.last_sync, last_status: x.last_status })),
+        // Accounts whose sync has stopped (its trigger is gone): who, which account, for how many hours.
+        staleSync: staleSyncs(store.read(TABS.connections), now()).map((s) => ({ ...s, who: (memberOf(s.gmail) || {}).name || '' })),
         pendingCount: rows().filter((r) => r.status === 'pending').length,
         rules: store.read(TABS.rules).map((r) => ({ pattern: r.pattern, category: r.category })), // for typing a transaction as a sentence
         usual: usualEntries(rows(), { today: now() }),

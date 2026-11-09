@@ -59,6 +59,7 @@ const L = {
     alertSubject: 'Cashflow: sinkron Gmail bermasalah', alertTitle: 'Sinkron Gmail bermasalah',
     alertError: 'Sinkron terakhir gagal dengan pesan ini:', alertUnread: (n) => `${n} email bank baru belum bisa dibaca. Isi manual di aplikasi (Cek → Email yang belum terbaca), atau tunggu perbaikan.`,
     alertFooter: 'Email ini dikirim paling banyak sekali per 12 jam untuk masalah yang sama.',
+    alertStale: (list) => `Sinkron Gmail berhenti untuk: ${list}. Email dari akun itu tidak masuk sampai sinkronnya jalan lagi.`, alertStaleHow: 'Perbaikannya: buka aplikasi dengan akun Google itu, lalu tekan “Sinkron sekarang”. Pemicunya dipasang ulang otomatis.', staleLine: (who, gmail, h) => `${who} (${gmail}): ${h} jam tanpa sinkron`,
     selftestSubject: 'Cashflow: uji otomatis menemukan masalah', selftestTitle: 'Uji otomatis menemukan masalah',
     selftestIntro: (n, c) => `Uji otomatis mingguan memeriksa ${c} sel laporan di spreadsheet; ${n} tidak sesuai. Data transaksi Anda aman, tapi angka laporan mungkin salah sampai diperbaiki. Contoh:`,
   },
@@ -74,6 +75,7 @@ const L = {
     alertSubject: 'Cashflow: the Gmail sync has a problem', alertTitle: 'The Gmail sync has a problem',
     alertError: 'The last sync stopped with this message:', alertUnread: (n) => `${n} new bank email(s) couldn’t be read. Enter them by hand in the app (Review → Emails not understood), or wait for a fix.`,
     alertFooter: 'Sent at most once every 12 hours for the same problem.',
+    alertStale: (list) => `The Gmail sync has stopped for: ${list}. Email from that account is not coming in until its sync runs again.`, alertStaleHow: 'The fix: open the app with that Google account and press “Sync now”. Its trigger is put back automatically.', staleLine: (who, gmail, h) => `${who} (${gmail}): ${h} hours without a sync`,
     selftestSubject: 'Cashflow: the self-test found a problem', selftestTitle: 'The self-test found a problem',
     selftestIntro: (n, c) => `The weekly self-test checked ${c} report cells in the spreadsheet; ${n} were wrong. Your transactions are safe, but report numbers may be off until it is fixed. For example:`,
   },
@@ -144,6 +146,9 @@ export function alertEmail(problem, { appUrl = '', lang = 'id' } = {}) {
   }
   const parts = [`<h1 style="font-size:26px;margin:0 0 12px">⚠ ${esc(t.alertTitle)}</h1>`];
   if (problem.error) parts.push(`<p style="font-size:16px">${esc(t.alertError)}</p><p style="font-size:15px;background:#fdecec;color:#c9252c;padding:12px 16px;border-radius:12px">${esc(problem.error)}</p>`);
+  if (problem.stale && problem.stale.length) {
+    parts.push(`<p style="font-size:16px">${esc(t.alertStale(problem.stale.map((s) => t.staleLine(s.who || '?', s.gmail, s.hours)).join('; ')))}</p>`, `<p style="font-size:16px">${esc(t.alertStaleHow)}</p>`);
+  }
   if (problem.unread && problem.unread.length) {
     parts.push(`<p style="font-size:16px">${esc(t.alertUnread(problem.unread.length))}</p>`,
       `<table style="width:100%;border-collapse:collapse">${problem.unread.map((u) => row(u.subject || u.from, '', u.reason)).join('')}</table>`);

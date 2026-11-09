@@ -80,3 +80,21 @@ describe('Livin in plain text', () => {
     for (const secret of ['DEWI', 'CONTOH', '25.000', '1234']) expect(out).not.toContain(secret);
   });
 });
+
+describe('BCA cash withdrawal', () => {
+  const email = () => ({ id: 'w', from: 'BCA <bca@bca.co.id>', subject: 'Cash Withdrawal Successful', epochMs: 1793000000000, isHtml: false, body: load('bca.txt')['bca-cash-withdrawal'].body });
+  it('is read: money out of the account by its last digits, with the ATM code as a detail', () => {
+    expect(hasReader('BCA <bca@bca.co.id>', 'Cash Withdrawal Successful')).toBe(true);
+    const r = parseEmail(email());
+    expect(r.status, r.reason).toBe('ok');
+    expect(r.events).toHaveLength(1);
+    expect(r.events[0]).toMatchObject({
+      type: 'payment', direction: 'out', date: '2026-11-06', time: '12:34:56', amount: 500000, fee: 0, description: 'Tarik tunai ATM',
+      account: { institution: 'BCA', hint: '22' }, details: 'Cardless · WSID ZP1P1', refNo: 'AAAAAAAA-0000-1111-2222-333333333333',
+    });
+  });
+  it('a failed withdrawal is skipped', () => {
+    const e = email();
+    expect(parseEmail({ ...e, body: e.body.replace('Successful', 'Failed') }).status).toBe('skip');
+  });
+});

@@ -2,7 +2,7 @@
 // and runs the full sync when something new arrived, on a 30-minute heartbeat, or after an upgrade.
 import { describe, expect, it, beforeEach } from 'vitest';
 import { SETUP_VERSION } from '../src/core/schema.js';
-import { SENDERS } from '../src/core/parsers/index.js';
+import { READ_SIGNATURE } from '../src/core/parsers/index.js';
 
 let props;
 let gmailIds;
@@ -28,7 +28,7 @@ function install() {
 const { runSync, syncStamp, addRuntime } = await (async () => { install(); return import('../src/gas/sync.js'); })();
 const ready = (extra = {}) => Object.assign(props, {
   SYNC_CHECKPOINT_MS: String(Date.now() - 3600000), SYNC_KNOWN_IDS: JSON.stringify(['a', 'b']),
-  SYNC_LAST_FULL_MS: String(Date.now() - 60000), SYNC_SETUP_VERSION: String(SETUP_VERSION), SYNC_SENDERS: SENDERS.join(','), ...extra,
+  SYNC_LAST_FULL_MS: String(Date.now() - 60000), SYNC_SETUP_VERSION: String(SETUP_VERSION), SYNC_SENDERS: READ_SIGNATURE, ...extra,
 });
 
 describe('every-minute quick look', () => {
@@ -60,14 +60,14 @@ describe('every-minute quick look', () => {
   });
 
   it('after a deploy that adds a sender, each account re-reads its mail from the start date once: the checkpoint is dropped and the full sync runs', () => {
-    ready({ SYNC_SENDERS: SENDERS.slice(1).join(',') });
+    ready({ SYNC_SENDERS: 'an older list#1' });
     gmailIds = ['a', 'b'];
     expect(runSync({ quick: true })).toEqual({ status: 'busy' }); // reached the full sync although nothing is new
     expect(lockTaken).toBe(1);
     expect(props.SYNC_RESCAN).toBe('1');
     expect(props.SYNC_CHECKPOINT_MS).toBeUndefined();
     // once a full run has finished it records the sender list, and the next minutes do not start it again
-    props.SYNC_SENDERS = SENDERS.join(',');
+    props.SYNC_SENDERS = READ_SIGNATURE;
     delete props.SYNC_RESCAN;
     props.SYNC_CHECKPOINT_MS = String(Date.now() - 1000);
     props.SYNC_KNOWN_IDS = JSON.stringify(['a', 'b']);

@@ -187,12 +187,9 @@ export function planSync({ emails, existing, accounts, rules, config, nowIso }) 
           id: `${id}_m`, stream: own.stream, direction: ev.direction === 'out' ? 'in' : 'out', category: cat.transfer,
           status: 'approved', gmail_id: '', details: `Pasangan transfer (${own.why})`,
         });
-        const mirror = pool.find((x) => x.transfer_id && !x.gmail_id && sameMovement(x, thisLeg));
-        const otherEmail = !mirror && pool.find((x) => x.gmail_id && x.gmail_id !== email.id && !x.transfer_id && sameMovement(x, otherLeg));
-        if (mirror) {
-          change(mirror, { gmail_id: email.id, ref_no: thisLeg.ref_no || mirror.ref_no, sender: email.from, details: thisLeg.details || mirror.details });
-          notes.push('linked to an existing transfer');
-        } else if (otherEmail) {
+        // (A leg of this transfer already waiting for its email was found above, as `waiting`.) The other account's email may be in the sheet already:
+        const otherEmail = pool.find((x) => x.gmail_id && !x.transfer_id && sameMovement(x, otherLeg));
+        if (otherEmail) {
           const tid = otherEmail.transfer_id || `x_${email.id}`;
           change(otherEmail, { category: cat.transfer, transfer_id: tid, status: 'approved', rule_id: '' });
           push({ ...thisLeg, transfer_id: tid });

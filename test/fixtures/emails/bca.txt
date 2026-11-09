@@ -127,3 +127,29 @@ You just made a transaction through myBCA.
 | Total Payment | : | IDR 151,000.00 |
 | Description | : | |
 | Reference No. | : | 9527120261005185000000TVA0000000005 |
+
+=== bca-cash-withdrawal
+from: BCA <bca@bca.co.id>
+subject: Cash Withdrawal Successful
+epoch: 1793000000000
+---
+Hello BUDI CONTOH,
+You have just performed a transaction through myBCA.
+Here are the details of your transaction :
+Status
+Successful
+Transaction Date
+06 Nov 2026 12:34:56
+Transfer Type
+Cardless - Withdraw Cash
+Source of Fund
+1111xxxx22
+Amount
+IDR 500,000.00
+Phone No.
+0812xxxxxx00
+Reference No.
+AAAAAAAA-0000-1111-2222-333333333333
+ATM Code
+WSID ZP1P1
+Please save this email as your transaction reference.

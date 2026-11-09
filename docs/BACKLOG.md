@@ -63,3 +63,10 @@ What is left after round 29 (2026-11-04). Nothing here is broken; each item is w
 
 - **One of the partner's Gmail accounts has not synced since 08:45 on 2026-11-09** (its row in Connections; the other two sync every 30 minutes at least). Its every-minute trigger is probably gone. The sync now puts the trigger back (`ensureTrigger`) the next time that account's sync runs at all, which only a "Sync now" from that Google account can start. Until then its mail (the BRI payments) is not read. Check the Connections tab: every account's last_sync should be under 30 minutes old.
 - A sender added to `SENDERS` makes every account read its mail again from the start date once (`rescanIfSendersChanged`); the status line then says "reading all mail from the start date".
+
+## Round 35 (2026-11-10)
+
+- Done: a warning when a connected Gmail account has not synced for 2 hours (in "Needs attention", and an email to the owner at most every 12 hours); a BCA "Cash Withdrawal" reader; the planner's tests (mutation score 65% → 92%).
+- **Coverage of the owner's inbox** (through n8n, headers only): every financial-looking sender has a reader except promotions and monthly statements (Mandiri "Consolidated Statement", Bibit newsletters). Nothing else to build there.
+- **Grab e-receipts: not built.** 21 of the partner's 25 were paid with OVO, so no bank row exists to name; a reader would only make sense after the e-wallet decision (one "digital wallet" account would make the receipt the expense row).
+- Mutation testing is still open for `api.js` (about 1,200 lines, a long run) and the smaller `money.js` (82%) and `goals.js` (86%) survivors.

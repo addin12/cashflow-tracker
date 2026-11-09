@@ -234,6 +234,7 @@ export function attentionCard(d) {
   const rv = state.review || {};
   for (const e of (rv.errors || []).slice(0, 2)) rows.push({ icon: 'mail', bad: false, title: T.attnUnread(e.subject || e.from), meta: T.attnUnreadMeta, act: 'data-action="go" data-tab="review"' });
   for (const l of (rv.linkable || []).slice(0, 2)) rows.push({ icon: 'swap', bad: false, title: T.attnLink(rp(l.amount), l.stream, l.withStream), meta: T.attnLinkMeta, act: `data-action="linktx" data-id="${esc(l.id)}" data-with="${esc(l.withId)}"` });
+  for (const s of (state.boot.staleSync || []).slice(0, 2)) rows.push({ icon: 'mail', bad: true, title: T.attnStale(s.who || s.gmail, s.hours), meta: T.attnStaleMeta, act: 'data-action="go" data-tab="settings" data-section="household"' });
   if (rv.ruleable) rows.push({ icon: 'tag', bad: false, title: T.attnRules(rv.ruleable), meta: T.attnRulesMeta, act: 'data-action="go" data-tab="review"' });
   if (!rows.length) return '';
   return `<section class="card attn"><h2>${esc(T.attnTitle)}</h2><div class="rows">${rows.slice(0, 6).map((r) => `<button class="lrow" ${r.act}><span class="cat-ic ${r.bad ? 'c3' : 'c6'}" aria-hidden="true">${svgIcon(r.icon)}</span><span class="what"><b>${esc(r.title)}</b><span class="meta">${esc(r.meta)}</span></span></button>`).join('')}</div></section>`;

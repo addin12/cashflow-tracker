@@ -119,7 +119,7 @@ export function runEvening(ss, today = new Date()) {
  * problem: { error?: string, unread?: [{subject, from, reason}] }
  */
 export function sendSyncAlert(ss, problem) {
-  const what = problem.selftest ? `s:${(problem.selftest.failures || []).length}` : problem.error ? `e:${problem.error}` : `u:${(problem.unread || []).map((u) => u.subject).join('|')}`;
+  const what = problem.selftest ? `s:${(problem.selftest.failures || []).length}` : problem.error ? `e:${problem.error}` : problem.stale ? `t:${problem.stale.map((s) => s.gmail).join('|')}` : `u:${(problem.unread || []).map((u) => u.subject).join('|')}`;
   const key = `ALERT_${what.slice(0, 200)}`;
   const props = PropertiesService.getScriptProperties();
   const last = Number(props.getProperty(key) || 0);

@@ -8,7 +8,7 @@
 import { newRowsNotice } from '../core/push.js';
 import { sendPush, devices, eventsOfPerson } from './push.js';
 import { TABS, TRANSACTION_HEADERS, CONNECTION_HEADERS, INBOX_LOG_HEADERS, RULE_HEADERS, SETUP_VERSION } from '../core/schema.js';
-import { parseEmail, SENDERS, backfillQuery } from '../core/parsers/index.js';
+import { parseEmail, SENDERS, READ_SIGNATURE, backfillQuery } from '../core/parsers/index.js';
 import { planSync } from '../core/plan.js';
 import { readTable, appendRows, updateRows } from './store.js';
 import { listMessageIds, getEmail, myAddress } from './gmail.js';
@@ -23,6 +23,7 @@ import { createApi } from '../core/api.js';
 import { sheetStore } from './sheetstore.js';
 import { installMailTriggers, scheduleSelfTest, sendSyncAlert } from './weekly.js';
 import { rolloverYear } from './rollover.js';
+import { staleSyncs } from '../core/synchealth.js';
 import { tidyCalendar } from './calendar.js';
 import { runOnce } from './once.js';
 import { pollTelegram } from './telegram.js';
@@ -57,9 +58,9 @@ function recentIds(checkpointMs) {
   return [...listMessageIds(`from:(${SENDERS.join(' OR ')}) after:${since}`, 20), ...listMessageIds(backfillQuery(since), 20), ...listMessageIds(`${NOTE_QUERY} after:${since}`, 20)];
 }
 
-/** A different sender list than this account was last read with: read its mail again from the start date. */
+/** A different sender list or readers revision than this account was last read with: read its mail again from the start date. */
 export function rescanIfSendersChanged(props) {
-  if (props.getProperty(P.senders) === SENDERS.join(',')) return false;
+  if (props.getProperty(P.senders) === READ_SIGNATURE) return false;
   props.setProperty(P.rescan, '1');
   props.deleteProperty(P.checkpoint);
   return true;
@@ -231,7 +232,7 @@ function syncOnce(opts) {
     const latestRow = new Map();
     logged.forEach((r) => { latest.set(String(r.gmail_id), r.status); latestRow.set(String(r.gmail_id), r); });
     const nowMs = Date.now();
-    const again = (r) => retryable(r.status, Date.parse(r.received) || 0, nowMs);
+    const again = (r) => retryable(r.status, Date.parse(r.received) || 0, nowMs, { rescan, reason: r.reason });
     // Retried only from the mailbox they came from: another account's email id is "not found" in this one.
     const isMine = (r) => !r.gmail || String(r.gmail).toLowerCase() === gmail.toLowerCase();
     const failed = new Set([...latestRow].filter(([id, r]) => isMine(r) && again(r) && !inTransactions.has(id)).map(([id]) => id));
@@ -332,7 +333,7 @@ function syncOnce(opts) {
       const now = String(Date.now());
       mine.setProperties({ [P.lastFull]: now, [P.setup]: String(SETUP_VERSION) });
       shared.setProperty(P.checked, now);
-      if (complete) { mine.setProperties({ [P.checkpoint]: String(newest), [P.known]: JSON.stringify(recentIds(newest)), [P.senders]: SENDERS.join(',') }); mine.deleteProperty(P.rescan); }
+      if (complete) { mine.setProperties({ [P.checkpoint]: String(newest), [P.known]: JSON.stringify(recentIds(newest)), [P.senders]: READ_SIGNATURE }); mine.deleteProperty(P.rescan); }
       else mine.deleteProperty(P.known); // a partial run keeps the rescan flag: the next minute goes on from the start date
       if (plan.add.length || plan.update.length) shared.setProperty(P.stamp, now);
     }
@@ -342,6 +343,14 @@ function syncOnce(opts) {
       seen: counts.seen, parsed: counts.parsed, skipped: counts.skipped, errors: counts.errors,
       ...(mode === 'live' && complete ? { checkpoint: newest } : {}),
     });
+    // An account's trigger can die without a word; any account that is syncing notices the others that have gone quiet, and the owner is told
+    // (at most once per 12 hours for the same accounts).
+    if (mode === 'live') {
+      try {
+        const stale = staleSyncs(readTable(ss, TABS.connections), new Date(), { skip: gmail });
+        if (stale.length) sendSyncAlert(ss, { stale: stale.map((x) => ({ ...x, who: memberName(ss, x.gmail) })) });
+      } catch (e) { /* the app shows it too */ }
+    }
     return summary;
   }
 }
