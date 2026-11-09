@@ -45,6 +45,7 @@ const P = {
   known: 'SYNC_KNOWN_IDS', // ids the quick look's searches returned right after that run
   lastFull: 'SYNC_LAST_FULL_MS',
   setup: 'SYNC_SETUP_VERSION',
+  rescan: 'SYNC_RESCAN', // '1' until a full run has read this account's mail again from the start date (a new parser, for mail already in the inbox)
   stamp: 'SYNC_DATA_STAMP', // changes when a sync adds or changes rows (the open app refreshes)
   checked: 'SYNC_LAST_CHECK_MS', // last time Gmail was looked at, quick or full
 };
@@ -139,6 +140,9 @@ export function runSync(opts = {}) {
   if (opts.quick) {
     // Messages to the Telegram bot become transactions; the spreadsheet is opened only when there are any.
     try { pollTelegram(() => appSpreadsheet(), { onChange: () => PropertiesService.getScriptProperties().setProperty(P.stamp, String(Date.now())) }); } catch (e) { /* tried again next minute */ }
+    // Once per account after a parser for a new sender: the checkpoint only moves forward, so mail from before it is read again from the
+    // start date (what is already in Transactions or logged is skipped, so a re-read costs only the listing).
+    try { runOnce('rescan-1', () => { const u = PropertiesService.getUserProperties(); u.setProperty(P.rescan, '1'); u.deleteProperty(P.checkpoint); }); } catch (e) { /* tried again at the next upgrade */ }
     try { if (!needsFullRun(PropertiesService.getUserProperties())) return { status: 'idle' }; } catch (e) { /* look properly instead */ }
   }
   const lock = LockService.getScriptLock();
@@ -195,7 +199,8 @@ function syncOnce(opts) {
 
     const startDate = configValue(ss, 'start_date');
     const startMs = startDate instanceof Date ? startDate.getTime() : Date.parse(startDate) || 0;
-    const checkpoint = mode === 'live' ? Number(conn.checkpoint) || 0 : 0;
+    const rescan = PropertiesService.getUserProperties().getProperty(P.rescan) === '1';
+    const checkpoint = mode === 'live' && !rescan ? Number(conn.checkpoint) || 0 : 0;
     const sinceMs = Math.max(startMs, checkpoint - OVERLAP_MS);
     const query = `from:(${SENDERS.join(' OR ')}) after:${Math.floor(sinceMs / 1000)}`;
 
@@ -315,8 +320,8 @@ function syncOnce(opts) {
       const now = String(Date.now());
       mine.setProperties({ [P.lastFull]: now, [P.setup]: String(SETUP_VERSION) });
       shared.setProperty(P.checked, now);
-      if (complete) mine.setProperties({ [P.checkpoint]: String(newest), [P.known]: JSON.stringify(recentIds(newest)) });
-      else mine.deleteProperty(P.known);
+      if (complete) { mine.setProperties({ [P.checkpoint]: String(newest), [P.known]: JSON.stringify(recentIds(newest)) }); mine.deleteProperty(P.rescan); }
+      else mine.deleteProperty(P.known); // a partial run keeps the rescan flag: the next minute goes on from the start date
       if (plan.add.length || plan.update.length) shared.setProperty(P.stamp, now);
     }
     const usedMin = Math.round(syncStamp().today / 6000) / 10;
