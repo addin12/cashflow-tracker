@@ -337,22 +337,26 @@ function syncOnce(opts) {
       else mine.deleteProperty(P.known); // a partial run keeps the rescan flag: the next minute goes on from the start date
       if (plan.add.length || plan.update.length) shared.setProperty(P.stamp, now);
     }
+    // An account's trigger can die without a word; any account that is syncing notices the others that have gone quiet, and the people who can
+    // fix it are told (at most once per 12 hours for the same accounts). What happened is part of the status line.
+    if (mode === 'live') {
+      try {
+        const stale = staleSyncs(readTable(ss, TABS.connections), new Date(), { skip: gmail });
+        if (stale.length) {
+          // To the owner, and to the other addresses of the person whose account went quiet: they are the one who can fix it.
+          const to = [...ownerEmails(ss), ...stale.flatMap((x) => addressesOfPerson(ss, x.gmail).filter((a) => a !== x.gmail.toLowerCase()))];
+          const r = sendSyncAlert(ss, { stale: stale.map((x) => ({ ...x, who: memberName(ss, x.gmail) })) }, to);
+          note = note ? `${note}; ` : '';
+          note += r.sent ? `quiet account(s) ${stale.length}, alert sent to ${to.length}` : `quiet account(s) ${stale.length}, ${r.reason}`;
+        }
+      } catch (e) { note = `${note ? `${note}; ` : ''}alert failed: ${e.message}`; }
+    }
     const usedMin = Math.round(syncStamp().today / 6000) / 10;
     upsertConnection(ss, gmail, {
       last_sync: new Date(), last_status: `${mode} ${summary.status}: +${summary.added} rows, ${counts.errors} errors${summary.remaining ? `, ${summary.remaining} left` : ''}${note ? ` (${note})` : ''} · ${summary.seconds}s · today ${usedMin} min`,
       seen: counts.seen, parsed: counts.parsed, skipped: counts.skipped, errors: counts.errors,
       ...(mode === 'live' && complete ? { checkpoint: newest } : {}),
     });
-    // An account's trigger can die without a word; any account that is syncing notices the others that have gone quiet, and the owner is told
-    // (at most once per 12 hours for the same accounts).
-    if (mode === 'live') {
-      try {
-        const stale = staleSyncs(readTable(ss, TABS.connections), new Date(), { skip: gmail });
-        // To the owner, and to the other addresses of the person whose account went quiet: they are the one who can fix it.
-        const to = [...ownerEmails(ss), ...stale.flatMap((x) => addressesOfPerson(ss, x.gmail).filter((a) => a !== x.gmail.toLowerCase()))];
-        if (stale.length) sendSyncAlert(ss, { stale: stale.map((x) => ({ ...x, who: memberName(ss, x.gmail) })) }, to);
-      } catch (e) { /* the app shows it too */ }
-    }
     return summary;
   }
 }
