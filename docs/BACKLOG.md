@@ -19,7 +19,6 @@ What is left after round 29 (2026-11-04). Nothing here is broken; each item is w
 |---|---|
 | Split of shared costs (`#bersama`) | 50/50 is the default (Config `shared_split`); change it, or split by income. |
 | E-wallet top-ups (OVO, ShopeePay, e-money, GoPay, Dana) count as spending | Leave as spending; or one "digital wallet" account and treat top-ups as transfers into it; or per-wallet accounts. |
-| Telegram logging (built, off) | Paste a BotFather token in Settings → Telegram. |
 | Accounts list order on the Settings screen | Own accounts first would help, but the order of the Accounts tab maps to blocks in the spreadsheet; needs a safe way (display only, sorted back on save). |
 
 ## Paused by the owner
@@ -69,7 +68,7 @@ What is left after round 29 (2026-11-04). Nothing here is broken; each item is w
 - Done: a warning when a connected Gmail account has not synced for 2 hours (in "Needs attention", and an email to the owner at most every 12 hours); a BCA "Cash Withdrawal" reader; the planner's tests (mutation score 65% → 92%).
 - **Coverage of the owner's inbox** (through n8n, headers only): every financial-looking sender has a reader except promotions and monthly statements (Mandiri "Consolidated Statement", Bibit newsletters). Nothing else to build there.
 - **Grab e-receipts: not built.** 21 of the partner's 25 were paid with OVO, so no bank row exists to name; a reader would only make sense after the e-wallet decision (one "digital wallet" account would make the receipt the expense row).
-- Mutation testing is still open for `api.js` (about 1,200 lines, a long run) and the smaller `money.js` (82%) and `goals.js` (86%) survivors.
+- Mutation testing: `api.js` is at 76% overall (89% on the ranges its new tests cover); the rest of its survivors are listed in the section "Mutation testing (2026-11-10)".
 
 ## 2026-11-10
 
@@ -81,7 +80,7 @@ What is left after round 29 (2026-11-04). Nothing here is broken; each item is w
 
 - **Shared costs (#bersama): keep 50/50.** Nobody has used the tag yet (0 rows), so nothing changes; revisit when it is used.
 - **E-wallet top-ups: stay as spending.** 36 top-up rows (the owner 9, about Rp10.7M; the partner 27, about Rp6.9M), already categorised by what they were for. Totals are right; spending inside a wallet is not itemised. This also means Grab receipts (21 of 25 paid with OVO) get no reader. Revisit only if category detail for wallet spending matters: then one "Dompet digital" account, top-ups as transfers into it.
-- **Telegram logging: left off** (no token). Setup when wanted: @BotFather, /newbot, paste the token in Settings → Telegram.
+- **Telegram logging: dropped for good** (2026-11-10). The code stays in the repo, switched off; it is not an open item.
 - **Accounts list order: done.** Your own accounts are shown first in Settings → Accounts; the stored order (which the spreadsheet's blocks follow) never changes (`src/ui/accountorder.js`, `test/accountorder.test.js`).
 - **"Cek cakupan email": covered by the n8n scan** of both inboxes (nothing unread but promotions and statements); running the menu itself is only a check that it works.
 - **Oracle server: prepared and validated, not created.** The compose file, the setup script and the Caddyfile validate with dummy values (`docker compose config`, `bash -n`, `caddy validate`). What is left needs the owner: an Oracle Cloud account (card for verification), an Always Free ARM server, a free host name, then steps 4 to 9 of `D:Project
@@ -100,4 +99,4 @@ The owner chose one account per wallet. What the mail allows: **no wallet emails
 ## Mutation testing (2026-11-10)
 
 - `money.js` 82% to 90%, `goals.js` 86% to 98% after `test/money-goals-edges.test.js`; `plan.js` 65% to 92% (round 35).
-- **`api.js` is not done:** a run over the whole file (about 3,000 mutants) hit its 90-minute limit and wrote no result. It would have to be run in line ranges (`--mutate "src/core/api.js:1-200"`), roughly ten minutes each.
+- **`api.js` run in 7 line ranges** (about 3,400 mutants, 18 minutes per range): 76.1% killed. `test/api-edges.test.js` (31 tests: daily close and streak, "Tagih", planned transactions and their creation, assets, the people and phone devices on the settings page, the phone code) lifts the parts it covers (lines 86-160, 810-915, 985-1002) to about 89%. Still open: the yearly-subscription merge (lines 89-93), `mineGoal`, the Telegram chat list (switched off), and the account/category/budget save paths (lines 1012-1075), which were not re-run.
