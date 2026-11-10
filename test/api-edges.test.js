@@ -338,3 +338,38 @@ describe('removing an account', () => {
     expect(() => keepOnly(store, 'BCA')).not.toThrow();
   });
 });
+
+describe('budgets for Kita and for each person', () => {
+  const budgets = [
+    { category: 'Makan', monthly_budget: 1000000, scope: '' },
+    { category: 'Makan', monthly_budget: 200000, scope: 'Me' },
+    { category: 'Makan', monthly_budget: 50000, scope: 'Dewi' },
+  ];
+  const store = () => memoryStore({}, { [TABS.budgets]: budgets.map((b) => ({ ...b })) });
+  it('the summary uses the budgets of the view it shows: Kita, or one person', () => {
+    const api = me(store());
+    expect(api.dashboard({}).budgets).toEqual([expect.objectContaining({ category: 'Makan', budget: 1000000, spent: 140000 })]);
+    expect(api.dashboard({ owner: 'Me' }).budgets).toEqual([expect.objectContaining({ budget: 200000, spent: 140000 })]);
+    expect(api.dashboard({ owner: 'Dewi' }).budgets).toEqual([expect.objectContaining({ budget: 50000, spent: 0 })]);
+  });
+  it('a budget from before there were scopes is Kita\'s, and a person with none has none', () => {
+    const legacy = memoryStore({}, { [TABS.budgets]: [{ category: 'Makan', monthly_budget: 900000 }] });
+    const api = me(legacy);
+    expect(api.dashboard({}).budgets).toEqual([expect.objectContaining({ budget: 900000 })]);
+    expect(api.dashboard({ owner: 'Me' }).budgets).toEqual([]);
+  });
+  it('the settings offer suggestions for Kita and for each person', () => {
+    expect(Object.keys(me(store()).settings().budgetSuggestionsBy).sort()).toEqual(['', 'Dewi', 'Me']);
+  });
+  it('saving keeps the scope of each budget, drops the empty ones, and refuses a person who is not in the household', () => {
+    const s = store();
+    const api = me(s);
+    api.saveBudgets({ budgets: [{ category: 'Makan', monthly_budget: 300000, scope: 'Dewi' }, { category: 'Makan', monthly_budget: 0, scope: 'Me' }, { category: 'Makan', monthly_budget: 700000 }] });
+    expect(s.t[TABS.budgets]).toEqual([
+      { category: 'Makan', monthly_budget: 300000, scope: 'Dewi' },
+      { category: 'Makan', monthly_budget: 700000, scope: '' },
+    ]);
+    expect(() => api.saveBudgets({ budgets: [{ category: 'Makan', monthly_budget: 1, scope: 'Zed' }] })).toThrow('unknown person Zed');
+    expect(() => api.saveBudgets({ budgets: [{ category: 'Nope', monthly_budget: 1, scope: '' }] })).toThrow('unknown expense category Nope');
+  });
+});

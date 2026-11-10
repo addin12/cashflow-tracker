@@ -83,6 +83,8 @@ export function createApi(store, env) {
   const rangeOf = (m) => (byPayday() ? paydayPeriod(m, payday()) : null);
   const list = (key) => { try { const v = JSON.parse(String(store.config(key) || '[]')); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
   /** Subscriptions seen in the app's rows, plus yearly plans found further back in Gmail (Config yearly_subs). */
+  /** The budgets of one view: '' = Kita (everyone's spending), or a person's name (older rows have no scope: they are Kita's). */
+  const budgetRows = (scope) => store.read(TABS.budgets).filter((b) => String(b.scope || '') === String(scope || ''));
   const recurring = (all) => {
     const r = recurringCharges(all, { today: now(), skipCategories: fixedNames(), hidden: lines('recurring_hidden'), start: start() });
     const known = new Set(r.items.map((i) => i.key));
@@ -500,11 +502,12 @@ export function createApi(store, env) {
       const goals = goalProgress(store.read(TABS.goals), balances, today);
       const ids = firstIds(all);
       const daily = dailySpending(all, c, spanOf(m));
-      const budgetTotal = store.read(TABS.budgets).reduce((t, b) => t + (Number(b.monthly_budget) || 0), 0);
+      const scoped = budgetRows(who || '');
+      const budgetTotal = scoped.reduce((t, b) => t + (Number(b.monthly_budget) || 0), 0);
       return {
         month: m, who: who || '', summary, balances, trend,
         perDay: budgetPerDay(balances, today, payday()),
-        budgets: budgetUsage(summary, store.read(TABS.budgets)),
+        budgets: budgetUsage(summary, scoped),
         pendingCount: all.filter((r) => r.status === 'pending').length,
         salaryMissing: salaries(all),
         // Day by day this month and last month: the calendar and the "compared with last month" line.
@@ -950,7 +953,7 @@ export function createApi(store, env) {
     weekly() {
       const all = rows();
       return weeklySummary({
-        rows: all, cats: cats(), budgets: store.read(TABS.budgets), recurring: recurring(all), today: now(), bigAmount: bigAmount(),
+        rows: all, cats: cats(), budgets: budgetRows(''), recurring: recurring(all), today: now(), bigAmount: bigAmount(),
         claims: openClaims(all, json('claims'), now()), warranties: warrantyEnds(store.read(TABS.assets), now(), 30), members: members(),
       });
     },
@@ -958,7 +961,7 @@ export function createApi(store, env) {
     /** Data for the monthly report email: `month` against the month before. */
     monthly({ month }) {
       const all = rows();
-      const report = monthlyReport({ rows: all, cats: cats(), budgets: store.read(TABS.budgets), month });
+      const report = monthlyReport({ rows: all, cats: cats(), budgets: budgetRows(''), month });
       return { ...report, goals: goalProgress(store.read(TABS.goals), streamBalances(all, accounts(), { year: year(), asOf: isoDate(now()) }), now()) };
     },
 
@@ -1000,6 +1003,8 @@ export function createApi(store, env) {
           devices: list('push_devices').map((d) => ({ label: d.label || '', at: d.at || '', owner: d.owner || String(store.config('owner_name') || ''), mine: (d.owner || String(store.config('owner_name') || '')) === owner() })),
         } : null,
         budgetSuggestions: suggestBudgets(rows(), cats(), { start: start(), today: now() }),
+        // The same, for each view a budget can be made for: Kita ('') and each person.
+        budgetSuggestionsBy: Object.fromEntries(['', ...members()].map((w) => [w, w ? suggestBudgets(rows().filter((r) => r.owner === w), cats(), { start: start(), today: now() }) : suggestBudgets(rows(), cats(), { start: start(), today: now() })])),
         archives: String(store.config('archives') || '').split('\n').filter(Boolean)
           .map((line) => { const [year, url] = line.split(' '); return { year, url }; }),
         connections: store.read(TABS.connections), selftest: store.config('last_selftest'),
@@ -1070,11 +1075,15 @@ export function createApi(store, env) {
       return { ok: true };
     },
 
+    /** All budgets at once. Each has a scope: '' = Kita, or the name of one of the two people. */
     saveBudgets({ budgets }) {
       const known = new Set(cats().expense);
+      const people = new Set(['', ...members()]);
       const clean = budgets.filter((b) => Number(b.monthly_budget) > 0).map((b) => {
+        const scope = String(b.scope || '');
         if (!known.has(b.category)) throw new Error(`unknown expense category ${b.category}`);
-        return { category: b.category, monthly_budget: Number(b.monthly_budget) };
+        if (!people.has(scope)) throw new Error(`unknown person ${scope}`);
+        return { category: b.category, monthly_budget: Number(b.monthly_budget), scope };
       });
       store.replace(TABS.budgets, clean);
       return { ok: true };

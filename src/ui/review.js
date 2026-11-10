@@ -193,7 +193,7 @@ export function hideRecurring(name) {
 
 /** Empty budget fields get the suggestion (average spending); nothing is saved until "Save budgets". */
 export function fillBudgets(form) {
-  const tips = new Map((state.settings.budgetSuggestions || []).map((b) => [b.category, b.amount]));
+  const tips = new Map((((state.settings.budgetSuggestionsBy || {})[state.budgetScope || '']) || state.settings.budgetSuggestions || []).map((b) => [b.category, b.amount]));
   let n = 0;
   $$('[data-b]', form).forEach((i) => {
     if (!(Number(i.value) > 0) && tips.has(i.dataset.b)) { i.value = String(tips.get(i.dataset.b)); n += 1; }

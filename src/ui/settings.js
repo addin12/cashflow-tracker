@@ -109,9 +109,13 @@ export async function viewSettings(local) {
       <p class="hint rule-preview" role="status">${esc(T.hits(Number(r.hits) || 0))}</p>
       <div class="actions"><button class="btn danger small" type="button" data-action="delrule" data-i="${i}">${esc(T.deleteRule)}</button></div>
     </fieldset>`).join('');
+  const people = (state.boot.members || []);
+  const scopes = people.length > 1 ? [['', T.whoAll], ...people.map((n) => [n, n])] : [['', T.whoAll]];
+  const scope = scopes.some(([v]) => v === (state.budgetScope || '')) ? (state.budgetScope || '') : '';
+  const scopeSeg = scopes.length > 1 ? `<div class="seg who" role="group" aria-label="${esc(T.budgetScope)}">${scopes.map(([v, label]) => `<button type="button" class="${scope === v ? 'on' : ''}" aria-pressed="${scope === v}" data-action="budgetscope" data-scope="${esc(v)}">${esc(label)}</button>`).join('')}</div><p class="hint">${esc(T.budgetScopeHint)}</p>` : '';
   const budgets = s.categories.expense.map((c) => {
-    const b = s.budgets.find((x) => x.category === c);
-    const tip = (s.budgetSuggestions || []).find((x) => x.category === c);
+    const b = s.budgets.find((x) => x.category === c && String(x.scope || '') === scope);
+    const tip = ((s.budgetSuggestionsBy || {})[scope] || s.budgetSuggestions || []).find((x) => x.category === c);
     return field(c, `<input data-b="${esc(c)}" type="number" inputmode="decimal" step="any" min="0" value="${esc(b ? b.monthly_budget : '')}" placeholder="0">`, { help: tip ? T.budgetSuggest(rp(tip.amount), tip.months) : '' });
   }).join('');
   const conns = (s.connections || []).map((c) => {
@@ -139,7 +143,7 @@ export async function viewSettings(local) {
       <form class="card" data-form="accounts" novalidate><h2>${esc(T.accountsTitle)}</h2><p class="lead">${esc(T.accountsTitleHint)}</p>${acc}
         <div class="actions"><button class="btn secondary left" type="button" data-action="addacct">＋ ${esc(T.addAccount)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveAccounts)}</button></div></form>`,
     budgets: `
-      <form class="card" data-form="budgets" novalidate><h2>${esc(T.budgetsTitle)}</h2><p class="lead">${esc(T.budgetsHint)}</p><div class="budget-grid">${budgets}</div>
+      <form class="card" data-form="budgets" novalidate><h2>${esc(T.budgetsTitle)}</h2><p class="lead">${esc(T.budgetsHint)}</p>${scopeSeg}<div class="budget-grid">${budgets}</div>
         <div class="actions">${(s.budgetSuggestions || []).length ? `<button class="btn secondary left" type="button" data-action="fillbudgets">${esc(T.fillBudgets)}</button>` : ''}<span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveBudgets)}</button></div></form>`,
     categories: `
       <form class="card" data-form="categories" novalidate><h2>${esc(T.categoriesTitle)}</h2><p class="lead">${esc(T.categoriesHint)}</p>

@@ -129,3 +129,37 @@ describe('accounts in Settings', () => {
     expect(store.t[TABS.accounts].some((a) => a.stream === 'BCA')).toBe(true);
   });
 });
+
+describe('budgets in Settings', () => {
+  const goBudgets = async () => {
+    click(doc.querySelector('.nav [data-tab=settings]'));
+    await until(() => doc.querySelector('[data-action=setsection][data-section=budgets]'), 'settings list');
+    click(doc.querySelector('[data-action=setsection][data-section=budgets]'));
+    await until(() => doc.querySelector('form[data-form=budgets]'), 'budgets form');
+  };
+  const input = (cat) => doc.querySelector(`form[data-form=budgets] [data-b="${cat}"]`);
+  const pick = (scope) => click(doc.querySelector(`[data-action=budgetscope][data-scope="${scope}"]`));
+  it('offers Kita and each person, starting on Kita', async () => {
+    await goBudgets();
+    const buttons = [...doc.querySelectorAll('[data-action=budgetscope]')];
+    expect(buttons.map((b) => b.textContent)).toEqual(['Kita', 'Me', 'Dewi']);
+    expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
+  });
+  it('each view has its own amounts; what was typed stays when you switch; one save keeps them all', async () => {
+    input('fnb').value = '1000000';
+    pick('Dewi');
+    expect(input('fnb').value).toBe(''); // Dewi has none yet
+    input('fnb').value = '50000';
+    input('Transport').value = '20000';
+    pick('');
+    expect(input('fnb').value).toBe('1000000');
+    expect(input('Transport').value).toBe('');
+    doc.querySelector('form[data-form=budgets]').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+    await until(() => store.t[TABS.budgets].length === 3, 'budgets saved');
+    expect(store.t[TABS.budgets]).toEqual(expect.arrayContaining([
+      { category: 'fnb', monthly_budget: 1000000, scope: '' },
+      { category: 'fnb', monthly_budget: 50000, scope: 'Dewi' },
+      { category: 'Transport', monthly_budget: 20000, scope: 'Dewi' },
+    ]));
+  });
+});

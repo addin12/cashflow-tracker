@@ -26,6 +26,14 @@ import { $, $$, HIDE_KEY, T, state } from './state.js';
 import { applyTheme, toggleTheme } from './theme.js';
 import { applyPicked, drill, exportCsv, setKind, setPreset, showResults, viewTransactions } from './transactions.js';
 
+/** Every budget, with the fields of the view on screen (Kita or one person) read back into the list. */
+function mergeBudgetForm(form) {
+  const scope = state.budgetScope || '';
+  const others = (state.settings.budgets || []).filter((b) => String(b.scope || '') !== scope);
+  const here = $$('[data-b]', form).map((i) => ({ category: i.dataset.b, monthly_budget: Number(i.value) || 0, scope })).filter((b) => b.monthly_budget > 0); // an empty field is no budget
+  return [...others, ...here];
+}
+
 export function onClick(e) {
   if (e.target.closest('[data-toast=undo]')) {
     const item = e.target.closest('.toast');
@@ -283,6 +291,12 @@ export function onClick(e) {
     state.settingsSection = 'accounts';
     return show('settings');
   }
+  if (a === 'budgetscope') {
+    // What was typed for this view is kept, then the other view's fields show (nothing is saved until "Simpan budget").
+    state.settings.budgets = mergeBudgetForm(el.closest('form'));
+    state.budgetScope = el.dataset.scope;
+    return viewSettings(state.settings);
+  }
   if (a === 'delacct') {
     // Taken off the list here; it is gone when the list is saved (an account with transactions is refused there, with the reason).
     state.settings.accounts = readAccounts(el.closest('form'));
@@ -479,7 +493,7 @@ export function onSubmit(e) {
     });
   }
   if (kind === 'budgets') {
-    const budgets = $$('[data-b]', form).map((i) => ({ category: i.dataset.b, monthly_budget: Number(i.value) || 0 }));
+    const budgets = mergeBudgetForm(form);
     return saveForm(form, 'saveBudgets', { budgets }, () => { state.dashByMonth = {}; });
   }
   if (kind === 'rules') {
