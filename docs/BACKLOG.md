@@ -70,3 +70,9 @@ What is left after round 29 (2026-11-04). Nothing here is broken; each item is w
 - **Coverage of the owner's inbox** (through n8n, headers only): every financial-looking sender has a reader except promotions and monthly statements (Mandiri "Consolidated Statement", Bibit newsletters). Nothing else to build there.
 - **Grab e-receipts: not built.** 21 of the partner's 25 were paid with OVO, so no bank row exists to name; a reader would only make sense after the e-wallet decision (one "digital wallet" account would make the receipt the expense row).
 - Mutation testing is still open for `api.js` (about 1,200 lines, a long run) and the smaller `money.js` (82%) and `goals.js` (86%) survivors.
+
+## 2026-11-10
+
+- **BRI emails some payments twice** (two Gmail messages, one reference): found after her first account synced, by the data audit (5 payments counted twice, all approved). The planner now skips an email whose reference, account, direction, day and amount are already in the sheet, and ignores the later copy of any that already are (`sameRef` in `src/core/plan.js`). An ignored row can be restored in the app.
+- The partner's first account synced on its own after she pressed Sync now: her BRI account went from 6 to 109 rows, all 108 BRI emails read without error, and she had already categorised them.
+- `vitest.config.js` and `.gitignore` keep a mutation run's `.stryker-tmp` sandbox out of the tests and out of git.

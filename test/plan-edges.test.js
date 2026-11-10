@@ -223,3 +223,41 @@ describe('a dividend', () => {
     expect(plan([mail('e2', { ...div, account: { institution: 'Unknown Bank' } })]).add[0]).toMatchObject({ category: 'Dividen', status: 'pending', stream: '' });
   });
 });
+
+describe('the same payment emailed twice', () => {
+  const copy = (o) => row({ source: 'email', stream: 'BCA', direction: 'out', amount: 25000, date: '2026-11-05', time: '10:00:00', ref_no: 'REF1', status: 'approved', ...o });
+  const again = (o = {}) => mail('e2', ev({ amount: 25000, refNo: 'REF1', ...o }));
+
+  it('a second email with the same reference, account, direction, day and amount adds nothing, and says why', () => {
+    const p = plan([again()], [copy({ id: 'a', gmail_id: 'e1' })]);
+    expect(p.add).toEqual([]);
+    expect(p.log[0]).toMatchObject({ status: 'ok', rows: 0 });
+    expect(p.log[0].reason).toBe('same payment as a (same reference)');
+  });
+  it('it is still a new payment when any of those differ, or there is no reference', () => {
+    const existing = [copy({ id: 'a', gmail_id: 'e1' })];
+    for (const o of [{ refNo: 'REF2' }, { refNo: '' }, { amount: 25001 }, { date: '2026-11-06' }, { direction: 'in' }, { account: { institution: 'Mandiri', hint: '5566' } }]) {
+      expect(plan([again(o)], existing).add, JSON.stringify(o)).toHaveLength(1);
+    }
+    expect(plan([again()], [copy({ id: 'a', gmail_id: 'e1', source: 'manual' })]).add).toHaveLength(1);
+    expect(plan([again()], [copy({ id: 'a', gmail_id: 'e1', status: 'ignored' })]).add).toHaveLength(1);
+  });
+  it('the two emails of one run: the second is the repeat of the first', () => {
+    const p = plan([mail('e1', ev({ refNo: 'REF1' }), EPOCH), mail('e2', ev({ refNo: 'REF1' }), EPOCH + 1000)]);
+    expect(p.add.map((r) => r.gmail_id)).toEqual(['e1']);
+    expect(p.log.map((l) => l.rows)).toEqual([1, 0]);
+  });
+  it('copies already in the sheet are ignored, the first one stays, and nothing else is touched', () => {
+    const existing = [
+      copy({ id: 'a', gmail_id: 'e1' }), copy({ id: 'b', gmail_id: 'e2' }), copy({ id: 'c', gmail_id: 'e3' }),
+      copy({ id: 'd', gmail_id: 'e4', amount: 99 }), copy({ id: 'e', gmail_id: 'e5', ref_no: '' }), copy({ id: 'f', gmail_id: 'e6', source: 'manual' }),
+      copy({ id: 'g', gmail_id: 'e7', status: 'ignored' }), copy({ id: 'h', gmail_id: 'e8', stream: 'Mandiri' }),
+    ];
+    const p = plan([], existing);
+    expect(p.update).toEqual([{ id: 'b', changes: { status: 'ignored', updated_by: 'sync', updated_at: NOW } }, { id: 'c', changes: { status: 'ignored', updated_by: 'sync', updated_at: NOW } }]);
+  });
+  it('the two sides of a transfer share a reference but are not copies of each other', () => {
+    const p = plan([], [copy({ id: 'out', gmail_id: 'e1' }), copy({ id: 'in', gmail_id: '', direction: 'in', stream: 'Mandiri', transfer_id: 't1' })]);
+    expect(p.update).toEqual([]);
+  });
+});

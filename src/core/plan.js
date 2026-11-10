@@ -99,6 +99,17 @@ export function planSync({ emails, existing, accounts, rules, config, nowIso }) 
     update.set(row.id, { ...(update.get(row.id) || {}), ...changes, updated_by: 'sync', updated_at: nowIso });
   };
 
+  // The same payment can be emailed twice (BRI does): one row per bank reference, account, direction, day and amount. Copies that are already in
+  // the sheet are ignored (the first stays), and a new email for a payment that is already there adds nothing.
+  const sameRef = (x, ref, stream, direction, date, amount) => x.source === 'email' && x.status !== 'ignored' && ref && x.ref_no === ref && x.stream === stream
+    && x.direction === direction && String(x.date).slice(0, 10) === String(date).slice(0, 10) && Math.abs(Number(x.amount) - Number(amount)) < 0.005;
+  const kept = [];
+  for (const row of pool) {
+    if (row.source !== 'email' || row.status === 'ignored' || !row.ref_no) continue;
+    if (kept.some((k) => sameRef(k, row.ref_no, row.stream, row.direction, row.date, row.amount))) change(row, { status: 'ignored' });
+    else kept.push(row);
+  }
+
   const ordered = [...emails].sort((a, b) => a.epochMs - b.epochMs);
   for (const email of ordered) {
     const r = email.result;
@@ -148,6 +159,9 @@ export function planSync({ emails, existing, accounts, rules, config, nowIso }) 
       }
       const src = resolveAccount(ev.account, mine);
       if (!src) notes.push(`account not recognised (${ev.account.institution}${ev.account.hint ? ` …${ev.account.hint}` : ''})`);
+
+      const repeat = ev.type !== 'summary' && pool.find((x) => sameRef(x, ev.refNo, src, ev.direction, ev.date, ev.amount));
+      if (repeat) { notes.push(`same payment as ${repeat.id} (same reference)`); return; }
 
       if (ev.type === 'summary') {
         const stream = resolveAccount({ institution: 'GoPay' }, mine);
