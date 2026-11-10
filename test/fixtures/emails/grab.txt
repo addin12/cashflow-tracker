@@ -1,0 +1,128 @@
+=== grab-ovo
+from: Grab <no-reply@grab.com>
+subject: Your Grab E-Receipt
+epoch: 1793000000000
+---
+Grab E-Receipt
+12
+Bike Hemat
+Hope you enjoyed your ride!
+Picked up on 05 November 2026
+Booking ID: A-1ABC2DEF3GHI
+Total Paid
+Rp12.500
+Receipt issued by the driver A B .
+Breakdown
+Fare
+12.500
+Total Paid
+12.500
+Passenger
+Dewi
+Profile
+PERSONAL
+Paid by
+OVO
+12.500
+Inclusive of VAT
+1.000
+
+=== grab-cash
+from: Grab <no-reply@grab.com>
+subject: Your Grab E-Receipt
+epoch: 1793000000000
+---
+Grab E-Receipt
+7
+Car
+Hope you enjoyed your ride!
+Picked up on 05 November 2026
+Booking ID: A-9ZZZ
+Total Paid
+Rp45.000
+Paid by
+Cash
+45.000
+
+=== grab-card
+from: Grab <no-reply@grab.com>
+subject: Your Grab E-Receipt
+epoch: 1793000000000
+---
+Grab E-Receipt
+7
+Car
+Hope you enjoyed your ride!
+Picked up on 05 November 2026
+Booking ID: A-9YYY
+Total Paid
+Rp45.000
+Paid by
+Visa ****1234
+45.000
+
+=== grab-gopay-no-date
+from: Grab <no-reply@grab.com>
+subject: Your Grab E-Receipt
+epoch: 1793000000000
+---
+Grab E-Receipt
+Total Paid
+Rp9.000
+Paid by
+GoPay
+9.000
+
+=== grab-no-method
+from: Grab <no-reply@grab.com>
+subject: Your Grab E-Receipt
+epoch: 1793000000000
+---
+Grab E-Receipt
+Picked up on 05 November 2026
+Total Paid
+Rp9.000
+
+=== grab-food-ovo
+from: Grab <no-reply@grab.com>
+subject: Your Grab E-Receipt
+epoch: 1793000000000
+---
+Selamat menikmati makanan Anda!
+TOTAL
+Rp 38.000
+TANGGAL
+WAKTU
+05 Nov 26 12:34 +0700
+Detail Pesanan
+Jenis Kendaraan:
+GrabFood
+Diterbitkan oleh Pengemudi
+A B
+Diterbitkan untuk
+Dewi
+Pesanan ID
+A-FOOD1234
+Pesanan Dari:
+Warung Contoh - Jakarta
+Detail Tagihan
+Detail Pembayaran:
+OVO Cash : Rp 38.000
+Detail Pembayaran:
+Subtotal
+Rp 40.000
+TOTAL (INCL. TAX)
+Rp 38.000
+
+=== grab-food-cash
+from: Grab <no-reply@grab.com>
+subject: Your Grab E-Receipt
+epoch: 1793000000000
+---
+Selamat menikmati makanan Anda!
+TOTAL
+Rp 38.000
+WAKTU
+05 Nov 26 12:34 +0700
+Detail Pembayaran:
+Cash : Rp 38.000

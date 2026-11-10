@@ -22,7 +22,7 @@ export function unknownAccounts(log, mailboxes, accounts) {
   for (const line of log) {
     if (!sameMailbox(line, mailboxes)) continue;
     for (const ref of mentions(line.reason)) {
-      if (resolveAccount(ref, accounts, { strict: true })) continue;
+      if (resolveAccount(ref, accounts, { strict: Boolean(ref.hint) })) continue; // with no number to compare, the person's only account there is the one
       const key = `${ref.institution.toLowerCase()}|${ref.hint}`;
       found.set(key, { ...ref, count: (found.get(key) || { count: 0 }).count + Math.max(Number(line.rows) || 1, 1) });
     }
@@ -37,7 +37,7 @@ export function unknownAccounts(log, mailboxes, accounts) {
 export function adoptRows(log, rows, account) {
   const ids = new Set();
   for (const line of log) {
-    if (mentions(line.reason).some((ref) => resolveAccount(ref, [account], { strict: true }))) ids.add(String(line.gmail_id));
+    if (mentions(line.reason).some((ref) => resolveAccount(ref, [account], { strict: Boolean(ref.hint) }))) ids.add(String(line.gmail_id));
   }
   return rows
     .filter((r) => !r.stream && ids.has(String(r.gmail_id)) && (!r.owner || !account.owner || r.owner === account.owner))

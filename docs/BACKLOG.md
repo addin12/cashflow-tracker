@@ -86,3 +86,13 @@ What is left after round 29 (2026-11-04). Nothing here is broken; each item is w
 - **"Cek cakupan email": covered by the n8n scan** of both inboxes (nothing unread but promotions and statements); running the menu itself is only a check that it works.
 - **Oracle server: prepared and validated, not created.** The compose file, the setup script and the Caddyfile validate with dummy values (`docker compose config`, `bash -n`, `caddy validate`). What is left needs the owner: an Oracle Cloud account (card for verification), an Always Free ARM server, a free host name, then steps 4 to 9 of `D:Project
 8nserverREADME.md`. The app and its sync do not depend on it; only Claude's mail reading does.
+
+## E-wallets as accounts (2026-11-10, replaces the "stay as spending" decision above)
+
+The owner chose one account per wallet. What the mail allows: **no wallet emails receipts or balances** (OVO sends promotions only, Dana and ShopeePay nothing, GoPay one monthly total that already has a reader). The only receipts are the banks' top-up emails (already read) and Grab receipts. So:
+
+- A top-up to a wallet that is an account is a transfer into it (the planner did this already), so the wallet's balance goes up by the receipt amount. A top-up to a wallet that is NOT an account stays a payment and the app suggests adding the wallet ("account not recognised (OVO …0812)" feeds the existing "new account" row).
+- Grab e-receipts (`src/core/parsers/grab.js`, both the ride and the GrabFood layouts) paid with a wallet become spending on that wallet's account: all 16 of the partner's receipts in 4 months read (Rp314.360, all OVO). Cash and card are skipped.
+- Past top-ups: once a wallet is an account, "Needs attention" offers to turn them into transfers into it (`convertTopups`). Tap per wallet; only your own rows; a top-up already in the transfer category only gets its wallet side (nothing changes in spending). Without this, past top-ups would count twice next to the wallet's own spending.
+- **The balance of a wallet only falls by what is recorded** (Grab, and whatever is typed). Everything else spent from it is not in any mail, so the wallet's balance runs high until a month-end balance check; the check's adjustment is the rest of its spending. Do it at least monthly (Settings → Month-end balance check; the payday reminder already lists every account).
+- What each person has to do: add the wallet(s) in Settings → Accounts (the suggestion row does the typing), enter its current balance with a balance check, then tap the conversion row.

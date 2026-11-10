@@ -15,6 +15,7 @@ The allow-list below is shared by all connected accounts. Adding a parser for a 
 | `receipts@blubybcadigital.id` | Transaksimu Pakai blu Berhasil(!) · Info Transaksi Masuk ke blu Kamu | debit card / QRIS / transfer (out, fee only when actually charged), incoming transfer (in) | `blu` |
 | `noreply@jago.com` | Kamu telah melakukan transfer · Kamu memindahkan uang dari salah satu Kantong · *contact updates* | transfer (out), Kantong move (pocket ↔ main), **contact emails skipped** | `jago` |
 | `corporate_action@mandirisekuritas.co.id` | Pembayaran Dividen Tunai … · *Jadwal Pembagian Dividen …* | dividend (in) · **schedule skipped** | `sekuritas` |
+| `no-reply@grab.com` *(added 2026-11-10)* | Your Grab E-Receipt | a ride or GrabFood order paid with a wallet: spending on that wallet's account (cash and card skipped) | `grab` |
 | `bankbri@bri.co.id` *(added 2026-11-09)* | Pembelian QRIS Berhasil · Pembayaran QR Berhasil · Top Up … Berhasil · Pemindahan Dana Sesama Rekening BRI · Notification BRI | QRIS payments, top-ups, transfers, and the one-line notices (money in as income) | `bri` |
 | `no-reply@customers.go-pay.co.id` | Ini total pengeluaranmu di <bulan> | monthly totals → **suggested Penyesuaian**, no per-transaction rows | `gopay` |
 | `no_reply@email.apple.com` *(added 2026-10-06, searched from the start date)* | Your receipt from Apple. · *Your Subscription is Expiring* | **no row**: names the app and item on the bank's `APPLE.COM/BILL` row · **other Apple emails skipped** | `apple` |
@@ -51,6 +52,10 @@ Added 2026-11-09 after reading the partner's inbox (headers and layouts only). F
 - **"Notification BRI"**: one line, "Dana Rp … keluar dari / masuk ke rekening ***1234 pada 06/11/26 12:34:56. Ket.: …". In is income, out is a payment, with no merchant (the note is kept as details). A note starting with QRIS is skipped: that payment has its own email, and both would count it twice.
 - The account hint is the last digits of the masked number ("1111 **** **** 222" gives 222). With one BRI account in Accounts it resolves without a hint.
 - A notice that matches the unlinked other side of a transfer is linked to it by the planner (any event type), whichever email arrives first.
+
+### Grab · `no-reply@grab.com` · `src/core/parsers/grab.js`
+
+Two layouts, both plain text. A ride: "Paid by" then the wallet, "Total Paid", "Picked up on 05 November 2026", "Booking ID: …". GrabFood (Indonesian): "Detail Pembayaran:" then "OVO Cash : Rp 38.000" (the amount actually paid after promos), the time after "WAKTU" with a two-digit year, the restaurant under "Pesanan Dari:", the order under "Pesanan ID". A wallet (OVO, GoPay, DANA, ShopeePay) becomes the account of the event; cash and a card are skipped (a card payment has its own bank email); a wallet receipt with no readable date is an error with its outline. The reference is the booking or order, so a receipt sent twice counts once.
 
 ### blu by BCA Digital · `receipts@blubybcadigital.id`
 - Outgoing (`Transaksimu Pakai blu Berhasil`): `Total Bayar` / `Total` / `Nominal` `Rp1.250.000,50`, merchant line after `bluAccount`, optional quoted note (`"catatan"`), `Biaya`.

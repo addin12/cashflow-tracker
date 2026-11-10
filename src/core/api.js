@@ -19,7 +19,7 @@ import {
   manualRows, balanceCorrection, renamedCategories, budgetUsage, filterTransactions, isoDate, newId, suggestBudgets, bigSpends, newestFromEmail, dailySpending, rowView,
 } from './app.js';
 import { compileRule, ruleUpdates } from './rules.js';
-import { linkableTransfers } from './transfers.js';
+import { convertibleTopups, linkableTransfers, topupsByWallet } from './transfers.js';
 import { staleSyncs } from './synchealth.js';
 import { unknownAccounts, adoptRows } from './newaccounts.js';
 import { recurringCharges, payee } from './recurring.js';
@@ -257,7 +257,7 @@ export function createApi(store, env) {
     review() {
       const all = rows();
       const r = reviewItems(all, store.read(TABS.inboxLog), { today: now() });
-      return { ...r, pending: withFirst(r.pending, firstIds(all)), salary: salaries(all), day: dayState(all), ruleable: ruleUpdates(all, store.read(TABS.rules)).length, linkable: linkableTransfers(ownRows(all)) };
+      return { ...r, pending: withFirst(r.pending, firstIds(all)), salary: salaries(all), day: dayState(all), ruleable: ruleUpdates(all, store.read(TABS.rules)).length, linkable: linkableTransfers(ownRows(all)), topups: topupsByWallet(convertibleTopups(ownRows(all), accounts())) };
     },
 
     /** Runs the rules over the pending rows that have an account: categories filled, auto-approving rules approve. */
@@ -274,6 +274,29 @@ export function createApi(store, env) {
       const lone = rows().find((r) => r.id === link.id);
       store.update(TABS.transactions, [{ id: link.withId, changes: touch({ transfer_id: lone.transfer_id, category: lone.category, status: 'approved' }) }]);
       return { ok: true };
+    },
+
+    /**
+     * Past top-ups to a wallet that is now one of the accounts become transfers into it: the bank row takes the transfer category and an id, and the
+     * wallet gets the matching "in" row. Only the caller's own rows, only wallets that are accounts; asked for, never done on its own.
+     */
+    convertTopups({ wallet } = {}) {
+      const tc = String(store.config('cat_transfer') || 'trf ke bank lain');
+      const all = rows();
+      const todo = convertibleTopups(ownRows(all), accounts()).filter((x) => !wallet || x.wallet === wallet);
+      if (!todo.length) throw new Error('there are no top-ups to turn into transfers');
+      const byId = new Map(all.map((r) => [r.id, r]));
+      const mirrors = todo.map((x) => {
+        const r = byId.get(x.id);
+        return {
+          id: `${r.id}_w`, date: r.date, time: r.time || '', owner: r.owner, stream: x.wallet, direction: 'in', amount: r.amount, category: tc, description: `Top-up dari ${r.stream}`,
+          details: 'Pasangan transfer (top-up)', source: 'app', sender: '', gmail: '', gmail_id: '', ref_no: r.ref_no || '', status: 'approved', transfer_id: `tp_${r.id}`, rule_id: '',
+          updated_by: owner() || 'app', updated_at: nowIso(),
+        };
+      });
+      store.update(TABS.transactions, todo.map((x) => ({ id: x.id, changes: touch({ category: tc, transfer_id: `tp_${x.id}`, status: 'approved', rule_id: '' }) })));
+      store.append(TABS.transactions, mirrors);
+      return { ok: true, converted: todo.length };
     },
 
     /** An email that can't be read and isn't a transaction: its log line becomes "skip", so it is not shown or tried again. */
@@ -1199,5 +1222,5 @@ export const API_METHODS = [
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
   'yearly', 'importStatement', 'undoImport', 'updateMany', 'tagih', 'owedSet', 'owedRemove', 'savePlans', 'saveAssets', 'markRecurring',
-  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe', 'markClaim', 'saveHousehold', 'settleUp', 'undoSettlement', 'saveTelegramToken', 'telegramUnlink', 'telegramRemove', 'restoreBackup', 'applyRules', 'dismissEmail', 'linkTransfer',
+  'setTagBudget', 'closeDay', 'reopenDay', 'spt', 'saveCards', 'scanYearly', 'pushTest', 'pushForget', 'connectMe', 'markClaim', 'saveHousehold', 'settleUp', 'undoSettlement', 'saveTelegramToken', 'telegramUnlink', 'telegramRemove', 'restoreBackup', 'applyRules', 'dismissEmail', 'linkTransfer', 'convertTopups',
 ];

@@ -190,6 +190,12 @@ export function planSync({ emails, existing, accounts, rules, config, nowIso }) 
       const waiting = src && pool.find((x) => x.transfer_id && !x.gmail_id
         && sameMovement(x, { stream: src, direction: ev.direction, amount: ev.amount, date: ev.date, time: ev.time }));
       const own = ownCounterparty(ev, accounts, config.ownerNames);
+      // A top-up to a wallet that is not one of the accounts stays a payment, and says so in the same words as an unknown account, so the app
+      // offers to add the wallet (its next top-ups are then transfers into it, and its balance follows).
+      if (ev.type === 'topup' && !own.own && ev.counterparty && ev.counterparty.institution) {
+        const number = String(ev.counterparty.account || '').replace(/\D/g, '');
+        notes.push(`account not recognised (${ev.counterparty.institution}${number.length >= 4 ? ` …${number.slice(-4)}` : ''})`);
+      }
       if (waiting) {
         change(waiting, { gmail_id: email.id, ref_no: ev.refNo || waiting.ref_no, sender: email.from, details: ev.details || waiting.details });
         notes.push('linked to an existing transfer');
