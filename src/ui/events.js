@@ -283,6 +283,12 @@ export function onClick(e) {
     state.settingsSection = 'accounts';
     return show('settings');
   }
+  if (a === 'delacct') {
+    // Taken off the list here; it is gone when the list is saved (an account with transactions is refused there, with the reason).
+    state.settings.accounts = readAccounts(el.closest('form'));
+    state.settings.accounts.splice(Number(el.dataset.i), 1);
+    return viewSettings(state.settings);
+  }
   if (a === 'addacct') {
     const form = el.closest('form');
     state.settings.accounts = readAccounts(form);

@@ -4,7 +4,7 @@ import { svgIcon } from './icons.js';
 import { attentionCard, cardsCard, claimsCard, eventsCard, goalsCard, healthCard, owedCard, patternCard, paydayCard, recapCard, recurringCard, sharedCard, sptCard, tagsCard, warrantiesCard, wealthCard } from './cards.js';
 import { remember } from './data.js';
 import { currentMonth, dateLabel, esc, fmt, locale, monthAdd, monthAria, monthDate, monthLabel, monthShort, rangeLabel, rp, signed, timeLabel } from './format.js';
-import { ownPendingCount, setView, skeleton, whoSeg } from './render.js';
+import { ownPendingCount, setView, skeleton, streamLabel, whoSeg } from './render.js';
 import { call } from './server.js';
 import { T, state } from './state.js';
 import { EYE, EYE_OFF, acctIcon, firstBadge, icon } from './visuals.js';
@@ -133,7 +133,7 @@ function overviewHtml(d) {
     if (!list.length) return '';
     const total = list.reduce((a, b) => a + b.balance, 0);
     return `<div class="rowi total-row"><span>${esc(title)}</span><span class="amt">${rp(total)}</span></div>${list.map((b) => `
-      <button class="lrow" data-action="drill" data-stream="${esc(b.stream)}">${acctIcon(b.stream, b.type)}<span class="what"><b>${esc(b.stream)}</b></span><span class="amt">${rp(b.balance)}</span></button>`).join('')}`;
+      <button class="lrow" data-action="drill" data-stream="${esc(b.stream)}">${acctIcon(b.stream, b.type)}<span class="what"><b>${esc(streamLabel(b.stream))}</b></span><span class="amt">${rp(b.balance)}</span></button>`).join('')}`;
   };
   const todayCard = isNow ? `<section class="card today-card">
       <p class="eyebrow">${esc(T.todayIs(dateLabel(state.boot.today)))}</p>

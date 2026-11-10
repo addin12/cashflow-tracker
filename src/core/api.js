@@ -1016,6 +1016,9 @@ export function createApi(store, env) {
       const kept = new Set(clean.map((a) => a.stream));
       const missing = [...used].filter((s) => !kept.has(s));
       if (missing.length) throw new Error(`these accounts have transactions and can't be removed: ${missing.join(', ')}`);
+      const gone = new Set(accounts().map((a) => a.stream).filter((s) => !kept.has(s)));
+      const pointing = [...store.read(TABS.plans).map((p) => p.stream), ...store.read(TABS.goals).map((g) => g.stream), ...store.read(TABS.rules).map((r) => r.stream_override)].filter((s) => gone.has(s));
+      if (pointing.length) throw new Error(`these accounts are used by a plan, a goal or a rule and can't be removed: ${[...new Set(pointing)].join(', ')}`);
       store.replace(TABS.accounts, clean);
       // Transactions that waited for an account of this kind (a newcomer's first emails) go onto it, and the rules settle them.
       const log = store.read(TABS.inboxLog);

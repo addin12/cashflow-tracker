@@ -1,4 +1,4 @@
-// A wallet's monthly total waiting in "Perlu dicek" can be split by category right from its card.
+// A wallet's monthly total waiting in "Perlu dicek" can be split by category right from its card; accounts show whose they are and can be deleted in Settings.
 import { describe, expect, it, beforeAll } from 'vitest';
 import { JSDOM } from 'jsdom';
 import { buildUiHtml } from '../scripts/ui-build.mjs';
@@ -15,11 +15,14 @@ function memoryStore() {
     [TABS.accounts]: [
       { stream: 'BCA', type: 'Spending', owner: 'Me', institution: 'BCA', match_hint: '56', opening_balance: 1000000 },
       { stream: 'GoPay', type: 'Spending', owner: 'Me', institution: 'GoPay', match_hint: '', opening_balance: 0 },
+      { stream: 'Cash', type: 'Spending', owner: 'Me', institution: '', match_hint: 'manual', opening_balance: 0 },
+      { stream: 'OVO', type: 'Spending', owner: 'Dewi', institution: 'OVO', match_hint: '', opening_balance: 0 },
+      { stream: 'BCA Dewi', type: 'Spending', owner: 'Dewi', institution: 'BCA', match_hint: '99', opening_balance: 0 },
     ],
     [TABS.rules]: [], [TABS.connections]: [{ gmail: 'you@gmail.com', last_sync: '2026-11-10T03:00:00.000Z', last_status: 'live ok' }],
     [TABS.inboxLog]: [], [TABS.budgets]: [], [TABS.goals]: [], [TABS.owed]: [], [TABS.plans]: [], [TABS.assets]: [],
   };
-  const cfg = { owner_name: 'Me', start_date: '2026-09-01', payday_day: 28, language: '' };
+  const cfg = { owner_name: 'Me', partner_name: 'Dewi', partner_email: 'dewi@example.com', start_date: '2026-09-01', payday_day: 28, language: '' };
   const slots = buildCategorySlots({ income: ['gaji'], expense: ['fnb', 'Transport'] });
   return {
     t, cfg,
@@ -86,5 +89,43 @@ describe('a wallet summary card', () => {
     await until(() => store.t[TABS.transactions].some((r) => r.id === 's1_s1'), 'split saved');
     expect(store.t[TABS.transactions].find((r) => r.id === 's1')).toMatchObject({ amount: 80000, category: 'fnb', status: 'approved' });
     expect(store.t[TABS.transactions].find((r) => r.id === 's1_s1')).toMatchObject({ amount: 35419, category: 'Transport', stream: 'GoPay', status: 'approved' });
+  });
+});
+
+describe('whose account it is', () => {
+  it('with two people, the name of an account shows its owner on the cards, unless the name already says it', () => {
+    expect(doc.querySelector('.txcard[data-id="t1"] .meta').textContent).toContain('BCA · Me');
+  });
+});
+
+describe('accounts in Settings', () => {
+  const legends = () => [...doc.querySelectorAll('form[data-form=accounts] legend')].map((l) => l.textContent);
+  const goAccounts = async () => {
+    click(doc.querySelector('.nav [data-tab=settings]'));
+    await until(() => doc.querySelector('[data-action=setsection][data-section=accounts]'), 'settings list');
+    click(doc.querySelector('[data-action=setsection][data-section=accounts]'));
+    await until(() => doc.querySelector('form[data-form=accounts]'), 'accounts form');
+  };
+  const rowOf = (name) => [...doc.querySelectorAll('form[data-form=accounts] .acct')].find((r) => r.querySelector('[data-a=stream]').value === name);
+  const save = () => doc.querySelector('form[data-form=accounts]').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+  it('each account is titled with its owner, except one whose name already has it', async () => {
+    await goAccounts();
+    expect(legends()).toEqual(expect.arrayContaining(['BCA · Me', 'GoPay · Me', 'Cash · Me', 'OVO · Dewi', 'BCA Dewi']));
+    expect([...doc.querySelectorAll('select[data-a=owner]')].length).toBeGreaterThan(0);
+  });
+  it('the delete button takes an account off the list, and it is gone once the list is saved', async () => {
+    click(rowOf('Cash').querySelector('[data-action=delacct]'));
+    expect(rowOf('Cash')).toBeUndefined();
+    expect(store.t[TABS.accounts].some((a) => a.stream === 'Cash')).toBe(true); // not yet: saving does it
+    save();
+    await until(() => !store.t[TABS.accounts].some((a) => a.stream === 'Cash'), 'cash account deleted');
+    expect(store.t[TABS.accounts].map((a) => a.stream)).toEqual(['BCA', 'GoPay', 'OVO', 'BCA Dewi']);
+  });
+  it('an account that has transactions is not deleted: the list is refused and says why', async () => {
+    await goAccounts();
+    click(rowOf('BCA').querySelector('[data-action=delacct]'));
+    save();
+    await until(() => /can't be removed/.test(doc.querySelector('form[data-form=accounts] .state').textContent + doc.body.textContent), 'refusal');
+    expect(store.t[TABS.accounts].some((a) => a.stream === 'BCA')).toBe(true);
   });
 });

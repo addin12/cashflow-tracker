@@ -4,7 +4,7 @@ import { svgIcon } from './icons.js';
 import { setAll } from './data.js';
 import { dateLabel, esc, locale, rp } from './format.js';
 import { assetsForm, balanceForm, cardsForm, goalsForm, importForm, plansForm, previewRule } from './forms.js';
-import { accountOptions, categoryOptions, field, setView, skeleton } from './render.js';
+import { accountOptions, categoryOptions, field, setView, skeleton, streamLabel } from './render.js';
 import { call, save } from './server.js';
 import { $$, T, state } from './state.js';
 import { shownOrder } from './accountorder.js';
@@ -87,7 +87,7 @@ export async function viewSettings(local) {
   const cfg = s.config;
   const saveRow = (label) => `<div class="actions"><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(label)}</button></div>`;
   const acc = shownOrder(s.accounts, state.boot.me, (state.boot.members || [])[0]).map((a, i) => `
-    <fieldset class="acct-row acct" data-i="${i}" data-orig="${a._orig}"><legend>${esc(a.stream || T.newAccount)}</legend>
+    <fieldset class="acct-row acct" data-i="${i}" data-orig="${a._orig}"><legend>${esc(a.stream ? streamLabel(a.stream) : T.newAccount)}</legend>
       <div class="fields2">
         ${field(T.accountName, `<input data-a="stream" value="${esc(a.stream)}">`)}
         ${field(T.accountType, `<select data-a="type"><option value="Spending" ${a.type === 'Spending' ? 'selected' : ''}>${esc(T.typeSpending)}</option><option value="Saving" ${a.type === 'Saving' ? 'selected' : ''}>${esc(T.typeSaving)}</option></select>`)}
@@ -95,7 +95,8 @@ export async function viewSettings(local) {
         ${(state.boot.members || []).length > 1 ? field(T.accountOwner, `<select data-a="owner">${state.boot.members.map((n) => `<option ${n === (a.owner || state.boot.members[0]) ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`, { help: T.accountOwnerHelp }) : ''}
         ${field(T.openingBalance, `<input data-a="opening_balance" type="number" inputmode="decimal" step="any" value="${esc(a.opening_balance)}">`)}
         ${field(T.hints, `<input data-a="match_hint" value="${esc(a.match_hint)}">`, { help: T.hintsHelp, wide: true })}
-      </div></fieldset>`).join('');
+      </div>
+      <div class="actions"><button class="btn danger small" type="button" data-action="delacct" data-i="${i}">${esc(T.deleteAccount)}</button></div></fieldset>`).join('');
   // Rule previews need every transaction: fetched if missing or out of date, then the previews redrawn.
   if (!state.all || state.allStale) call('list', { limit: 1000000 }).then((r) => { setAll(r.rows); $$('.rule').forEach(previewRule); }).catch(() => {});
   const rules = s.rules.map((r, i) => `

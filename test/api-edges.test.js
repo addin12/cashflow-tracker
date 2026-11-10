@@ -310,3 +310,31 @@ describe('the people on the settings page and the phone code', () => {
     expect(link()).toBe('https://site.example/notifikasi?n=code3');
   });
 });
+
+describe('removing an account', () => {
+  const acc = (stream, owner = 'Me') => ({ stream, type: 'Spending', owner, institution: '', match_hint: '', opening_balance: 0, notes: '' });
+  const keepOnly = (store, ...streams) => me(store).saveAccounts({ accounts: streams.map((s) => acc(s)) });
+  it('an account nothing refers to can be removed', () => {
+    const store = memoryStore();
+    keepOnly(store, 'BCA');
+    expect(store.t[TABS.accounts].map((a) => a.stream)).toEqual(['BCA']);
+  });
+  it('one with transactions cannot, and the message names it', () => {
+    expect(() => keepOnly(memoryStore(), 'BCA Dewi')).toThrow("these accounts have transactions and can't be removed: BCA");
+  });
+  it('one that a plan, a goal or a rule points at cannot either', () => {
+    const point = (extra) => memoryStore({}, extra);
+    const msg = "these accounts are used by a plan, a goal or a rule and can't be removed: BCA Dewi";
+    expect(() => keepOnly(point({ [TABS.plans]: [{ id: 'p9', name: 'x', amount: 1, direction: 'out', stream: 'BCA Dewi', day: 1 }] }), 'BCA')).toThrow(msg);
+    expect(() => keepOnly(point({ [TABS.goals]: [{ id: 'g9', name: 'x', stream: 'BCA Dewi' }] }), 'BCA')).toThrow(msg);
+    expect(() => keepOnly(point({ [TABS.rules]: [{ id: 'r9', field: 'description', pattern: 'X', category: 'Makan', stream_override: 'BCA Dewi' }] }), 'BCA')).toThrow(msg);
+  });
+  it('the name is listed once, however many things point at it', () => {
+    const store = memoryStore({}, { [TABS.plans]: [{ id: 'a', stream: 'BCA Dewi' }, { id: 'b', stream: 'BCA Dewi' }], [TABS.goals]: [{ id: 'g', stream: 'BCA Dewi' }] });
+    expect(() => keepOnly(store, 'BCA')).toThrow(/removed: BCA Dewi$/);
+  });
+  it('a plan, goal or rule that points at an account that is kept is no obstacle', () => {
+    const store = memoryStore({}, { [TABS.plans]: [{ id: 'a', stream: 'BCA' }], [TABS.rules]: [{ id: 'r', stream_override: '' }] });
+    expect(() => keepOnly(store, 'BCA')).not.toThrow();
+  });
+});

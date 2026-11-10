@@ -7,7 +7,7 @@ import { viewDashboard } from './dashboard.js';
 import { patchRow } from './data.js';
 import { dateLabel, esc, rp, signed, when } from './format.js';
 import { updateBell } from './notifications.js';
-import { accountOptions, categoryOptions, field, fieldMessage, gmailLink, keepInputs, mineRow, otherOwner, setView, skeleton, syncLine, toast, updateNav } from './render.js';
+import { accountOptions, categoryOptions, field, fieldMessage, gmailLink, keepInputs, mineRow, otherOwner, setView, skeleton, streamLabel, syncLine, toast, updateNav } from './render.js';
 import { show } from './router.js';
 import { save } from './server.js';
 import { $, $$, T, state } from './state.js';
@@ -31,7 +31,7 @@ export function viewReview() {
   const card = (x, followers = []) => `
     <article class="card txcard" data-id="${esc(x.id)}">
       <div class="top"><div class="name">${esc(x.description || x.details || T.noName)}</div><div class="amt ${esc(x.direction)}">${signed(x)}</div></div>
-      <div class="meta">${esc(when(x))} · ${esc(x.stream || T.noAccount)}${x.details && x.description ? ` · ${esc(x.details)}` : ''}${otherOwner(x)}${firstBadge(x)}</div>
+      <div class="meta">${esc(when(x))} · ${esc(x.stream ? streamLabel(x.stream) : T.noAccount)}${x.details && x.description ? ` · ${esc(x.details)}` : ''}${otherOwner(x)}${firstBadge(x)}</div>
       ${x.source === 'summary' ? `<p class="hint">${esc(T.summaryHint)}</p>` : ''}
       ${x.stream ? '' : field(T.account, `<select data-field="stream">${accountOptions('')}</select>`)}
       ${field(T.category, `<select data-field="category">${categoryOptions(x.category, x.direction)}</select>`)}

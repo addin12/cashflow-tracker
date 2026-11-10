@@ -6,7 +6,7 @@ import { svgIcon } from './icons.js';
 import { parseBackupCsv } from '../core/csv.js';
 import { setAll } from './data.js';
 import { dateLabel, esc, locale, rp } from './format.js';
-import { accountOptions, field } from './render.js';
+import { accountOptions, field, streamLabel } from './render.js';
 import { call } from './server.js';
 import { $, $$, T, state } from './state.js';
 
@@ -228,7 +228,7 @@ export function balanceForm(s) {
   const checks = s.lastChecks || {};
   const rows = s.accounts.map((a) => {
     const last = checks[a.stream];
-    return `<fieldset class="acct-row bal-row" data-stream="${esc(a.stream)}" data-app="${esc(bal.get(a.stream) || 0)}"><legend>${esc(a.stream)}</legend>
+    return `<fieldset class="acct-row bal-row" data-stream="${esc(a.stream)}" data-app="${esc(bal.get(a.stream) || 0)}"><legend>${esc(streamLabel(a.stream))}</legend>
       <p class="bal-meta">${esc(T.inApp)} <b>${rp(bal.get(a.stream) || 0)}</b> · ${esc(last ? T.lastChecked(dateLabel(last, { weekday: false })) : T.neverChecked)}</p>
       ${field(T.actualBalance, '<input data-k="actual" type="number" inputmode="decimal" step="any" autocomplete="off">', { help: T.leaveEmpty })}
       <p class="bal-diff" role="status"></p>

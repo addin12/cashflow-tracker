@@ -71,8 +71,16 @@ export function categoryOptions(selected, direction) {
     list.map((x) => `<option ${x === selected ? 'selected' : ''}>${esc(x)}</option>`).join('')}</optgroup>`).join('')}`;
 }
 
+/** An account's name for screens: with two people in the app, whose it is goes after the name (unless the name already says it). */
+export const streamLabel = (stream) => {
+  const a = ((state.boot && state.boot.accounts) || []).find((x) => x.stream === stream);
+  const people = (state.boot && state.boot.members) || [];
+  const who = a && people.length > 1 ? String(a.owner || people[0]) : '';
+  return !who || String(stream).toLowerCase().includes(who.toLowerCase()) ? String(stream) : `${stream} · ${who}`;
+};
+
 export const accountOptions = (selected, empty = T.chooseAccount) => `${empty ? `<option value="">${esc(empty)}</option>` : ''}${
-  state.boot.accounts.map((a) => `<option ${a.stream === selected ? 'selected' : ''}>${esc(a.stream)}</option>`).join('')}`;
+  state.boot.accounts.map((a) => `<option value="${esc(a.stream)}" ${a.stream === selected ? 'selected' : ''}>${esc(streamLabel(a.stream))}</option>`).join('')}`;
 
 /** Shows (or clears) the message under a field. Returns true when there is no problem. */
 export function fieldMessage(input, msg) {

@@ -4,7 +4,7 @@ import { filterTransactions } from '../core/app.js';
 import { categoryHabit } from '../core/insights.js';
 import { patchRow, remember, setAll } from './data.js';
 import { currentMonth, dateLabel, esc, monthAdd, monthAria, monthLabel, monthShort, rangeLabel, rp, signed, timeLabel } from './format.js';
-import { categoryOptions, downloadCsv, field, setView, skeleton, toast, updateNav, whoSeg } from './render.js';
+import { categoryOptions, downloadCsv, field, setView, skeleton, streamLabel, toast, updateNav, whoSeg } from './render.js';
 import { show } from './router.js';
 import { call, save } from './server.js';
 import { $, T, state } from './state.js';
@@ -196,9 +196,9 @@ export function showResults() {
     <button class="trow${state.selecting ? ' picking' : ''}${state.picked.has(String(x.id)) ? ' picked' : ''}" data-action="${state.selecting ? 'pick' : 'edit'}" data-id="${esc(x.id)}" ${state.selecting ? `aria-pressed="${state.picked.has(String(x.id))}"` : ''}>
       <span class="c-date">${state.selecting ? `<span class="pick-box" aria-hidden="true">${state.picked.has(String(x.id)) ? '✓' : ''}</span>` : ''}${esc(timeLabel(x.time) || '')}</span>
       <span class="c-desc">${icon(x.category)}<span>${esc(x.description || T.noName)}${x.details ? `<small>${esc(x.details)}</small>` : ''}</span></span>
-      <span class="c-mobile-meta">${esc([timeLabel(x.time), x.category || T.noCategory, x.stream || T.noAccount].filter(Boolean).join(' · '))}</span>
+      <span class="c-mobile-meta">${esc([timeLabel(x.time), x.category || T.noCategory, x.stream ? streamLabel(x.stream) : T.noAccount].filter(Boolean).join(' · '))}</span>
       <span class="c-cat">${tag(x.category)}${statusBadge(x.status)}${firstBadge(x)}</span>
-      <span class="c-acct">${esc(x.stream || T.noAccount)}</span>
+      <span class="c-acct">${esc(x.stream ? streamLabel(x.stream) : T.noAccount)}</span>
       <span class="c-amt amt ${esc(x.direction)}">${signed(x)}</span>
     </button>`).join('');
   box.innerHTML = `${f.category ? categoryDetail(f.category) : ''}
