@@ -32,10 +32,12 @@ export function viewReview() {
     <article class="card txcard" data-id="${esc(x.id)}">
       <div class="top"><div class="name">${esc(x.description || x.details || T.noName)}</div><div class="amt ${esc(x.direction)}">${signed(x)}</div></div>
       <div class="meta">${esc(when(x))} · ${esc(x.stream || T.noAccount)}${x.details && x.description ? ` · ${esc(x.details)}` : ''}${otherOwner(x)}${firstBadge(x)}</div>
+      ${x.source === 'summary' ? `<p class="hint">${esc(T.summaryHint)}</p>` : ''}
       ${x.stream ? '' : field(T.account, `<select data-field="stream">${accountOptions('')}</select>`)}
       ${field(T.category, `<select data-field="category">${categoryOptions(x.category, x.direction)}</select>`)}
       ${x.description && x.source !== 'summary' ? `<label class="check"><input type="checkbox" data-field="always" checked> ${esc(T.alwaysFor(x.description))}${followers.length ? esc(T.alsoSimilar(followers.length)) : ''}</label>` : ''}
       ${followers.length ? `<details class="similar"><summary>${esc(T.similarList(followers.length))}</summary><div class="rows">${followers.map((f) => `<div class="rowi sub"><span class="what"><span class="meta">${esc(when(f))}${f.stream ? ` · ${esc(f.stream)}` : ''}</span></span><span class="amt ${esc(f.direction)}">${signed(f)}</span></div>`).join('')}</div></details>` : ''}
+      ${x.source === 'summary' ? `<div class="actions fill"><button class="btn secondary" data-action="splitsummary" data-id="${esc(x.id)}">${esc(T.summarySplit)}</button></div>` : ''}
       <div class="actions fill"><button class="btn secondary" data-action="ignore">${esc(T.ignore)}</button><button class="btn primary" data-action="approve">${esc(T.saveToReports)}</button></div>
     </article>`;
   const mine = r.pending.filter(mineRow);

@@ -217,6 +217,7 @@ export function onClick(e) {
   }
   if (a === 'edit') return openEditor(el.dataset.id);
   if (a === 'splitopen') return openSplit(el.dataset.id);
+  if (a === 'splitsummary') { openEditor(el.dataset.id); return openSplit(el.dataset.id); }
   if (a === 'splitcancel') { $('#splitBox').innerHTML = splitSummary(state.rowsById.get(String(el.dataset.id))); return null; }
   if (a === 'splitadd') {
     const box = $('#splitRows');
