@@ -59,7 +59,6 @@ export const CONFIG_KEYS = [
   { key: 'cat_transfer', name: 'CFG_CAT_TRANSFER', note: 'Category for transfers between your own accounts' },
   { key: 'cat_fee', name: 'CFG_CAT_FEE', note: 'Category for bank fees' },
   { key: 'cat_dividend', name: 'CFG_CAT_DIVIDEND', note: 'Category for dividends' },
-  { key: 'cat_cash', name: 'CFG_CAT_CASH', note: 'Category for cash withdrawals (Tarik Tunai)' },
   { key: 'language', name: 'CFG_LANGUAGE', note: 'Web app language: id or en (empty = follow the phone)' },
   // Added in setup version 8.
   { key: 'weekly_email', name: 'CFG_WEEKLY_EMAIL', note: 'Weekly summary email on Mondays: on / off' },
@@ -130,6 +129,12 @@ CONFIG_KEYS.push(
   { key: 'telegram_chats', name: 'CFG_TELEGRAM_CHATS', note: 'Telegram chats that may log transactions (JSON, written by the app; the bot token is not here)' },
   { key: 'telegram_nonce', name: 'CFG_TELEGRAM_NONCE', note: 'One-time code for linking a Telegram chat (written by the app)' },
   { key: 'telegram_username', name: 'CFG_TELEGRAM_USERNAME', note: 'The Telegram bot\'s username (written by the app)' },
+);
+
+// Added in setup version 43: always at the very END. Each setting is found by its place in this list (row = index + 2), so a key
+// put anywhere else moves every later key onto the wrong row (the sync read "archived" from another row and stopped).
+CONFIG_KEYS.push(
+  { key: 'cat_cash', name: 'CFG_CAT_CASH', note: 'Category for cash withdrawals (Tarik Tunai)' },
 );
 
 export const STATUS = ['pending', 'approved', 'ignored'];
