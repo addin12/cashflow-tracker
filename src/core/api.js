@@ -1011,8 +1011,8 @@ export function createApi(store, env) {
       };
     },
 
-    saveAccounts({ accounts: list }) {
-      const clean = list.map((a) => ({
+    saveAccounts({ accounts: input }) {
+      const clean = input.map((a) => ({
         stream: String(a.stream || '').trim(), type: a.type, owner: a.owner || owner(), institution: String(a.institution || '').trim(),
         match_hint: String(a.match_hint || '').trim(), opening_balance: Number(a.opening_balance) || 0, notes: a.notes || '',
       }));
@@ -1022,8 +1022,9 @@ export function createApi(store, env) {
       const missing = [...used].filter((s) => !kept.has(s));
       if (missing.length) throw new Error(`these accounts have transactions and can't be removed: ${missing.join(', ')}`);
       const gone = new Set(accounts().map((a) => a.stream).filter((s) => !kept.has(s)));
-      const pointing = [...store.read(TABS.plans).map((p) => p.stream), ...store.read(TABS.goals).map((g) => g.stream), ...store.read(TABS.rules).map((r) => r.stream_override)].filter((s) => gone.has(s));
-      if (pointing.length) throw new Error(`these accounts are used by a plan, a goal or a rule and can't be removed: ${[...new Set(pointing)].join(', ')}`);
+      const pointing = [...store.read(TABS.plans).map((p) => p.stream), ...store.read(TABS.goals).map((g) => g.stream), ...store.read(TABS.rules).map((r) => r.stream_override),
+        ...list('cards').map((c) => c.stream), store.config('salary_stream'), store.config('partner_salary_stream')].filter((s) => gone.has(s));
+      if (pointing.length) throw new Error(`these accounts are used by a plan, a goal, a rule, a card or a salary setting and can't be removed: ${[...new Set(pointing)].join(', ')}`);
       store.replace(TABS.accounts, clean);
       // Transactions that waited for an account of this kind (a newcomer's first emails) go onto it, and the rules settle them.
       const log = store.read(TABS.inboxLog);

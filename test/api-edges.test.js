@@ -324,10 +324,16 @@ describe('removing an account', () => {
   });
   it('one that a plan, a goal or a rule points at cannot either', () => {
     const point = (extra) => memoryStore({}, extra);
-    const msg = "these accounts are used by a plan, a goal or a rule and can't be removed: BCA Dewi";
+    const msg = "these accounts are used by a plan, a goal, a rule, a card or a salary setting and can't be removed: BCA Dewi";
     expect(() => keepOnly(point({ [TABS.plans]: [{ id: 'p9', name: 'x', amount: 1, direction: 'out', stream: 'BCA Dewi', day: 1 }] }), 'BCA')).toThrow(msg);
     expect(() => keepOnly(point({ [TABS.goals]: [{ id: 'g9', name: 'x', stream: 'BCA Dewi' }] }), 'BCA')).toThrow(msg);
     expect(() => keepOnly(point({ [TABS.rules]: [{ id: 'r9', field: 'description', pattern: 'X', category: 'Makan', stream_override: 'BCA Dewi' }] }), 'BCA')).toThrow(msg);
+  });
+  it('a credit card or the salary account of either person counts too', () => {
+    const msg = /a card or a salary setting and can't be removed: BCA Dewi$/;
+    expect(() => keepOnly(memoryStore({ cards: JSON.stringify([{ stream: 'BCA Dewi', due_day: 5 }]) }), 'BCA')).toThrow(msg);
+    expect(() => keepOnly(memoryStore({ salary_stream: 'BCA Dewi' }), 'BCA')).toThrow(msg);
+    expect(() => keepOnly(memoryStore({ partner_salary_stream: 'BCA Dewi' }), 'BCA')).toThrow(msg);
   });
   it('the name is listed once, however many things point at it', () => {
     const store = memoryStore({}, { [TABS.plans]: [{ id: 'a', stream: 'BCA Dewi' }, { id: 'b', stream: 'BCA Dewi' }], [TABS.goals]: [{ id: 'g', stream: 'BCA Dewi' }] });
