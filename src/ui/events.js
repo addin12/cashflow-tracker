@@ -12,6 +12,7 @@ import { patchRow, setAll } from './data.js';
 import { openEditor, tagihForm, updateTagih } from './editor.js';
 import { closeModal, trigger } from './modal.js';
 import { rp } from './format.js';
+import { storedOrder } from './accountorder.js';
 import { importChosen, readAccounts, readAssets, readBackup, readCards, readGoals, readPlans, readRules, readStatement, sendSummaryNow, updateBalRow } from './forms.js';
 import { applyLanguage } from './language.js';
 import { goNotification, openNotifications } from './notifications.js';
@@ -444,7 +445,7 @@ export function onSubmit(e) {
     });
   }
   if (kind === 'accounts') {
-    const list = readAccounts(form).filter((a) => a.stream.trim());
+    const list = storedOrder(readAccounts(form).filter((a) => a.stream.trim())); // the stored order, not the order shown
     return saveForm(form, 'saveAccounts', { accounts: list }, (r) => { if (r && r.adopted) { toast(T.adopted(r.adopted)); state.allStale = true; state.dashByMonth = {}; } return refresh(); });
   }
   if (kind === 'categories') {

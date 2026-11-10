@@ -76,3 +76,13 @@ What is left after round 29 (2026-11-04). Nothing here is broken; each item is w
 - **BRI emails some payments twice** (two Gmail messages, one reference): found after her first account synced, by the data audit (5 payments counted twice, all approved). The planner now skips an email whose reference, account, direction, day and amount are already in the sheet, and ignores the later copy of any that already are (`sameRef` in `src/core/plan.js`). An ignored row can be restored in the app.
 - The partner's first account synced on its own after she pressed Sync now: her BRI account went from 6 to 109 rows, all 108 BRI emails read without error, and she had already categorised them.
 - `vitest.config.js` and `.gitignore` keep a mutation run's `.stryker-tmp` sandbox out of the tests and out of git.
+
+## Decisions and what was done (2026-11-10)
+
+- **Shared costs (#bersama): keep 50/50.** Nobody has used the tag yet (0 rows), so nothing changes; revisit when it is used.
+- **E-wallet top-ups: stay as spending.** 36 top-up rows (the owner 9, about Rp10.7M; the partner 27, about Rp6.9M), already categorised by what they were for. Totals are right; spending inside a wallet is not itemised. This also means Grab receipts (21 of 25 paid with OVO) get no reader. Revisit only if category detail for wallet spending matters: then one "Dompet digital" account, top-ups as transfers into it.
+- **Telegram logging: left off** (no token). Setup when wanted: @BotFather, /newbot, paste the token in Settings → Telegram.
+- **Accounts list order: done.** Your own accounts are shown first in Settings → Accounts; the stored order (which the spreadsheet's blocks follow) never changes (`src/ui/accountorder.js`, `test/accountorder.test.js`).
+- **"Cek cakupan email": covered by the n8n scan** of both inboxes (nothing unread but promotions and statements); running the menu itself is only a check that it works.
+- **Oracle server: prepared and validated, not created.** The compose file, the setup script and the Caddyfile validate with dummy values (`docker compose config`, `bash -n`, `caddy validate`). What is left needs the owner: an Oracle Cloud account (card for verification), an Always Free ARM server, a free host name, then steps 4 to 9 of `D:Project
+8nserverREADME.md`. The app and its sync do not depend on it; only Claude's mail reading does.

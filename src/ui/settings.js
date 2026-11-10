@@ -7,6 +7,7 @@ import { assetsForm, balanceForm, cardsForm, goalsForm, importForm, plansForm, p
 import { accountOptions, categoryOptions, field, setView, skeleton } from './render.js';
 import { call, save } from './server.js';
 import { $$, T, state } from './state.js';
+import { shownOrder } from './accountorder.js';
 import { readTheme } from './theme.js';
 import { tag } from './visuals.js';
 
@@ -85,8 +86,8 @@ export async function viewSettings(local) {
   state.settings = s;
   const cfg = s.config;
   const saveRow = (label) => `<div class="actions"><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(label)}</button></div>`;
-  const acc = s.accounts.map((a, i) => `
-    <fieldset class="acct-row acct" data-i="${i}"><legend>${esc(a.stream || T.newAccount)}</legend>
+  const acc = shownOrder(s.accounts, state.boot.me, (state.boot.members || [])[0]).map((a, i) => `
+    <fieldset class="acct-row acct" data-i="${i}" data-orig="${a._orig}"><legend>${esc(a.stream || T.newAccount)}</legend>
       <div class="fields2">
         ${field(T.accountName, `<input data-a="stream" value="${esc(a.stream)}">`)}
         ${field(T.accountType, `<select data-a="type"><option value="Spending" ${a.type === 'Spending' ? 'selected' : ''}>${esc(T.typeSpending)}</option><option value="Saving" ${a.type === 'Saving' ? 'selected' : ''}>${esc(T.typeSaving)}</option></select>`)}

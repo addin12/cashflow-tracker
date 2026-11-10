@@ -279,4 +279,5 @@ export function goalsForm(s) {
 
 export const readGoals = (form) => $$('.goal-row', form).map((row) => Object.fromEntries($$('[data-g]', row).map((i) => [i.dataset.g, i.value])));
 
-export const readAccounts = (form) => $$('.acct', form).map((row) => Object.fromEntries($$('[data-a]', row).map((i) => [i.dataset.a, i.value])));
+// `_orig`: where the account sits in storage (see accountorder.js), kept so that saving does not reorder the Accounts tab.
+export const readAccounts = (form) => $$('.acct', form).map((row) => ({ ...Object.fromEntries($$('[data-a]', row).map((i) => [i.dataset.a, i.value])), ...(row.dataset.orig !== undefined ? { _orig: Number(row.dataset.orig) } : {}) }));
