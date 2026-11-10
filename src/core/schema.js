@@ -59,6 +59,7 @@ export const CONFIG_KEYS = [
   { key: 'cat_transfer', name: 'CFG_CAT_TRANSFER', note: 'Category for transfers between your own accounts' },
   { key: 'cat_fee', name: 'CFG_CAT_FEE', note: 'Category for bank fees' },
   { key: 'cat_dividend', name: 'CFG_CAT_DIVIDEND', note: 'Category for dividends' },
+  { key: 'cat_cash', name: 'CFG_CAT_CASH', note: 'Category for cash withdrawals (Tarik Tunai)' },
   { key: 'language', name: 'CFG_LANGUAGE', note: 'Web app language: id or en (empty = follow the phone)' },
   // Added in setup version 8.
   { key: 'weekly_email', name: 'CFG_WEEKLY_EMAIL', note: 'Weekly summary email on Mondays: on / off' },

@@ -52,7 +52,7 @@ export const bca = {
       // Cardless cash from an ATM: money leaves the account, and no payee is named. It waits in Review for the person to say where it went.
       return ok({
         type: 'payment', direction: 'out', ...when, amount: amountOf(get('Amount')), fee: feeOf(get('Fee')), account,
-        counterparty: { name: 'ATM' }, description: 'Tarik tunai ATM', details: joinDetails('Cardless', get('ATM Code')), refNo,
+        counterparty: { name: 'ATM' }, cash: true, description: 'Tarik tunai ATM', details: joinDetails('Cardless', get('ATM Code')), refNo,
       });
     }
     if (/virtual account/i.test(transferType)) {

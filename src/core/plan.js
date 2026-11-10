@@ -229,6 +229,10 @@ export function planSync({ emails, existing, accounts, rules, config, nowIso }) 
           if (rule.stream_override) row.stream = rule.stream_override;
           if (rule.autoApprove && row.stream) row.status = 'approved';
           if (rule.id) ruleHits[rule.id] = (ruleHits[rule.id] || 0) + 1;
+        } else if (ev.cash && cat.cash) {
+          // A cash withdrawal is its own kind of spending; a rule of the person's still wins.
+          row.category = cat.cash;
+          if (row.stream) row.status = 'approved';
         }
         push(row);
       }

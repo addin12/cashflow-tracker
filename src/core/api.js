@@ -1210,7 +1210,7 @@ export function renameCategoryEverywhere(store, renamed) {
   store.update(TABS.transactions, store.read(TABS.transactions).filter((r) => renamed[r.category]).map(to));
   store.update(TABS.rules, store.read(TABS.rules).filter((r) => renamed[r.category]).map(to));
   store.replace(TABS.budgets, store.read(TABS.budgets).map((b) => ({ ...b, category: renamed[b.category] || b.category })));
-  for (const key of ['cat_transfer', 'cat_fee', 'cat_dividend']) {
+  for (const key of ['cat_transfer', 'cat_fee', 'cat_dividend', 'cat_cash']) {
     const v = String(store.config(key) || '');
     if (renamed[v]) store.setConfig(key, renamed[v]);
   }

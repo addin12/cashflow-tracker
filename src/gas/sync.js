@@ -25,6 +25,7 @@ import { installMailTriggers, scheduleSelfTest, sendSyncAlert } from './weekly.j
 import { rolloverYear } from './rollover.js';
 import { staleSyncs } from '../core/synchealth.js';
 import { tidyCalendar } from './calendar.js';
+import { withCashCategory, hasCategory, cashRowUpdates } from '../core/cashcat.js';
 import { runOnce } from './once.js';
 import { pollTelegram } from './telegram.js';
 import { memberName, bankNames, isOwnerEmail, ownerEmails, addressesOfPerson, sharePartner, rememberMember } from './members.js';
@@ -107,6 +108,23 @@ export function appSpreadsheet() {
   return SpreadsheetApp.openById(id);
 }
 
+/** Puts "Tarik Tunai" in a free expense slot (the sheet is shared) and files the withdrawals already waiting under it. */
+function ensureCashCategory(ss) {
+  const store = sheetStore(ss);
+  const name = String(configValue(ss, 'cat_cash') || 'Tarik Tunai');
+  const next = withCashCategory(store.slots(), name);
+  if (next) store.setSlots(next);
+  if (!hasCategory(store.slots(), name)) return; // no free slot: the person adds it in Settings, and the next withdrawals wait for a category
+  const ups = cashRowUpdates(store.read(TABS.transactions), name);
+  if (ups.length) store.update(TABS.transactions, ups);
+}
+
+/** The cash category's name once it is one of the sheet's categories; empty before (the planner then leaves withdrawals waiting). */
+function cashCategoryIfReady(ss) {
+  const name = String(configValue(ss, 'cat_cash') || 'Tarik Tunai');
+  return hasCategory(sheetStore(ss).slots(), name) ? name : '';
+}
+
 function syncConfig(ss, gmail) {
   return {
     owner: memberName(ss, gmail),
@@ -115,6 +133,7 @@ function syncConfig(ss, gmail) {
       transfer: String(configValue(ss, 'cat_transfer') || 'trf ke bank lain'),
       fee: String(configValue(ss, 'cat_fee') || 'Biaya Admin'),
       dividend: String(configValue(ss, 'cat_dividend') || 'Dividen & Bunga'),
+      cash: cashCategoryIfReady(ss),
     },
   };
 }
@@ -198,6 +217,7 @@ function syncOnce(opts) {
     // The Cashflow calendar is each person's own (the upgrade above is done by whichever account syncs first), so each person's sync
     // tidies it once: filled when switched on, and the copies earlier versions left are removed. The reason of a failure is in Config calendar_status.
     runOnce('calendar-tidy-1', () => tidyCalendar(ss));
+    runOnce('cash-category-1', () => ensureCashCategory(ss));
     try { ensureTrigger(); } catch (e) { /* tried again at the next run */ }
     rememberMember(me);
     const mode = modeOf(ss, opts.defaultMode || 'preview');

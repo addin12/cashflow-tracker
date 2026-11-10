@@ -32,6 +32,7 @@ Plain-text body is a `| Label | : | Value |` table, in English.
 - `Transaction Date`: `05 Oct 2026 09:17:32` (English months, WIB).
 - **QRIS:** `Transaction Type: QRIS Payment`, `Payment to` (merchant), `Merchant Location`, `Total Payment: IDR 20,000.00`, `Source of Fund: TAHAPAN - 1234****12` (→ stream hint `12`), `Reference No.`
 - **Transfer:** `Transfer Type: Transfer to BCA Account` (or other bank), `Beneficiary Name`, `Transfer Amount: IDR 20,000.00`, `Remarks` (→ Details), `Source of Fund`.
+- **Cash withdrawal (cardless):** `Cash Withdrawal Successful` → money out of the account, "Tarik tunai ATM", with the ATM code as a detail. It files itself under the category named in Config `cat_cash` (default "Tarik Tunai", a normal expense category: it shows in spending reports and budgets). The sync puts that name into the first free expense slot once (`cashcat.js`); when no slot is free the withdrawal waits in Review and the name has to be added in Settings first. A rule of the person's wins over it.
 - **Pocket transfer:** `Status: Transfer Pocket Successful` → internal transfer between the BCA main stream and the pocket's saving stream.
 - Amount format: **comma thousands, dot decimals** (`20,000.00`).
 

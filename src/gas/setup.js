@@ -73,6 +73,7 @@ function fillNewConfig(ss, seed) {
   fill('monthly_email', 'on');
   fill('payday_email', 'on');
   fill('cat_dividend', seed.defaults.dividend);
+  fill('cat_cash', 'Tarik Tunai'); // added to the categories by the sync (cashcat.js), so it is not part of the seed's checked defaults
   for (const [key, value] of Object.entries(seed.config || {})) fill(key, typeof value === 'object' ? JSON.stringify(value) : value);
   // One partner may use several Google accounts: addresses in the seed join the sheet's list.
   const list = (v) => String(v || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
