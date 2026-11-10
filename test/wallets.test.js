@@ -30,12 +30,12 @@ describe('the Grab e-receipt reader', () => {
   it('cash and card are skipped (no wallet to take it from; the card has its own bank email), and so is a receipt with no method', () => {
     expect(parseEmail(F['grab-cash'])).toMatchObject({ status: 'skip' });
     expect(parseEmail(F['grab-card'])).toMatchObject({ status: 'skip' });
-    expect(parseEmail(F['grab-no-method'])).toMatchObject({ status: 'skip', reason: 'no payment method on the receipt' });
+    expect(parseEmail(F['grab-no-method']).status).toBe('error'); // unreadable, so it shows in the log with its outline and is tried again
   });
   it('a wallet receipt without a date is an error with its outline, not a guess', () => {
     const r = parseEmail(F['grab-gopay-no-date']);
     expect(r.status).toBe('error');
-    expect(r.reason).toContain('no ride date');
+    expect(r.reason).toContain('no receipt date');
     expect(r.reason).toContain('[outline: ');
   });
 });
@@ -112,11 +112,28 @@ describe('the GrabFood layout', () => {
       counterparty: { name: 'Warung Contoh - Jakarta' }, description: 'GrabFood Warung Contoh - Jakarta', details: 'GrabFood · A-FOOD1234', refNo: 'A-FOOD1234',
     }]);
   });
-  it('cash is skipped, and a receipt with no payment line is skipped', () => {
+  it('cash is skipped; a receipt with no payment line is an error (seen in the log with its outline, and tried again); a group order is skipped', () => {
     expect(parseEmail(F['grab-food-cash'])).toMatchObject({ status: 'skip' });
-    expect(parseEmail({ ...F['grab-food-ovo'], body: 'Detail Pembayaran:\nWAKTU\n05 Nov 26 12:34 +0700' })).toMatchObject({ status: 'skip', reason: 'no payment on the receipt' });
+    expect(parseEmail({ ...F['grab-food-ovo'], body: 'WAKTU\n05 Nov 26 12:34 +0700\nDetail Pembayaran:' })).toMatchObject({ status: 'error' });
+    expect(parseEmail({ ...F['grab-food-ovo'], body: 'WAKTU\n05 Nov 26 12:34 +0700\nDetail Pembayaran:\nSemua orang membayar pesanan mereka sendiri' })).toMatchObject({ status: 'skip', reason: 'group order: everyone pays their own' });
   });
   it('an unreadable date is an error, not a guess', () => {
     expect(parseEmail({ ...F['grab-food-ovo'], body: F['grab-food-ovo'].body.replace('05 Nov 26 12:34 +0700', 'later') }).status).toBe('error');
+  });
+});
+
+describe('the other Grab layouts', () => {
+  const read = (name) => { const r = parseEmail(F[name]); expect(r.status, `${name}: ${r.reason}`).toBe('ok'); return r.events[0]; };
+  it('a tip receipt is spending of the wallet, dated by its "Date:" line', () => {
+    expect(read('grab-tip')).toMatchObject({ amount: 3000, date: '2026-11-05', time: '12:34:00', account: { institution: 'OVO' }, description: 'Grab tip', details: 'Grab tip' });
+  });
+  it('a GrabMart order: the amount paid from the wallet, the store, the delivery time', () => {
+    expect(read('grab-mart')).toMatchObject({ amount: 52000, date: '2026-11-05', time: '18:05:00', description: 'GrabMart Toko Contoh', refNo: 'A-MART77', counterparty: { name: 'Toko Contoh' } });
+  });
+  it('a food receipt that names the wallet on one line and the amount under TOTAL', () => {
+    expect(read('grab-food-total-line')).toMatchObject({ amount: 41000, account: { institution: 'OVO' }, description: 'GrabFood Kedai Contoh', refNo: 'A-FOOD55' });
+  });
+  it('paid with points is skipped: points are not money', () => {
+    expect(parseEmail(F['grab-points'])).toMatchObject({ status: 'skip', reason: 'paid with points' });
   });
 });

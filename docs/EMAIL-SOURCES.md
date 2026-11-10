@@ -55,7 +55,9 @@ Added 2026-11-09 after reading the partner's inbox (headers and layouts only). F
 
 ### Grab · `no-reply@grab.com` · `src/core/parsers/grab.js`
 
-Two layouts, both plain text. A ride: "Paid by" then the wallet, "Total Paid", "Picked up on 05 November 2026", "Booking ID: …". GrabFood (Indonesian): "Detail Pembayaran:" then "OVO Cash : Rp 38.000" (the amount actually paid after promos), the time after "WAKTU" with a two-digit year, the restaurant under "Pesanan Dari:", the order under "Pesanan ID". A wallet (OVO, GoPay, DANA, ShopeePay) becomes the account of the event; cash and a card are skipped (a card payment has its own bank email); a wallet receipt with no readable date is an error with its outline. The reference is the booking or order, so a receipt sent twice counts once.
+Plain text, four layouts: a ride ("Paid by" then the wallet, "Total Paid", "Picked up on 05 November 2026", "Booking ID: …"); a tip ("Date: 05 Nov 26 12:34 +0700"); GrabFood (Indonesian: the time after "WAKTU", the restaurant under "Pesanan Dari:", the order under "Pesanan ID", "Detail Pembayaran:" then "OVO Cash : Rp 38.000", the amount actually paid after promos, or the wallet alone with the amount under "TOTAL"); GrabMart ("Diantar pada", "Total harga", "Metode Pembayaran:"). A wallet (OVO, GoPay, DANA, ShopeePay) becomes the account of the event. Skipped: cash, a card ("Cashless"), points ("OVO Points"), and a group order where everyone pays their own. A receipt with no readable payment or date is an error with its outline (tried again on every re-read). The reference is the booking or order, so a receipt sent twice counts once.
+
+First real read (2026-11-10, the partner's mailbox, since 1 September): 104 rows, Rp3.34M, mostly Bike Hemat rides, no duplicate references; they wait without an account until the OVO account is added.
 
 ### blu by BCA Digital · `receipts@blubybcadigital.id`
 - Outgoing (`Transaksimu Pakai blu Berhasil`): `Total Bayar` / `Total` / `Nominal` `Rp1.250.000,50`, merchant line after `bluAccount`, optional quoted note (`"catatan"`), `Biaya`.

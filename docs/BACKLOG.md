@@ -96,3 +96,8 @@ The owner chose one account per wallet. What the mail allows: **no wallet emails
 - Past top-ups: once a wallet is an account, "Needs attention" offers to turn them into transfers into it (`convertTopups`). Tap per wallet; only your own rows; a top-up already in the transfer category only gets its wallet side (nothing changes in spending). Without this, past top-ups would count twice next to the wallet's own spending.
 - **The balance of a wallet only falls by what is recorded** (Grab, and whatever is typed). Everything else spent from it is not in any mail, so the wallet's balance runs high until a month-end balance check; the check's adjustment is the rest of its spending. Do it at least monthly (Settings → Month-end balance check; the payday reminder already lists every account).
 - What each person has to do: add the wallet(s) in Settings → Accounts (the suggestion row does the typing), enter its current balance with a balance check, then tap the conversion row.
+
+## Mutation testing (2026-11-10)
+
+- `money.js` 82% to 90%, `goals.js` 86% to 98% after `test/money-goals-edges.test.js`; `plan.js` 65% to 92% (round 35).
+- **`api.js` is not done:** a run over the whole file (about 3,000 mutants) hit its 90-minute limit and wrote no result. It would have to be run in line ranges (`--mutate "src/core/api.js:1-200"`), roughly ten minutes each.

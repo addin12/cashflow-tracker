@@ -126,3 +126,79 @@ WAKTU
 05 Nov 26 12:34 +0700
 Detail Pembayaran:
 Cash : Rp 38.000
+
+=== grab-tip
+from: Grab <no-reply@grab.com>
+subject: Your Grab Tips E-Receipt
+epoch: 1793000000000
+---
+Grab Tips E-Receipt
+12
+Bike Hemat
+Thanks! Your tip goes a long way for your driver.
+05 Nov 26 12:34 +0700
+Total Paid
+Rp3.000
+Tip
+Date: 05 Nov 26 12:34 +0700
+Paid by
+OVO Cash
+3.000
+
+=== grab-mart
+from: Grab <no-reply@grab.com>
+subject: Your Grab E-Receipt
+epoch: 1793000000000
+---
+Terima kasih sudah memesan dari kami!
+Total harga
+Rp 52.000
+Diantar pada
+05 Nov 26 18:05 +0700
+Detail Pesanan
+Dipesan dengan:
+GrabMart
+Pesanan ID
+A-MART77
+Pesanan Dari:
+Toko Contoh
+Metode Pembayaran:
+OVO Cash : Rp 52.000
+
+=== grab-food-total-line
+from: Grab <no-reply@grab.com>
+subject: Your Grab E-Receipt
+epoch: 1793000000000
+---
+Selamat menikmati makanan Anda!
+TOTAL
+IDR 41000
+TANGGAL
+WAKTU
+05 Nov 26 12:34 +0700
+Jenis Kendaraan:
+GrabFood
+Pesanan ID
+A-FOOD55
+Pesanan Dari:
+Kedai Contoh
+Detail Pembayaran:
+OVO Cash
+Detail Pembayaran:
+
+=== grab-points
+from: Grab <no-reply@grab.com>
+subject: Your Grab E-Receipt
+epoch: 1793000000000
+---
+Grab E-Receipt
+7
+Bike Hemat
+Hope you enjoyed your ride!
+Picked up on 05 November 2026
+Booking ID: A-PTS1
+Total Paid
+Rp9.000
+Paid by
+OVO Points
+9.000

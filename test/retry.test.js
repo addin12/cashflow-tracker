@@ -16,6 +16,7 @@ describe('retryable', () => {
   });
   it('while all mail is read again, a skip that only says "no parser" is tried again; other skips are not', () => {
     expect(retryable('skip', NOW, NOW, { rescan: true, reason: 'no parser for bca@bca.co.id' })).toBe(true);
+    expect(retryable('skip', NOW, NOW, { rescan: true, reason: 'no payment on the receipt' })).toBe(true);
     expect(retryable('skip', NOW, NOW, { rescan: true, reason: 'not a transaction email' })).toBe(false);
     expect(retryable('skip', NOW, NOW, { rescan: true, reason: 'failed transaction' })).toBe(false);
     expect(retryable('ok', NOW, NOW, { rescan: true, reason: 'no parser' })).toBe(false);
