@@ -6,32 +6,16 @@
 
 import { createApi } from '../core/api.js';
 import { TABS } from '../core/schema.js';
-import { upcomingBills } from '../core/wealth.js';
-import { nextPayday } from '../core/payday.js';
+import { calendarEvents, CAL_DAYS } from '../core/calevents.js';
 import { sheetStore } from './sheetstore.js';
 import { configValue, setConfigValue } from './setup.js';
 import { whoAmI, roleKey, activeEmail } from './members.js';
 
 const MARK = '[cashflow]';
-const DAYS = 45;
+export { calendarEvents };
+const DAYS = CAL_DAYS;
 const pad = (n) => String(n).padStart(2, '0');
 const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const rp = (n) => `Rp${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(Math.round(Number(n) || 0))}`;
-
-/** The events the calendar should hold: key "YYYY-MM-DD|title". */
-export function calendarEvents({ plans, recurringItems, cards, payday, today, lang = 'id', claims = [], warranties = [] }) {
-  const out = new Map();
-  for (const b of upcomingBills(plans, recurringItems, today, DAYS, cards)) out.set(`${b.date}|${b.name} · ${rp(b.amount)}`, true);
-  for (const c of claims) if (c.daysLeft >= 0 && c.daysLeft <= DAYS) out.set(`${c.due}|${lang === 'en' ? 'Claim deadline' : 'Batas klaim'} · ${c.description} ${rp(c.amount)}`, true);
-  for (const w of warranties) if (w.daysLeft <= DAYS) out.set(`${w.date}|${lang === 'en' ? 'Warranty ends' : 'Garansi habis'} · ${w.name}`, true);
-  let p = nextPayday(today, payday);
-  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + DAYS);
-  for (let i = 0; i < 2 && p <= end; i += 1) {
-    out.set(`${iso(p)}|💼 ${lang === 'en' ? 'Payday' : 'Gajian'}`, true);
-    p = nextPayday(p, payday);
-  }
-  return [...out.keys()];
-}
 
 const NAME = 'Cashflow';
 const SUMMARY = 'Tagihan, langganan dan gajian dari aplikasi Cashflow';
