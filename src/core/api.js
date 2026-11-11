@@ -507,11 +507,17 @@ export function createApi(store, env) {
       // By payday, "October" is 28 Sep .. 27 Oct (the salary of 28 Sep pays for October).
       const summary = () => once('summary', () => summarizeMonth(all, c, m, '', rangeOf(m)));
       const balances = () => once('balances', () => streamBalances(all, accts, { year: year(), asOf: isoDate(today) }));
-      // The six months up to this one (none before the start date), for the trend chart.
+      // The six months up to this one (none before the start date), for the trend chart. A store that keeps the totals of older months
+      // (store.monthlyTotals(who) -> { 'YYYY-MM': { income, expense } }) saves reading their rows; the Sheet does not, so it works them out.
       const trend = () => once('trend', () => {
         const first = start().slice(0, 7);
+        const kept = typeof store.monthlyTotals === 'function' ? store.monthlyTotals(who || '') || {} : {};
         return [-5, -4, -3, -2, -1, 0].map((k) => monthAdd(m, k)).filter((x) => !first || x >= first)
-          .map((x) => { const t = x === m ? summary() : summarizeMonth(all, c, x, '', rangeOf(x)); return { month: x, income: t.income, expense: t.expense }; });
+          .map((x) => {
+            if (x !== m && kept[x]) return { month: x, income: kept[x].income, expense: kept[x].expense };
+            const t = x === m ? summary() : summarizeMonth(all, c, x, '', rangeOf(x));
+            return { month: x, income: t.income, expense: t.expense };
+          });
       });
       const rec = () => once('rec', () => recurring(all));
       const cardList = () => once('cards', () => cards(all));

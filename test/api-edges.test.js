@@ -404,3 +404,21 @@ describe('the dashboard in parts', () => {
     expect(() => api().dashboard({ part: 'nope' })).toThrow('unknown part nope');
   });
 });
+
+describe('the trend from stored monthly totals', () => {
+  const withKept = (kept) => { const store = memoryStore(); store.monthlyTotals = (who) => kept[who]; return me(store); };
+  it('a store that keeps the totals of older months supplies them instead of the rows, except for the month on screen', () => {
+    const plain = me(memoryStore()).dashboard({}).trend;
+    // On 19 Oct the month on screen is "2026-10" (28 Sep .. 27 Oct); the trend starts at the start date, so "2026-09" is the only older month.
+    const kept = withKept({ '': { '2026-09': { income: 111, expense: 222 }, '2026-10': { income: 333, expense: 444 } } }).dashboard({}).trend;
+    expect(kept.map((t) => t.month)).toEqual(['2026-09', '2026-10']);
+    expect(kept[0]).toEqual({ month: '2026-09', income: 111, expense: 222 });
+    expect(kept[1]).toEqual(plain[1]); // the month on screen is always worked out from the rows, whatever the store holds
+  });
+  it('is asked for the household with "" and for a person by name; a store without the hook, or with none for that view, changes nothing', () => {
+    const plain = me(memoryStore()).dashboard({}).trend;
+    expect(withKept({ Dewi: { '2026-09': { income: 5, expense: 6 } } }).dashboard({}).trend).toEqual(plain);
+    expect(withKept({}).dashboard({ owner: 'Me' }).trend).toEqual(me(memoryStore()).dashboard({ owner: 'Me' }).trend);
+    expect(withKept({ Dewi: { '2026-09': { income: 5, expense: 6 } } }).dashboard({ owner: 'Dewi' }).trend.find((t) => t.month === '2026-09')).toEqual({ month: '2026-09', income: 5, expense: 6 });
+  });
+});
