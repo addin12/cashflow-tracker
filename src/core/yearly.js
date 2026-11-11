@@ -2,6 +2,7 @@
 // (gas/yearly.js reads them; nothing is added as a transaction). A yearly plan is only charged
 // once a year, so the app's own months of data can't show it.
 
+import { cmp } from './order.js';
 import { payee, renewsOn } from './recurring.js';
 
 const DAY = 86400000;
@@ -37,7 +38,7 @@ export function findYearly(charges, { today }) {
   }
   const out = [];
   for (const [key, list] of groups) {
-    list.sort((a, b) => a.date.localeCompare(b.date));
+    list.sort((a, b) => cmp(a.date, b.date));
     const last = list[list.length - 1];
     const gaps = list.slice(1).map((r, i) => (toDay(r.date) - toDay(list[i].date)) / DAY);
     if (gaps.some((g) => g < 300)) continue; // charged more often than yearly
@@ -48,7 +49,7 @@ export function findYearly(charges, { today }) {
     if (!next || toDay(next) < now - 30 * DAY || toDay(next) > now + 400 * DAY) continue;
     out.push({ key, name: last.description, amount: last.amount, lastDate: last.date, nextDate: next, guess: !renews });
   }
-  return out.sort((a, b) => a.nextDate.localeCompare(b.nextDate));
+  return out.sort((a, b) => cmp(a.nextDate, b.nextDate));
 }
 
 /**
@@ -71,7 +72,7 @@ export function yearlyItems(found, rows, { today, hidden = [] }) {
   return found.filter((f) => !hide.has(f.key)).map((f) => {
     let { lastDate, nextDate, amount } = f;
     const seen = rows.filter((r) => r.direction === 'out' && r.status !== 'ignored' && payee(r.description) === f.key)
-      .map((r) => ({ date: String(r.date).slice(0, 10), amount: Number(r.amount) || 0 })).sort((a, b) => a.date.localeCompare(b.date));
+      .map((r) => ({ date: String(r.date).slice(0, 10), amount: Number(r.amount) || 0 })).sort((a, b) => cmp(a.date, b.date));
     for (const r of seen) {
       if (toDay(r.date) >= toDay(nextDate) - 30 * DAY) { lastDate = r.date; amount = r.amount; nextDate = addYear(r.date); }
     }

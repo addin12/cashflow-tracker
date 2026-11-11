@@ -1,3 +1,4 @@
+import { cmp } from './order.js';
 // Subscriptions and other repeating charges, with the date each is next expected.
 //
 // Three ways a charge counts as repeating, strongest first:
@@ -12,7 +13,13 @@
 // date: stopped?) or 'new' (first charged in the last 40 days).
 
 const DAY = 86400000;
-const toDay = (iso) => { const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number); return Date.UTC(y, m - 1, d); };
+const dayMs = new Map(); // the same few hundred dates are parsed again and again
+const toDay = (iso) => {
+  const s = String(iso).slice(0, 10);
+  let v = dayMs.get(s);
+  if (v === undefined) { const [y, m, d] = s.split('-').map(Number); v = Date.UTC(y, m - 1, d); dayMs.set(s, v); }
+  return v;
+};
 const iso = (ms) => new Date(ms).toISOString().slice(0, 10);
 const addMonth = (isoDate) => {
   const [y, m, d] = isoDate.split('-').map(Number);
@@ -44,7 +51,7 @@ export function recurringCharges(rows, { today, skipCategories = [], hidden = []
   const skip = new Set(skipCategories);
   const out = rows.filter((r) => r.direction === 'out' && r.status !== 'ignored' && !skip.has(r.category) && !String(r.id).endsWith('_fee'))
     .map((r) => ({ ...r, date: String(r.date).slice(0, 10), amount: Number(r.amount) || 0 }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort((a, b) => cmp(a.date, b.date));
   const groups = new Map();
   for (const r of out) {
     const k = payee(r.description);
@@ -78,6 +85,6 @@ export function recurringCharges(rows, { today, skipCategories = [], hidden = []
       lastDate: last.date, nextDate: iso(next), basis, daysLeft, change, ...(change === 'up' ? { was: prev.amount } : {}), ...(change === 'moved' ? { from: prev.stream } : {}),
     });
   }
-  items.sort((a, b) => a.nextDate.localeCompare(b.nextDate) || b.amount - a.amount);
+  items.sort((a, b) => cmp(a.nextDate, b.nextDate) || b.amount - a.amount);
   return { items, monthlyTotal: Math.round(items.reduce((s, i) => s + i.amount, 0) * 100) / 100 };
 }

@@ -3,6 +3,7 @@
 // income categories sum money in, expense categories sum money out, and transfers /
 // Penyesuaian change account balances without counting as income or expense.
 
+import { cmp } from './order.js';
 import { nextPayday, daysUntilPayday } from './payday.js';
 import { literalPattern } from './rules.js';
 import { amountOf } from './quick.js';
@@ -69,10 +70,10 @@ export function budgetPerDay(balances, today, paydayDay) {
 /** Everything the Review screen shows. */
 export function reviewItems(rows, inboxLog, { today, recentDays = 7 }) {
   const since = isoDate(new Date(today.getTime() - recentDays * 86400000));
-  const pending = rows.filter((r) => r.status === 'pending').sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
+  const pending = rows.filter((r) => r.status === 'pending').sort((a, b) => cmp(`${b.date}${b.time}`, `${a.date}${a.time}`));
   const recentAuto = rows
     .filter((r) => approved(r) && r.updated_by === 'sync' && r.rule_id && String(r.date) >= since)
-    .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
+    .sort((a, b) => cmp(`${b.date}${b.time}`, `${a.date}${a.time}`));
   const handled = new Set(rows.map((r) => r.gmail_id).filter(Boolean));
   // An email's latest log line counts: a retried email that worked since isn't shown as unread.
   const latest = new Map();
@@ -231,7 +232,7 @@ export const rowView = (r) => ({
 /** The newest rows the sync brought in (for the app's "new transactions" notice). */
 export function newestFromEmail(rows, limit = 20) {
   return rows.filter((r) => r.gmail_id && !String(r.id).endsWith('_fee') && r.status !== 'ignored')
-    .sort((a, b) => `${b.date}${b.time}${b.id}`.localeCompare(`${a.date}${a.time}${a.id}`)).slice(0, limit)
+    .sort((a, b) => cmp(`${b.date}${b.time}${b.id}`, `${a.date}${a.time}${a.id}`)).slice(0, limit)
     .map((r) => ({ id: r.id, description: r.description || r.details || '', amount: round2(num(r.amount)), direction: r.direction }));
 }
 
@@ -279,6 +280,6 @@ export function filterTransactions(rows, { month, from, to, stream, category, st
     && (!stream || r.stream === stream) && (!category || r.category === category) && (!status || r.status === status)
     && (!direction || r.direction === direction) && (!owner || r.owner === owner)
     && (!needle || `${r.description} ${r.details} ${r.category} ${r.stream}`.toLowerCase().includes(needle)) && search.ok(r))
-    .sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
+    .sort((a, b) => cmp(`${b.date}${b.time}`, `${a.date}${a.time}`));
   return { total: list.length, rows: list.slice(offset, offset + limit) };
 }

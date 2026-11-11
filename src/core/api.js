@@ -12,6 +12,7 @@
 // }
 // env: { now(): Date, sync(): object }
 
+import { cmp } from './order.js';
 import { TABS, FIXED_CATEGORIES, TRANSACTION_HEADERS, STATUS } from './schema.js';
 import { buildCategorySlots, validateAccounts } from './categories.js';
 import {
@@ -91,7 +92,7 @@ export function createApi(store, env) {
     const yearly = yearlyItems(list('yearly_subs').filter((f) => !f.guess || YEARLY_WORDS.test(f.name)), all, { today: now(), hidden: lines('recurring_hidden') }).filter((i) => !known.has(i.key));
     if (!yearly.length) return r;
     return {
-      items: [...r.items, ...yearly].sort((a, b) => a.nextDate.localeCompare(b.nextDate) || b.amount - a.amount),
+      items: [...r.items, ...yearly].sort((a, b) => cmp(a.nextDate, b.nextDate) || b.amount - a.amount),
       monthlyTotal: Math.round((r.monthlyTotal + yearly.reduce((t, i) => t + i.amount / 12, 0)) * 100) / 100,
     };
   };
@@ -173,7 +174,8 @@ export function createApi(store, env) {
   const lastDayIso = (ym) => { const [y, mo] = ym.split('-').map(Number); return isoDate(new Date(y, mo, 0)); };
   /** The dates a month stands for: the calendar month, or its payday period. */
   const spanOf = (ym) => rangeOf(ym) || { from: `${ym}-01`, to: lastDayIso(ym) };
-  const newestFirst = (a, b) => `${String(b.date).slice(0, 10)}${b.time}`.localeCompare(`${String(a.date).slice(0, 10)}${a.time}`);
+  /** Rows newest first. Each row's sort key is built once, not on every comparison (a stable sort: rows with the same key keep their order). */
+  const newestSorted = (list) => list.map((r) => [`${String(r.date).slice(0, 10)}${r.time}`, r]).sort((a, b) => cmp(b[0], a[0])).map((pair) => pair[1]);
   /** Spending from this amount up is flagged (Config big_amount; empty = Rp1.000.000, 0 = off). */
   const bigAmount = () => { const v = String(store.config('big_amount') ?? '').trim(); return v === '' ? 1000000 : Math.max(0, Number(v) || 0); };
   const json = (key) => { try { return JSON.parse(String(store.config(key) || '{}')) || {}; } catch (e) { return {}; } };
@@ -197,7 +199,7 @@ export function createApi(store, env) {
     if (!tags.length) return [];
     const totals = new Map(tagTotals(all, { from: '0000-01-01', to: '9999-12-31' }).map((t) => [t.tag, t]));
     return tags.map((tag) => ({ tag, budget: Number(budgets[tag]) || 0, ...(totals.get(tag) || { out: 0, in: 0, count: 0, first: '', last: '' }) }))
-      .sort((a, b) => String(b.last).localeCompare(String(a.last)));
+      .sort((a, b) => cmp(String(b.last), String(a.last)));
   };
   /** "Tutup hari": is today closed, how many days in a row, and was anything logged by hand today. */
   const closedDays = () => String(store.config(mine('closed_days')) || '').split(',').map((d) => d.trim()).filter(Boolean);
@@ -519,9 +521,8 @@ export function createApi(store, env) {
         warranties: warrantyEnds(store.read(TABS.assets), today, 60),
         prevDaily: dailySpending(all, c, spanOf(monthAdd(m, -1))),
         // Today's payments (also the ones still waiting for a category) and the latest rows.
-        today: withFirst(all.filter((r) => String(r.date).slice(0, 10) === isoDate(today) && r.direction === 'out' && r.status !== 'ignored' && !fixedNames().includes(r.category))
-          .sort(newestFirst).map(rowView), ids),
-        recent: withFirst(all.filter((r) => r.status === 'approved').sort(newestFirst).slice(0, 8).map(rowView), ids),
+        today: withFirst(newestSorted(all.filter((r) => String(r.date).slice(0, 10) === isoDate(today) && r.direction === 'out' && r.status !== 'ignored' && !fixedNames().includes(r.category))).map(rowView), ids),
+        recent: withFirst(newestSorted(all.filter((r) => r.status === 'approved')).slice(0, 8).map(rowView), ids),
         places: topPlaces(all, c, spanOf(m)),
         biggest: biggestExpenses(all, c, spanOf(m)),
         flow: moneyFlow(all, c, spanOf(m), fixedNames()[1]),

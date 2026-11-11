@@ -1,3 +1,4 @@
+import { cmp } from './order.js';
 // Insurance claims: a payment you will claim back from an insurer by a deadline. The marks live in
 // Config `claims` ({ transactionId: { s: 'open' | 'claimed' | 'skip', due: 'YYYY-MM-DD' } }); the
 // deadline is the payment date plus Config `claim_days` (insurers differ; the owner sets it).
@@ -33,5 +34,5 @@ export function openClaims(rows, claims, today) {
       const r = byId.get(id);
       return { id, description: r.description || r.details || '', amount: Number(r.amount) || 0, date: String(r.date).slice(0, 10), due: c.due, daysLeft: Math.round((toMs(c.due) - t) / DAY), stream: r.stream || '', owner: r.owner || '' };
     })
-    .sort((a, b) => a.due.localeCompare(b.due));
+    .sort((a, b) => cmp(a.due, b.due));
 }

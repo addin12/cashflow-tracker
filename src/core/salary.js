@@ -4,6 +4,7 @@
 // The payday period ("Oktober" = 28 Sep - 27 Oct for payday 28) is also here. A payday on a weekend
 // or national holiday moves to the working day before it, and the period with it.
 
+import { cmp } from './order.js';
 import { workdayOnOrBefore } from './holidays.js';
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -41,7 +42,7 @@ export function missingSalaries(rows, { start, today, payday, category, skipped 
   const skip = new Set(skipped);
   const salaries = rows.filter((r) => r.direction === 'in' && r.status !== 'ignored' && r.category === category)
     .map((r) => ({ date: String(r.date).slice(0, 10), ref: String(r.ref_no || ''), amount: Number(r.amount) || 0 }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort((a, b) => cmp(a.date, b.date));
   const last = salaries.length ? salaries[salaries.length - 1].amount : 0;
   const out = [];
   for (let m = String(start).slice(0, 7); ; m = monthAdd(m, 1)) {
