@@ -236,10 +236,13 @@ describe('web app', () => {
     const card = [...doc.querySelectorAll('#view section.card')].find((c) => c.querySelector('h2') && c.querySelector('h2').textContent === 'Klaim asuransi');
     expect(card.textContent).toContain('Tokopedia');
     expect(card.textContent).toContain('2 hari lagi'); // 5 Oct to 7 Oct
-    const attn = doc.querySelector('#view .attn'); // and at the top, under the greeting
-    expect(attn.querySelector('h2').textContent).toBe('Perlu perhatian');
+    const attn = doc.querySelector('#view .attn'); // and near the top (on a phone: right after the month's status, before where the money went)
+    expect(attn.querySelector('h2').firstChild.textContent).toBe('Perlu perhatian');
+    expect(attn.querySelector('h2 .badge').textContent).toMatch(/^\d+$/);
     expect(attn.textContent).toContain('Tokopedia');
-    expect(doc.querySelector('#view .hero').nextElementSibling).toBe(attn);
+    const order = (el) => Number(el.closest('.ov-sec').style.getPropertyValue('--o'));
+    expect(order(attn)).toBeGreaterThan(order(doc.querySelector('#view .monthcard')));
+    expect(order(attn)).toBeLessThan(order(doc.querySelector('#view .cat-row')));
   });
 
   it('transactions are grouped by day, and the kind chips filter', async () => {

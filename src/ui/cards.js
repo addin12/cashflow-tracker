@@ -212,8 +212,8 @@ export function sptCsv() {
 }
 
 /** Overview, under the greeting: what has a deadline or needs a decision, nearest first. Nothing to show: no card. */
-export function attentionCard(d) {
-  const rows = [];
+export function attentionCard(d, lead = []) {
+  const rows = [...lead];
   for (const c of (d.claims || []).filter((x) => x.daysLeft <= 7)) rows.push({ icon: 'pill', bad: c.daysLeft <= 3, title: T.attnClaim(c.description || T.noName, rp(c.amount)), meta: T.claimDue(dateLabel(c.due, { weekday: false }), c.daysLeft), act: `data-action="edit" data-id="${esc(c.id)}"` });
   for (const w of (d.warranties || []).filter((x) => x.daysLeft <= 30)) rows.push({ icon: 'shield', bad: w.daysLeft <= 7, title: T.attnWarranty(w.name), meta: T.warrantyLine(dateLabel(w.date, { weekday: false }), w.daysLeft), act: 'data-action="go" data-tab="settings" data-section="assets"' });
   for (const i of ((d.recurring && d.recurring.items) || []).filter((x) => x.change === 'up' || x.change === 'late')) {
@@ -238,7 +238,10 @@ export function attentionCard(d) {
   for (const w of (rv.topups || []).slice(0, 2)) rows.push({ icon: 'swap', bad: false, title: T.attnTopups(w.wallet, w.count, rp(w.total)), meta: T.attnTopupsMeta, act: `data-action="convtopups" data-wallet="${esc(w.wallet)}"` });
   if (rv.ruleable) rows.push({ icon: 'tag', bad: false, title: T.attnRules(rv.ruleable), meta: T.attnRulesMeta, act: 'data-action="go" data-tab="review"' });
   if (!rows.length) return '';
-  return `<section class="card attn"><h2>${esc(T.attnTitle)}</h2><div class="rows">${rows.slice(0, 6).map((r) => `<button class="lrow" ${r.act}><span class="cat-ic ${r.bad ? 'c3' : 'c6'}" aria-hidden="true">${svgIcon(r.icon)}</span><span class="what"><b>${esc(r.title)}</b><span class="meta">${esc(r.meta)}</span></span></button>`).join('')}</div></section>`;
+  const row = (r) => `<button class="lrow" ${r.act}><span class="cat-ic ${r.bad ? 'c3' : 'c6'}" aria-hidden="true">${svgIcon(r.icon)}</span><span class="what"><b>${esc(r.title)}</b>${r.meta ? `<span class="meta">${esc(r.meta)}</span>` : ''}</span><span class="chev" aria-hidden="true">›</span></button>`;
+  const all = rows.slice(0, 8);
+  const rest = all.slice(3);
+  return `<section class="card attn"><h2>${esc(T.attnTitle)}<span class="badge warn">${all.length}</span></h2><div class="rows">${all.slice(0, 3).map(row).join('')}</div>${rest.length ? `<details class="more-rows"><summary>${esc(T.attnMore(rest.length))}</summary>${rest.map(row).join('')}</details>` : ''}</section>`;
 }
 
 /** Overview, on payday and the two days after: what the salary has to cover until the next one. */

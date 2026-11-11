@@ -14,7 +14,7 @@ import { answers } from './demo-data.mjs';
 
 // ---- shots
 const built = readFileSync('dist/index.html', 'utf8');
-const sizes = { phone: [390, 1500], pc: [1440, Number((process.argv.find((a) => a.startsWith('--pc-height=')) || '=1000').split('=')[1])] };
+const sizes = { phone: [390, Number((process.argv.find((a) => a.startsWith('--phone-height=')) || '=1500').split('=')[1])], pc: [1440, Number((process.argv.find((a) => a.startsWith('--pc-height=')) || '=1000').split('=')[1])] };
 const shots = [
   ['review'], ['dashboard'], ['transactions'], ['add'], ['settings'],
   ['editor', "document.querySelector('.nav [data-tab=transactions]').click(); setTimeout(function(){ document.querySelector('.trow').click(); }, 300);"],

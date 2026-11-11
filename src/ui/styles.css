@@ -773,3 +773,48 @@ button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
 
 .rowi.sub { padding-block: 2px; min-height: 0; }
 .payday-card h2 { margin-bottom: 6px; }
+
+/* ---------- Ringkasan, redesigned: one status card, a short attention list, accounts up, the rest grouped */
+.hide-btn { gap: 8px; }
+.hide-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ov-bar { display: flex; flex-direction: column; gap: 12px; margin: 12px 0 4px; }
+.monthbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.monthname { text-align: center; line-height: 1.25; }
+.monthname b { display: block; font-size: 18px; font-weight: 600; }
+.monthname small { color: var(--muted); font-size: 14px; }
+.ov-pickers { display: flex; flex-wrap: wrap; gap: 8px; }
+.ov-pickers .seg { flex: 1 1 220px; }
+@media (min-width: 900px) {
+  .ov-bar { flex-direction: row; align-items: center; justify-content: space-between; }
+  .monthbar { min-width: 380px; }
+  .ov-pickers { flex-wrap: nowrap; }
+  .ov-pickers .seg { flex: none; }
+}
+.ov-sec { min-width: 0; order: var(--o, 0); }
+@media (max-width: 1099px) { .ov-grid.ov { display: flex; flex-direction: column; } .ov-grid.ov > .stack { display: contents; } }
+.monthcard { padding: 24px; }
+.monthcard .k { margin: 0 0 2px; color: var(--muted); font-size: 16px; }
+.monthcard .hero-num { display: block; }
+.monthcard .under { margin: 8px 0 0; }
+.monthcard .budget-foot { margin-top: 16px; }
+.figs { margin-top: 12px; border-top: 1px solid var(--line); }
+.fig { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; min-height: 56px; padding: 10px 0; border: 0; border-bottom: 1px solid var(--line-soft); background: none; font: inherit; color: inherit; text-align: left; }
+button.fig { cursor: pointer; }
+.fig:last-child { border-bottom: 0; }
+.fig .fl { min-width: 0; }
+.fig .fl b { display: block; font-weight: 500; }
+.fig .fl .meta { display: block; margin-top: 2px; }
+.fig .fv { font-size: 18px; font-weight: 600; white-space: nowrap; text-align: right; }
+.attn h2 { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.attn .lrow { min-height: 64px; }
+.attn .lrow .chev { color: var(--muted); font-size: 22px; flex: none; }
+details.more-rows > summary { display: flex; align-items: center; min-height: var(--hit); color: var(--accent); font-weight: 500; cursor: pointer; list-style: none; }
+details.more-rows > summary::-webkit-details-marker { display: none; }
+details.more-rows > summary::after { content: '›'; margin-left: 6px; transition: transform var(--dur-quick) var(--ease-out); }
+details.more-rows[open] > summary::after { transform: rotate(90deg); }
+.latest .lrow, .today-card .lrow { align-items: flex-start; }
+.latest .lrow .what b, .latest .lrow .what .meta, .today-card .lrow .what b, .today-card .lrow .what .meta { white-space: normal; overflow: visible; text-overflow: clip; }
+.more-title { margin-top: 12px; }
+.ov-head { flex-wrap: nowrap; align-items: center; padding-bottom: 0; }
+.ov-sub { margin: 2px 0 0; color: var(--muted); font-size: 16px; }
+.monthcard .under { font-size: 15px; }

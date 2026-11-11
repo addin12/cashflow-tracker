@@ -33,14 +33,21 @@ export async function viewDashboard() {
     if (state.tab !== 'dashboard' || state.dashView !== 'report') return;
   }
   const viewBtn = (v, label) => `<button type="button" class="${(v === 'report') === report ? 'on' : ''}" aria-pressed="${(v === 'report') === report}" data-action="dashview" data-view="${v}">${esc(label)}</button>`;
+  const hour = new Date().getHours();
+  const greet = (hour < 11 ? T.greetMorning : hour < 15 ? T.greetNoon : hour < 18 ? T.greetAfternoon : T.greetEvening).replace(/\.$/, '');
+  const todayLong = new Date(`${state.boot.today}T00:00:00`).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
   setView(`
-    <header class="page-head"><div><h1>${esc(T.tabDashboard)}</h1><p class="sub">${esc(monthLabel(d.month))}${s.from ? ` · ${esc(rangeLabel(s.from, s.to))}` : ''}</p></div>
-      <div class="tools">${whoSeg()}
-        <div class="seg">${viewBtn('overview', T.viewOverview)}${viewBtn('report', T.viewReport)}</div>
-        <div class="monthnav">
-          <button class="btn secondary small month-prev" data-action="setmonth" data-month="${prev}" aria-label="${esc(monthAria(prev))}">${esc(monthShort(prev))}</button>
-          <button class="btn secondary small month-next" data-action="setmonth" data-month="${next}" aria-label="${esc(monthAria(next))}" ${next > current ? 'disabled' : ''}>${esc(monthShort(next))}</button>
-        </div></div></header>
+    <header class="page-head ov-head"><h1>${esc(T.tabDashboard)}</h1>
+      <button class="btn secondary small hide-btn" data-action="hide" aria-pressed="${state.hide}">${state.hide ? EYE_OFF : EYE} ${esc(state.hide ? T.showAmounts : T.hideAmounts)}</button></header>
+    <p class="sub ov-sub">${esc(greet)} · ${esc(todayLong)}</p>
+    <div class="ov-bar">
+      <div class="monthbar">
+        <button class="btn secondary small month-prev" data-action="setmonth" data-month="${prev}" aria-label="${esc(monthAria(prev))}">${esc(monthShort(prev))}</button>
+        <div class="monthname"><b>${esc(monthLabel(d.month))}</b>${s.from ? `<small>${esc(rangeLabel(s.from, s.to))}</small>` : ''}</div>
+        <button class="btn secondary small month-next" data-action="setmonth" data-month="${next}" aria-label="${esc(monthAria(next))}" ${next > current ? 'disabled' : ''}>${esc(monthShort(next))}</button>
+      </div>
+      <div class="ov-pickers">${whoSeg()}<div class="seg">${viewBtn('overview', T.viewOverview)}${viewBtn('report', T.viewReport)}</div></div>
+    </div>
     ${report ? `<div class="seg report-seg">${[['month', T.reportMonthly], ['year', T.reportYearly]].map(([v, l]) => `<button type="button" class="${(v === 'year') === !!state.reportYearly ? 'on' : ''}" aria-pressed="${(v === 'year') === !!state.reportYearly}" data-action="reportmode" data-mode="${v}">${esc(l)}</button>`).join('')}</div>${state.reportYearly ? yearlyHtml(state.yearly.data) : reportHtml(d)}` : overviewHtml(d)}`);
 }
 
@@ -80,24 +87,13 @@ function overviewHtml(d) {
   const prevSame = (d.prevDaily || []).slice(0, idx).reduce((a, x) => a + x.amount, 0);
   const diff = s.expense - prevSame;
   const bills = d.bills || ((d.recurring && d.recurring.items) || []).filter((i) => i.daysLeft >= 0 && i.daysLeft <= 7);
-  const hour = new Date().getHours();
-  const greet = hour < 11 ? T.greetMorning : hour < 15 ? T.greetNoon : hour < 18 ? T.greetAfternoon : T.greetEvening;
-  const chips = [
-    // Your own waiting transactions, the same number as the Review badge (the other person's are not yours to chase).
-    ownPendingCount(d) ? `<button class="hchip warn" data-action="go" data-tab="review">${svgIcon('alert')} ${esc(T.pendingNote(ownPendingCount(d)))}</button>` : '',
-    (d.salaryMissing || []).length ? `<button class="hchip warn" data-action="go" data-tab="review">${svgIcon('briefcase')} ${esc(T.salaryNotice(dateLabel(d.salaryMissing[0].date, { weekday: false })))}</button>` : '',
-    bills.length ? `<button class="hchip" data-action="bills">${svgIcon('calendar')} ${esc(T.billsThisWeek(bills.length))}</button>` : '',
-    state.boot.today.slice(5, 7) === '12' && Number(state.boot.today.slice(8)) >= 15 ? `<button class="hchip" data-action="recap">${svgIcon('trend')} ${esc(T.recapChip(state.boot.today.slice(0, 4)))}</button>` : '',
-  ].join('');
-  const todayLong = new Date(`${state.boot.today}T00:00:00`).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
-  const hero = isNow ? `<section class="hero">
-      <div class="hero-top"><h2>${esc(greet)}</h2>
-        <button class="icon-btn" data-action="hide" aria-pressed="${state.hide}" aria-label="${esc(state.hide ? T.showAmounts : T.hideAmounts)}" title="${esc(state.hide ? T.showAmounts : T.hideAmounts)}">${state.hide ? EYE_OFF : EYE}</button></div>
-      <p class="hero-date">${esc(T.todayIs(todayLong))}</p>
-      <button class="hero-num" data-action="drillday" data-date="${esc(state.boot.today)}" aria-label="${esc(`${rp(todayTotal)}, ${T.paymentsToday(today.length)}`)}">${bigRp(todayTotal, 'xl')}</button>
-      <p class="hero-sub">${esc(T.paymentsToday(today.length))}</p>
-      ${chips ? `<div class="hchips">${chips}</div>` : ''}
-    </section>` : '';
+  // What needs a person goes in ONE list (the attention card): waiting rows, the missing salary, this week's bills, the year recap.
+  const lead = [];
+  // Your own waiting transactions, the same number as the Review badge (the other person's are not yours to chase).
+  if (ownPendingCount(d)) lead.push({ icon: 'alert', bad: false, title: T.pendingNote(ownPendingCount(d)), meta: T.attnReviewMeta, act: 'data-action="go" data-tab="review"' });
+  if ((d.salaryMissing || []).length) lead.push({ icon: 'briefcase', bad: false, title: T.salaryNotice(dateLabel(d.salaryMissing[0].date, { weekday: false })), meta: T.salaryNoticeSub, act: 'data-action="go" data-tab="review"' });
+  if (bills.length) lead.push({ icon: 'calendar', bad: false, title: T.billsThisWeek(bills.length), meta: T.attnBillsMeta, act: 'data-action="bills"' });
+  if (state.boot.today.slice(5, 7) === '12' && Number(state.boot.today.slice(8)) >= 15) lead.push({ icon: 'trend', bad: false, title: T.recapChip(state.boot.today.slice(0, 4)), meta: '', act: 'data-action="recap"' });
 
   // Where it went: every spending category, against its budget (with a "how far into the month" marker).
   const budgets = new Map(d.budgets.map((b) => [b.category, b]));
@@ -115,7 +111,13 @@ function overviewHtml(d) {
         <span class="bar ${b ? '' : 'plain'}" ${b ? `role="img" aria-label="${esc(T.budgetUse(Math.round(b.ratio * 100)))}"` : ''}><i class="${over ? 'over' : ahead ? 'ahead' : ''}" style="width:${pct}%"></i>${b && isNow ? `<em style="left:${Math.round(elapsed * 100)}%"></em>` : ''}</span>
         ${b ? `<span class="budget-note ${over ? 'over' : ahead ? 'ahead' : ''}">${esc(over ? T.overBudget(rp(b.spent - b.budget), rp(b.budget)) : T.ofBudget(rp(b.budget), rp(b.budget - b.spent)))}${ahead ? ` · ${esc(T.aheadOfPace)}` : ''}</span>` : ''}
       </span></button>`;
-  }).join('');
+  });
+  const CATS_SHOWN = 5;
+  const catsHtml = catRows.length
+    ? `${catRows.slice(0, CATS_SHOWN).join('')}${catRows.length > CATS_SHOWN ? `<details class="more-rows"><summary>${esc(T.allCats(catRows.length))}</summary>${catRows.slice(CATS_SHOWN).join('')}</details>` : ''}`
+    : `<p class="hint">${esc(T.nothingYet)}</p>`;
+
+  // The month against the budgets, inside the status card: how far in, how much is left, what the pace says.
   const totalBudget = d.budgets.reduce((a, b) => a + b.budget, 0);
   const inBudgets = d.budgets.reduce((a, b) => a + b.spent, 0);
   const daysLeft = Math.max(1, days.length - idx + 1);
@@ -126,6 +128,27 @@ function overviewHtml(d) {
       ${isNow && idx > 2 ? `<p class="muted">${esc(T.onPace(rp((s.expense / idx) * days.length)))}</p>` : ''}
     </div>` : `<p class="hint"><button class="link" data-action="go" data-tab="settings" data-section="budgets">${esc(T.noBudgetsSet)}</button></p>`;
 
+  // Key figures: a label on the left, the number on the right (a tap goes to the rows behind it).
+  const fig = (label, value, { cls = '', meta = '', attrs = '' } = {}) => {
+    const tag = attrs ? 'button' : 'div';
+    return `<${tag} class="fig" ${attrs}><span class="fl"><b>${esc(label)}</b>${meta ? `<span class="meta">${esc(meta)}</span>` : ''}</span><span class="fv amt ${cls}">${value}</span></${tag}>`;
+  };
+  const figs = [
+    fig(T.income, `+${rp(s.income)}`, { cls: 'in', attrs: 'data-action="drill" data-direction="in"' }),
+    fig(T.netThisMonth, `${s.balance < 0 ? '' : '+'}${rp(s.balance)}`, { cls: s.balance < 0 ? 'bad' : '', attrs: 'data-action="drill"' }),
+    isNow ? fig(T.perDay, rp(d.perDay.perDay), { meta: T.daysToPayday(d.perDay.daysLeft, dateLabel(d.perDay.nextPayday, { weekday: false })) }) : '',
+    isNow ? fig(T.todayShort, rp(todayTotal), { meta: T.paymentsToday(today.length), attrs: `data-action="drillday" data-date="${esc(state.boot.today)}"` }) : '',
+  ].join('');
+  const status = `<section class="card monthcard">
+      <p class="k">${esc(T.monthSpending(monthName(d.month), isNow ? idx : 0))}</p>
+      <button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
+      ${prevSame > 0 ? `<p class="cmp ${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '↑' : '↓'} ${esc(diff > 0 ? T.moreThan(rp(diff), prevName) : T.lessThan(rp(-diff), prevName))}</p>` : ''}
+      ${d.under && (d.under.under != null || d.under.noSpend) ? `<p class="muted under">${esc(T.underLine(d.under.under, d.under.elapsed, rp(d.under.allowance), d.under.noSpend))}</p>` : ''}
+      ${foot}
+      <div class="figs">${figs}</div>
+      ${isNow && d.perDay.spending < 0 ? `<p><button class="link" data-action="go" data-tab="settings" data-section="accounts">${svgIcon('alert')} ${esc(T.negativeSpending)}</button></p>` : ''}
+    </section>`;
+
   const incomeRows = s.byCategory.filter((c) => c.kind === 'income').sort((a, b) => b.amount - a.amount).map((c) => `
     <button class="lrow" data-action="drill" data-category="${esc(c.category)}">${icon(c.category)}<span class="what"><b>${esc(c.category)}</b></span><span class="amt in">+${rp(c.amount)}</span></button>`).join('');
   const group = (type, title) => {
@@ -135,49 +158,35 @@ function overviewHtml(d) {
     return `<div class="rowi total-row"><span>${esc(title)}</span><span class="amt">${rp(total)}</span></div>${list.map((b) => `
       <button class="lrow" data-action="drill" data-stream="${esc(b.stream)}">${acctIcon(b.stream, b.type)}<span class="what"><b>${esc(streamLabel(b.stream))}</b></span><span class="amt">${rp(b.balance)}</span></button>`).join('')}`;
   };
-  const todayCard = isNow ? `<section class="card today-card">
+  const accountsCard = `<section class="card"><h2>${esc(T.accounts)}</h2>${walletLine(d)}<p class="lead">${esc(T.accountsHint)}</p><div class="rows">${group('Spending', T.spendingGroup)}${group('Saving', T.savingGroup)}</div></section>`;
+  const todayCard = isNow && today.length ? `<section class="card today-card">
       <p class="eyebrow">${esc(T.todayIs(dateLabel(state.boot.today)))}</p>
-      <h2>${esc(today.length ? T.todayLine(today.length, rp(todayTotal)) : T.noPaymentsToday)}</h2>
-      ${today.length ? `<div class="rows">${today.slice(0, 3).map(lineRow).join('')}</div>${today.length > 3 ? `<button class="link" data-action="drillday" data-date="${esc(state.boot.today)}">${esc(T.moreN(today.length - 3))}</button>` : ''}` : ''}
+      <h2>${esc(T.todayLine(today.length, rp(todayTotal)))}</h2>
+      <div class="rows">${today.slice(0, 3).map(lineRow).join('')}</div>${today.length > 3 ? `<button class="link" data-action="drillday" data-date="${esc(state.boot.today)}">${esc(T.moreN(today.length - 3))}</button>` : ''}
     </section>` : '';
-  return `${hero}
-    ${isNow ? paydayCard(d.paydayPlan) : ''}
-    ${isNow ? attentionCard(d) : ''}
-    <div class="ov-grid">
-      <div class="stack">
-        <section class="spend">
-          <p class="k">${esc(T.monthSpending(monthName(d.month), isNow ? idx : 0))}</p>
-          <button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
-          ${prevSame > 0 ? `<p class="cmp ${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '↑' : '↓'} ${esc(diff > 0 ? T.moreThan(rp(diff), prevName) : T.lessThan(rp(-diff), prevName))}</p>` : ''}
-          ${d.under && (d.under.under != null || d.under.noSpend) ? `<p class="muted under">${esc(T.underLine(d.under.under, d.under.elapsed, rp(d.under.allowance), d.under.noSpend))}</p>` : ''}
-          <div class="mini-stats">
-            <button data-action="drill" data-direction="in"><span>${esc(T.income)}</span><b class="amt in">+${rp(s.income)}</b></button>
-            <button data-action="drill"><span>${esc(T.netThisMonth)}</span><b class="amt ${s.balance < 0 ? 'bad' : ''}">${s.balance < 0 ? '' : '+'}${rp(s.balance)}</b></button>
-            ${isNow ? `<div><span>${esc(T.perDay)}</span><b class="amt">${rp(d.perDay.perDay)}</b><small>${esc(T.daysToPayday(d.perDay.daysLeft, dateLabel(d.perDay.nextPayday, { weekday: false })))}</small></div>` : ''}
-          </div>
-          ${isNow && d.perDay.spending < 0 ? `<p><button class="link" data-action="go" data-tab="settings" data-section="accounts">${svgIcon('alert')} ${esc(T.negativeSpending)}</button></p>` : ''}
-        </section>
-        <section><h2 class="section-title">${esc(T.whereItWent)}<small>${esc(T.expenseByCategoryHint)}</small></h2>
-          <div class="card list-card">${catRows || `<p class="hint">${esc(T.nothingYet)}</p>`}${foot}</div></section>
-        ${(d.recent || []).length ? `<section><h2 class="section-title row-title">${esc(T.latestTitle)}<button class="link" data-action="go" data-tab="transactions">${esc(T.seeAll)}</button></h2>
-          <div class="card list-card">${d.recent.map(lineRow).join('')}</div></section>` : ''}
-      </div>
-      <div class="stack">
-        ${todayCard}
-        ${owedCard(d.owed)}
-        ${incomeRows ? `<section class="card"><h2>${esc(T.incomeByCategory)}</h2><div class="rows">${incomeRows}</div></section>` : ''}
-        ${goalsCard(d.goals)}
-        ${recurringCard(d.recurring)}
-        ${eventsCard(d.events)}
-        ${sharedCard(d.shared)}
-        ${claimsCard(d.claims)}
-        ${warrantiesCard(d.warranties)}
-        ${cardsCard(d.cards)}
-        ${healthCard(d.health)}
-        ${wealthCard(d.wealth)}
-        <section class="card"><h2>${esc(T.accounts)}</h2>${walletLine(d)}<p class="lead">${esc(T.accountsHint)}</p><div class="rows">${group('Spending', T.spendingGroup)}${group('Saving', T.savingGroup)}</div></section>
-      </div>
-    </div>`;
+  const latest = (d.recent || []).length ? `<section class="latest"><h2 class="section-title row-title">${esc(T.latestTitle)}<button class="link" data-action="go" data-tab="transactions">${esc(T.seeAll)}</button></h2>
+      <div class="card list-card">${d.recent.slice(0, 5).map(lineRow).join('')}</div></section>` : '';
+  const where = `<section><h2 class="section-title">${esc(T.whereItWent)}<small>${esc(T.expenseByCategoryHint)}</small></h2><div class="card list-card">${catsHtml}</div></section>`;
+  // Everything that is not the month's money itself, one group at the end (each card only when it has something to show).
+  const more = [owedCard(d.owed), incomeRows ? `<section class="card"><h2>${esc(T.incomeByCategory)}</h2><div class="rows">${incomeRows}</div></section>` : '',
+    goalsCard(d.goals), recurringCard(d.recurring), eventsCard(d.events), sharedCard(d.shared), claimsCard(d.claims), warrantiesCard(d.warranties), cardsCard(d.cards),
+    healthCard(d.health), wealthCard(d.wealth)].filter(Boolean).join('');
+  // On a phone the sections run in this order (--o); on a wide screen the two columns keep that order within each column.
+  const sec = (o, html) => (html ? `<div class="ov-sec" style="--o:${o}">${html}</div>` : '');
+  return `<div class="ov-grid ov">
+    <div class="stack">
+      ${sec(10, status)}
+      ${sec(50, where)}
+      ${sec(60, latest)}
+    </div>
+    <div class="stack">
+      ${sec(20, isNow ? attentionCard(d, lead) : '')}
+      ${sec(25, isNow ? paydayCard(d.paydayPlan) : '')}
+      ${sec(30, accountsCard)}
+      ${sec(40, todayCard)}
+      ${sec(70, more ? `<h2 class="section-title more-title">${esc(T.ovMore)}</h2><div class="stack">${more}</div>` : '')}
+    </div>
+  </div>`;
 }
 
 function reportHtml(d) {
