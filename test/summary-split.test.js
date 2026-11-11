@@ -108,9 +108,10 @@ describe('accounts in Settings', () => {
   };
   const rowOf = (name) => [...doc.querySelectorAll('form[data-form=accounts] .acct')].find((r) => r.querySelector('[data-a=stream]').value === name);
   const save = () => doc.querySelector('form[data-form=accounts]').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
-  it('each account is titled with its owner, except one whose name already has it', async () => {
+  it('each account is titled "Name · Owner" the same way for both people, also when the name already had the owner in it', async () => {
     await goAccounts();
-    expect(legends()).toEqual(expect.arrayContaining(['BCA · Me', 'GoPay · Me', 'Cash · Me', 'OVO · Dewi', 'BCA Dewi']));
+    expect(legends()).toEqual(expect.arrayContaining(['BCA · Me', 'GoPay · Me', 'Cash · Me', 'OVO · Dewi', 'BCA · Dewi']));
+    expect(legends().some((l) => l === 'BCA Dewi')).toBe(false);
     expect([...doc.querySelectorAll('select[data-a=owner]')].length).toBeGreaterThan(0);
   });
   it('the delete button takes an account off the list, and it is gone once the list is saved', async () => {

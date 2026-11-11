@@ -71,12 +71,17 @@ export function categoryOptions(selected, direction) {
     list.map((x) => `<option ${x === selected ? 'selected' : ''}>${esc(x)}</option>`).join('')}</optgroup>`).join('')}`;
 }
 
-/** An account's name for screens: with two people in the app, whose it is goes after the name (unless the name already says it). */
+/**
+ * An account's name for screens: with two people in the app, always "Name · Owner", the same way for both of them
+ * (a name that already holds the owner's name, like "BRI Dewi", has it moved to the end: "BRI · Dewi").
+ */
 export const streamLabel = (stream) => {
   const a = ((state.boot && state.boot.accounts) || []).find((x) => x.stream === stream);
   const people = (state.boot && state.boot.members) || [];
   const who = a && people.length > 1 ? String(a.owner || people[0]) : '';
-  return !who || String(stream).toLowerCase().includes(who.toLowerCase()) ? String(stream) : `${stream} · ${who}`;
+  if (!who) return String(stream);
+  const base = String(stream).replace(new RegExp(`(^|\\s)${who.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=\\s|$)`, 'gi'), ' ').replace(/\s+/g, ' ').trim();
+  return `${base || stream} · ${who}`;
 };
 
 export const accountOptions = (selected, empty = T.chooseAccount) => `${empty ? `<option value="">${esc(empty)}</option>` : ''}${
