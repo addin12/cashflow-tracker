@@ -877,3 +877,18 @@ details.fold > :last-child { margin-bottom: 16px; }
 .flow .lrow .what b, .flow .lrow .what .meta, .flow .cat-top b { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
 .ct-name { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; font-size: 15px; line-height: 1.25; }
 .ct-head, .ct-row { grid-template-columns: 32px minmax(88px, 1.6fr) repeat(var(--n, 12), minmax(16px, 1fr)) minmax(84px, auto); }
+/* wide screens: the donut sits beside its list, so the card is half as tall and the columns stay even */
+@media (min-width: 900px) {
+  .donut-card { display: grid; grid-template-columns: 220px minmax(0, 1fr); column-gap: 24px; align-items: start; }
+  .donut-card > h2, .donut-card > .lead, .donut-card > .hint { grid-column: 1 / -1; }
+  .donut-card > .donut { grid-column: 1; margin: 0; }
+  .donut-card > .rows { grid-column: 2; }
+}
+/* phone: sections follow --o; wide: document order in balanced columns */
+@media (max-width: 899px) { .flow { display: flex; flex-direction: column; } .flow > .ov-sec { order: var(--o, 0); } }
+@media (min-width: 900px) {
+  .donut-card { grid-template-columns: 190px minmax(0, 1fr); column-gap: 20px; }
+  .donut-card > .donut { width: 190px; height: 190px; align-self: center; }
+  .donut-card > .donut > div { width: 130px; height: 130px; }
+  .donut-card > .donut b { font-size: 17px; }
+}

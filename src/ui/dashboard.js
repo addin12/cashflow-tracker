@@ -92,6 +92,7 @@ export function fold(html, { open = false } = {}) {
 }
 
 /** Sections in reading order; on a wide screen they run down two or three balanced columns, so no column is left empty. */
+const sec = (o, html) => (html ? `<div class="ov-sec" style="--o:${o}">${html}</div>` : '');
 const flow = (parts) => `<div class="flow">${parts.filter(Boolean).join('')}</div>`;
 
 function overviewHtml(d) {
@@ -193,7 +194,6 @@ function overviewHtml(d) {
     goalsCard(d.goals), recurringCard(d.recurring), eventsCard(d.events), sharedCard(d.shared), claimsCard(d.claims), warrantiesCard(d.warranties), cardsCard(d.cards),
     healthCard(d.health), wealthCard(d.wealth)].map((h) => fold(h));
   // Reading order (--o): the month, what needs you, the money you have, where it went, the latest, the rest.
-  const sec = (o, html) => (html ? `<div class="ov-sec" style="--o:${o}">${html}</div>` : '');
   return flow([
     sec(10, status),
     sec(20, isNow ? attentionCard(d, lead) : ''),
@@ -241,18 +241,19 @@ function reportHtml(d) {
     <button class="m ${t.month === d.month ? 'on' : ''}" data-action="setmonth" data-month="${t.month}" aria-label="${esc(`${monthAria(t.month)}: ${T.income} ${rp(t.income)}, ${T.expense} ${rp(t.expense)}`)}">
       <span class="bars"><i class="in" style="height:${Math.round((t.income / tTop) * 100)}%"></i><i class="out" style="height:${Math.round((t.expense / tTop) * 100)}%"></i></span>
       <span>${esc(monthShort(t.month))}</span></button>`).join('');
-  return `<div class="flow">
-      <section class="card spend"><p class="k">${esc(T.moneyOut)}</p><button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
-        <p class="muted">${esc(T.ofIncome(rp(s.income), rp(s.balance)))}</p></section>
-      <section class="card"><h2>${esc(T.dailyTrend)}</h2><p class="lead">${esc(T.avgPerDay(rp(s.expense / idx)))}</p>
+  // On a phone the order is --o; the document order below is what keeps the two columns even on a wide screen.
+  return flow([
+    sec(10, `<section class="card spend"><p class="k">${esc(T.moneyOut)}</p><button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
+        <p class="muted">${esc(T.ofIncome(rp(s.income), rp(s.balance)))}</p></section>`),
+    sec(20, `<section class="card"><h2>${esc(T.dailyTrend)}</h2><p class="lead">${esc(T.avgPerDay(rp(s.expense / idx)))}</p>
         <div class="hm-grid">${weekdays.map((w) => `<span class="hm-wd">${esc(w)}</span>`).join('')}${cells}</div>
-        <div class="hm-legend"><span>${esc(T.heatLess)}</span><i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span>${esc(T.heatMore)}</span></div></section>
-      <section class="card"><h2>${esc(T.spendTrend)}</h2><p class="lead">${esc(T.spendTrendHint)}</p>${line}
-        <div class="legend"><span><i class="out-now"></i>${esc(monthName(d.month))} ${rp(lastA)}</span>${b.length ? `<span><i class="out-prev"></i>${esc(prevName)} ${rp(lastB)}</span>` : ''}</div></section>
-      ${donutCard(cats, (v) => T.perDayShort(rp(v / idx)), T.whereItWent, 5)}
-      ${trend.length ? `<section class="card"><h2>${esc(T.trendTitle)}</h2><p class="lead">${esc(T.trendHint)}</p><div class="chart">${chart}</div></section>` : ''}
-      ${[fold(flowCard(d.flow, d)), fold(patternCard(d.pattern)), fold(tagsCard(d.tags)), fold(placesCard(d.places)), fold(biggestCard(d.biggest))].join('')}
-  </div>`;
+        <div class="hm-legend"><span>${esc(T.heatLess)}</span><i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span>${esc(T.heatMore)}</span></div></section>`),
+    sec(40, `<section class="card"><h2>${esc(T.spendTrend)}</h2><p class="lead">${esc(T.spendTrendHint)}</p>${line}
+        <div class="legend"><span><i class="out-now"></i>${esc(monthName(d.month))} ${rp(lastA)}</span>${b.length ? `<span><i class="out-prev"></i>${esc(prevName)} ${rp(lastB)}</span>` : ''}</div></section>`),
+    sec(50, trend.length ? `<section class="card"><h2>${esc(T.trendTitle)}</h2><p class="lead">${esc(T.trendHint)}</p><div class="chart">${chart}</div></section>` : ''),
+    sec(30, donutCard(cats, (v) => T.perDayShort(rp(v / idx)), T.whereItWent, 5)),
+    ...[fold(flowCard(d.flow, d)), fold(patternCard(d.pattern)), fold(tagsCard(d.tags)), fold(placesCard(d.places)), fold(biggestCard(d.biggest))].map((h, i) => sec(60 + i, h)),
+  ]);
 }
 
 /** Donut and list of spending categories; `per` labels each row's average (per day or per month). */
@@ -263,7 +264,7 @@ function donutCard(cats, per, title = T.whereItWent, limit = 99) {
   const list = cats.map((c, i) => `<button class="lrow" data-action="drill" data-category="${esc(c.category)}">${icon(c.category)}
       <span class="what"><b><i class="dot" style="background:var(--ch${i % 8})"></i>${esc(c.category)}</b><span class="meta">${esc(`${total ? Math.round((c.amount / total) * 100) : 0}% · ${per(c.amount)}`)}</span></span>
       <span class="amt">${rp(c.amount)}</span></button>`);
-  return `<section class="card"><h2>${esc(title)}</h2><p class="lead">${esc(T.donutHint)}</p>
+  return `<section class="card donut-card"><h2>${esc(title)}</h2><p class="lead">${esc(T.donutHint)}</p>
     ${total ? `<div class="donut" style="background:conic-gradient(${stops})" role="img" aria-label="${esc(`${T.moneyOut} ${rp(total)}`)}"><div><span>${esc(T.moneyOut)}</span><b>${rp(total)}</b><small>${esc(T.nCats(cats.length))}</small></div></div>
     <div class="rows">${list.slice(0, limit).join('')}${list.length > limit ? `<details class="more-rows"><summary>${esc(T.allCats(list.length))}</summary>${list.slice(limit).join('')}</details>` : ''}</div>` : `<p class="hint">${esc(T.nothingYet)}</p>`}</section>`;
 }
