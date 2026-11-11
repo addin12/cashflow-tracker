@@ -6,15 +6,16 @@ const round2 = (v) => Math.round(v * 100) / 100;
 const inRange = (r, { from, to }) => { const d = String(r.date).slice(0, 10); return d >= from && d <= to; };
 const isSpending = (r, exp) => r.status === 'approved' && r.direction === 'out' && exp.has(r.category);
 /** "CIRCLEKA INDONESIA UTAMA" and "Circleka Indonesia Utama 2" are the same place. */
-const placeKey = (s) => String(s || '').toLowerCase().replace(/\d+/g, ' ').replace(/[^a-z& ]+/g, ' ').replace(/\s+/g, ' ').trim();
+export const placeKey = (s) => String(s || '').toLowerCase().replace(/\d+/g, ' ').replace(/[^a-z& ]+/g, ' ').replace(/\s+/g, ' ').trim();
 
 /**
  * Payments to a place never paid before ("Pertama kali"): the first money-out row of each payee
  * from an email or statement, in the last `days` days. Nothing counts in the app's first 30 days,
  * when every place is new to it.
+ * @param {Set<string>|null} earlier  place keys already paid before the oldest row given (a store that keeps only recent rows says so)
  * @returns {Set<string>} row ids
  */
-export function newPlaceIds(rows, { start = '', today, days = 60, skipCategories = [] }) {
+export function newPlaceIds(rows, { start = '', today, days = 60, skipCategories = [], earlier = null }) {
   const skip = new Set(skipCategories);
   const t = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
   const dayMs = (iso) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
@@ -23,7 +24,7 @@ export function newPlaceIds(rows, { start = '', today, days = 60, skipCategories
   for (const r of rows) {
     if (r.direction !== 'out' || r.status === 'ignored' || skip.has(r.category) || String(r.ref_no || '').startsWith('split:')) continue;
     const k = placeKey(r.description);
-    if (!k) continue;
+    if (!k || (earlier && earlier.has(k))) continue; // paid before the rows given: not a first time
     const d = String(r.date).slice(0, 10);
     const f = firsts.get(k);
     if (!f || d < f.d || (d === f.d && String(r.time || '') < f.time)) firsts.set(k, { d, time: String(r.time || ''), r });

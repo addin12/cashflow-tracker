@@ -1,6 +1,7 @@
 // Edges of the app's own rules found by mutation testing api.js: the day streak, "Tagih", plans, assets, the people on the settings page, the phone code.
 import { describe, expect, it } from 'vitest';
 import { createApi } from '../src/core/api.js';
+import { newPlaceIds, placeKey } from '../src/core/insights.js';
 import { buildCategorySlots } from '../src/core/categories.js';
 import { TABS } from '../src/core/schema.js';
 
@@ -420,5 +421,25 @@ describe('the trend from stored monthly totals', () => {
     expect(withKept({ Dewi: { '2026-09': { income: 5, expense: 6 } } }).dashboard({}).trend).toEqual(plain);
     expect(withKept({}).dashboard({ owner: 'Me' }).trend).toEqual(me(memoryStore()).dashboard({ owner: 'Me' }).trend);
     expect(withKept({ Dewi: { '2026-09': { income: 5, expense: 6 } } }).dashboard({ owner: 'Dewi' }).trend.find((t) => t.month === '2026-09')).toEqual({ month: '2026-09', income: 5, expense: 6 });
+  });
+});
+
+describe('places paid before the rows a store keeps', () => {
+  const row = (id, description, date) => ({ id, date, direction: 'out', status: 'approved', category: 'Makan', description, source: 'email', ref_no: '' });
+  const rows = [row('1', 'WARUNG BARU', '2026-10-10'), row('2', 'KOPI LAMA', '2026-10-11')];
+  const oct16 = new Date(2026, 9, 16);
+  it('a place in the "earlier" list is not a first time; without the list every first row is', () => {
+    expect([...newPlaceIds(rows, { start: '2026-09-01', today: oct16 })].sort()).toEqual(['1', '2']);
+    expect([...newPlaceIds(rows, { start: '2026-09-01', today: oct16, earlier: new Set([placeKey('kopi lama')]) })]).toEqual(['1']);
+    expect([...newPlaceIds(rows, { start: '2026-09-01', today: oct16, earlier: new Set() })].sort()).toEqual(['1', '2']);
+  });
+  it('the dashboard asks the store (by view) which places were paid earlier', () => {
+    const store = memoryStore();
+    store.earlierPlaces = (who) => (who === '' ? ['toko baru'] : []);
+    store.t[TABS.transactions].push(row('w1', 'TOKO BARU', '2026-10-19'));
+    store.t[TABS.transactions][store.t[TABS.transactions].length - 1].time = '09:00:00';
+    expect(me(store).dashboard({ part: 'main' }).today.some((r) => r.first)).toBe(false);
+    store.earlierPlaces = () => [];
+    expect(me(store).dashboard({ part: 'main' }).today.some((r) => r.first)).toBe(true);
   });
 });

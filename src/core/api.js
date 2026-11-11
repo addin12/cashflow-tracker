@@ -113,7 +113,8 @@ export function createApi(store, env) {
     return fresh;
   };
   /** "Pertama kali": rows paying a place for the first time get first: true. */
-  const firstIds = (all) => newPlaceIds(all, { start: start(), today: now(), skipCategories: fixedNames() });
+  // A store that keeps only recent rows can say which places were paid before them (store.earlierPlaces(who) -> array of place keys).
+  const firstIds = (all, who = '') => newPlaceIds(all, { start: start(), today: now(), skipCategories: fixedNames(), earlier: typeof store.earlierPlaces === 'function' ? new Set(store.earlierPlaces(who) || []) : null });
   /** Rows with what the screens add to them: "Pertama kali" and the insurance claim mark. */
   const withFirst = (rs, ids) => {
     const marks = json('claims');
@@ -523,7 +524,7 @@ export function createApi(store, env) {
       const cardList = () => once('cards', () => cards(all));
       const wealth = () => once('wealth', () => (store.read(TABS.assets).length ? netWorth(balances(), store.read(TABS.assets)) : null));
       const goals = () => once('goals', () => goalProgress(store.read(TABS.goals), balances(), today));
-      const ids = () => once('ids', () => firstIds(all));
+      const ids = () => once('ids', () => firstIds(all, who || ''));
       const daily = () => once('daily', () => dailySpending(all, c, spanOf(m)));
       const scoped = budgetRows(who || '');
       const budgetTotal = scoped.reduce((t, b) => t + (Number(b.monthly_budget) || 0), 0);
