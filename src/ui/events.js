@@ -14,7 +14,7 @@ import { closeModal, trigger } from './modal.js';
 import { rp } from './format.js';
 import { storedOrder } from './accountorder.js';
 import { importChosen, readAccounts, readAssets, readBackup, readCards, readGoals, readPlans, readRules, readStatement, sendSummaryNow, updateBalRow } from './forms.js';
-import { applyLanguage } from './language.js';
+import { applyLanguage, chooseLanguage } from './language.js';
 import { goNotification, openNotifications } from './notifications.js';
 import { categoryOptions, dismissToast, fieldMessage, keepInputs, repaint, toast, updateHideBtn, updateNav } from './render.js';
 import { approve, fillBudgets, hideRecurring, ignore, saveSalary, skipSalary, viewReview } from './review.js';
@@ -262,6 +262,7 @@ export function onClick(e) {
   if (a === 'close') return closeModal();
   if (a === 'sync') return syncNow(el);
   if (a === 'theme') return toggleTheme();
+  if (a === 'lang') { chooseLanguage(document.documentElement.lang === 'en' ? 'id' : 'en'); return show(state.tab); }
   if (a === 'tour') { closeModal(); return tourStep(0); }
   if (a === 'tourstep') return tourStep(Number(el.dataset.i));
   if (a === 'install') return installApp();
@@ -348,7 +349,7 @@ export function onSubmit(e) {
   }
   if (kind === 'config') {
     applyTheme(d.theme);
-    return saveForm(form, 'saveConfig', d, async () => { applyLanguage(d.language); state.month = ''; state.dashByMonth = {}; await refresh(); if (state.tab === 'settings') viewSettings(); });
+    return saveForm(form, 'saveConfig', d, async () => { chooseLanguage(d.language); state.month = ''; state.dashByMonth = {}; await refresh(); if (state.tab === 'settings') viewSettings(); });
   }
   if (kind === 'tagbudget') {
     const tag = form.querySelector('[name=tag]').value.replace(/^#/, '').trim();

@@ -5,6 +5,7 @@ import { buildUiHtml } from '../scripts/ui-build.mjs';
 import { createApi } from '../src/core/api.js';
 import { TABS } from '../src/core/schema.js';
 import { buildCategorySlots } from '../src/core/categories.js';
+import { pickLanguage } from '../src/ui/i18n.js';
 
 function memoryStore() {
   const t = {
@@ -145,6 +146,32 @@ describe('the summary', () => {
     await tab('dashboard', '.monthcard');
     expect(doc.querySelector('#modal').classList.contains('open')).toBe(false);
     expect(doc.querySelector('#view').dataset.anim).toBeUndefined();
+  });
+});
+
+describe('the app bar and the language button', () => {
+  it('runs bell, eye, moon, language from left to right', () => {
+    expect([...doc.querySelectorAll('.appbar-actions > button')].map((b) => b.id)).toEqual(['bellBtn', 'hideBtn', 'themeBtn', 'langBtn']);
+  });
+  it('Indonesian is the default whatever the browser speaks', () => {
+    expect(pickLanguage('', 'en-US')).toBe('id');
+    expect(pickLanguage(undefined, 'en-GB')).toBe('id');
+    expect(pickLanguage('en', 'id-ID')).toBe('en');
+  });
+  it('one tap switches the whole app to English and back, and the choice is kept on this device', async () => {
+    const btn = doc.querySelector('#langBtn');
+    expect(btn.textContent).toBe('ID');
+    expect(doc.documentElement.lang).toBe('id');
+    click(btn);
+    await until(() => doc.querySelector('.nav [data-tab=review] b').textContent === 'Review', 'english tabs');
+    expect(btn.textContent).toBe('EN');
+    expect(btn.getAttribute('aria-label')).toBe('Switch language to Indonesian');
+    expect(doc.documentElement.lang).toBe('en');
+    expect(dom.window.localStorage.getItem('cashflow.lang.v1')).toBe('en');
+    click(btn);
+    await until(() => doc.querySelector('.nav [data-tab=review] b').textContent === 'Cek', 'indonesian tabs');
+    expect(btn.textContent).toBe('ID');
+    expect(btn.getAttribute('aria-label')).toBe('Ganti bahasa ke English');
   });
 });
 

@@ -170,7 +170,7 @@ export const STRINGS = {
       ['Tampilan', 'Di Pengaturan → Preferensi kamu bisa memilih mode gelap, warna aksen, dan ukuran teks. Pilihan ini hanya untuk perangkatmu.'],
     ],
     installApp: 'Pasang aplikasi di layar utama', installAppHint: 'Buka Cashflow seperti aplikasi biasa, tanpa bilah browser.',
-    attnMore: (n) => `Lihat ${n} lainnya`, attnReviewMeta: 'Setujui agar masuk hitungan.', attnBillsMeta: 'Tagihan dan langganan yang segera jatuh tempo.',
+    langSwitch: 'Ganti bahasa ke English', attnMore: (n) => `Lihat ${n} lainnya`, attnReviewMeta: 'Setujui agar masuk hitungan.', attnBillsMeta: 'Tagihan dan langganan yang segera jatuh tempo.',
     allCats: (n) => `Lihat semua kategori (${n})`, ovMore: 'Lainnya', todayShort: 'Hari ini',
     moneyOut: 'Uang keluar', ofIncome: (inc, left) => `dari pemasukan ${inc} · sisa ${left}`,
     dailyTrend: 'Pengeluaran harian', avgPerDay: (v) => `Rata-rata ${v} per hari. Ketuk tanggal untuk melihat transaksinya.`, heatLess: 'sedikit', heatMore: 'banyak',
@@ -507,7 +507,7 @@ export const STRINGS = {
       ['Look', 'In Settings → Preferences you can choose dark mode, an accent colour and the text size. These choices are for your device only.'],
     ],
     installApp: 'Add the app to your home screen', installAppHint: 'Open Cashflow like a normal app, without the browser bar.',
-    attnMore: (n) => `Show ${n} more`, attnReviewMeta: 'Approve them so they count.', attnBillsMeta: 'Bills and subscriptions coming due soon.',
+    langSwitch: 'Switch language to Indonesian', attnMore: (n) => `Show ${n} more`, attnReviewMeta: 'Approve them so they count.', attnBillsMeta: 'Bills and subscriptions coming due soon.',
     allCats: (n) => `Show all ${n} categories`, ovMore: 'More', todayShort: 'Today',
     moneyOut: 'Money out', ofIncome: (inc, left) => `of ${inc} income · ${left} left`,
     dailyTrend: 'Daily spending', avgPerDay: (v) => `Average ${v} a day. Tap a date to see its transactions.`, heatLess: 'less', heatMore: 'more',
@@ -683,7 +683,7 @@ export const STRINGS = {
   },
 };
 
-export function pickLanguage(configured, navigatorLanguage) {
-  if (configured === 'id' || configured === 'en') return configured;
-  return /^id|^in/i.test(String(navigatorLanguage || '')) ? 'id' : 'en';
+/** Indonesian unless English was chosen (in Settings or with the language button); the browser's own language is not consulted. */
+export function pickLanguage(configured) {
+  return configured === 'en' ? 'en' : 'id';
 }
