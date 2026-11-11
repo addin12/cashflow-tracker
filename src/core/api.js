@@ -43,6 +43,12 @@ import { goalProgress, goalProblems } from './goals.js';
 
 const cents = (n) => Math.round(Number(n) * 100);
 const SPLIT_REF = 'split:';
+/** The home screen in three requests, each with its own small share of the work; together they hold every field of the whole. */
+export const DASHBOARD_PARTS = {
+  main: ['month', 'who', 'summary', 'balances', 'trend', 'perDay', 'budgets', 'pendingCount', 'salaryMissing', 'daily', 'under', 'prevDaily', 'today', 'recent', 'health', 'wealth', 'goals', 'bigAmount', 'big'],
+  insights: ['month', 'who', 'places', 'biggest', 'flow', 'pattern', 'tags', 'events', 'shared'],
+  bills: ['month', 'who', 'recurring', 'recurringMarks', 'paydayPlan', 'bills', 'cards', 'claims', 'owed', 'warranties'],
+};
 
 const PUBLIC_FIELDS = ['date', 'time', 'stream', 'direction', 'amount', 'category', 'description', 'details', 'status'];
 
@@ -484,62 +490,74 @@ export function createApi(store, env) {
       return { ok: true, ids: added.map((r) => r.id) };
     },
 
-    dashboard({ month, owner: who } = {}) {
+    /**
+     * The home screen's numbers. With `part` only that part's fields are worked out (so a screen can be fetched in several small
+     * requests: see DASHBOARD_PARTS); without it, all of them, in the same order as ever.
+     */
+    dashboard({ month, owner: who, part } = {}) {
       const today = now();
       const m = month || currentMonth();
       // Kita / Aku / Dia: one person's rows and accounts, or the household.
       const all = who ? rows().filter((r) => r.owner === who) : rows();
       const accts = who ? accounts().filter((a) => a.owner === who) : accounts();
       const c = cats();
+      // Each piece is worked out once, and only when a field asks for it.
+      const memo = new Map();
+      const once = (key, make) => { if (!memo.has(key)) memo.set(key, make()); return memo.get(key); };
       // By payday, "October" is 28 Sep .. 27 Oct (the salary of 28 Sep pays for October).
-      const summary = summarizeMonth(all, c, m, '', rangeOf(m));
-      const balances = streamBalances(all, accts, { year: year(), asOf: isoDate(today) });
+      const summary = () => once('summary', () => summarizeMonth(all, c, m, '', rangeOf(m)));
+      const balances = () => once('balances', () => streamBalances(all, accts, { year: year(), asOf: isoDate(today) }));
       // The six months up to this one (none before the start date), for the trend chart.
-      const first = start().slice(0, 7);
-      const trend = [-5, -4, -3, -2, -1, 0].map((k) => monthAdd(m, k)).filter((x) => !first || x >= first)
-        .map((x) => { const t = x === m ? summary : summarizeMonth(all, c, x, '', rangeOf(x)); return { month: x, income: t.income, expense: t.expense }; });
-      const rec = recurring(all);
-      const cardList = cards(all);
-      const wealth = store.read(TABS.assets).length ? netWorth(balances, store.read(TABS.assets)) : null;
-      const goals = goalProgress(store.read(TABS.goals), balances, today);
-      const ids = firstIds(all);
-      const daily = dailySpending(all, c, spanOf(m));
+      const trend = () => once('trend', () => {
+        const first = start().slice(0, 7);
+        return [-5, -4, -3, -2, -1, 0].map((k) => monthAdd(m, k)).filter((x) => !first || x >= first)
+          .map((x) => { const t = x === m ? summary() : summarizeMonth(all, c, x, '', rangeOf(x)); return { month: x, income: t.income, expense: t.expense }; });
+      });
+      const rec = () => once('rec', () => recurring(all));
+      const cardList = () => once('cards', () => cards(all));
+      const wealth = () => once('wealth', () => (store.read(TABS.assets).length ? netWorth(balances(), store.read(TABS.assets)) : null));
+      const goals = () => once('goals', () => goalProgress(store.read(TABS.goals), balances(), today));
+      const ids = () => once('ids', () => firstIds(all));
+      const daily = () => once('daily', () => dailySpending(all, c, spanOf(m)));
       const scoped = budgetRows(who || '');
       const budgetTotal = scoped.reduce((t, b) => t + (Number(b.monthly_budget) || 0), 0);
-      return {
-        month: m, who: who || '', summary, balances, trend,
-        perDay: budgetPerDay(balances, today, payday()),
-        budgets: budgetUsage(summary, scoped),
-        pendingCount: all.filter((r) => r.status === 'pending').length,
-        salaryMissing: salaries(all),
+      const fields = {
+        month: () => m, who: () => who || '', summary, balances, trend,
+        perDay: () => budgetPerDay(balances(), today, payday()),
+        budgets: () => budgetUsage(summary(), scoped),
+        pendingCount: () => all.filter((r) => r.status === 'pending').length,
+        salaryMissing: () => salaries(all),
         // Day by day this month and last month: the calendar and the "compared with last month" line.
         daily,
-        under: underBudget(daily, { today: isoDate(today), from: start(), allowance: budgetTotal ? budgetTotal / Math.max(1, daily.length) : 0 }),
-        claims: openClaims(all, json('claims'), today),
-        shared: sharedNow(spanOf(m)),
-        paydayPlan: paydayNow(rec.items, cardList, goals, today),
-        warranties: warrantyEnds(store.read(TABS.assets), today, 60),
-        prevDaily: dailySpending(all, c, spanOf(monthAdd(m, -1))),
+        under: () => underBudget(daily(), { today: isoDate(today), from: start(), allowance: budgetTotal ? budgetTotal / Math.max(1, daily().length) : 0 }),
+        claims: () => openClaims(all, json('claims'), today),
+        shared: () => sharedNow(spanOf(m)),
+        paydayPlan: () => paydayNow(rec().items, cardList(), goals(), today),
+        warranties: () => warrantyEnds(store.read(TABS.assets), today, 60),
+        prevDaily: () => dailySpending(all, c, spanOf(monthAdd(m, -1))),
         // Today's payments (also the ones still waiting for a category) and the latest rows.
-        today: withFirst(newestSorted(all.filter((r) => String(r.date).slice(0, 10) === isoDate(today) && r.direction === 'out' && r.status !== 'ignored' && !fixedNames().includes(r.category))).map(rowView), ids),
-        recent: withFirst(newestSorted(all.filter((r) => r.status === 'approved')).slice(0, 8).map(rowView), ids),
-        places: topPlaces(all, c, spanOf(m)),
-        biggest: biggestExpenses(all, c, spanOf(m)),
-        flow: moneyFlow(all, c, spanOf(m), fixedNames()[1]),
-        pattern: spendingPattern(all, c, spanOf(m)),
-        tags: tagTotals(all, spanOf(m)),
-        owed: owedView(all),
-        bills: upcomingBills(store.read(TABS.plans), rec.items, today, 7, cardList),
-        events: eventBudgets(all),
+        today: () => withFirst(newestSorted(all.filter((r) => String(r.date).slice(0, 10) === isoDate(today) && r.direction === 'out' && r.status !== 'ignored' && !fixedNames().includes(r.category))).map(rowView), ids()),
+        recent: () => withFirst(newestSorted(all.filter((r) => r.status === 'approved')).slice(0, 8).map(rowView), ids()),
+        places: () => topPlaces(all, c, spanOf(m)),
+        biggest: () => biggestExpenses(all, c, spanOf(m)),
+        flow: () => moneyFlow(all, c, spanOf(m), fixedNames()[1]),
+        pattern: () => spendingPattern(all, c, spanOf(m)),
+        tags: () => tagTotals(all, spanOf(m)),
+        owed: () => owedView(all),
+        bills: () => upcomingBills(store.read(TABS.plans), rec().items, today, 7, cardList()),
+        events: () => eventBudgets(all),
         cards: cardList,
-        health: financialHealth({ balances, goals, trend, month: m, summary, wealth }),
+        health: () => financialHealth({ balances: balances(), goals: goals(), trend: trend(), month: m, summary: summary(), wealth: wealth() }),
         wealth,
-        recurringMarks: json('recurring_marks'),
-        bigAmount: bigAmount(),
-        big: bigSpends(all, { from: summary.from || `${m}-01`, to: summary.to || `${m}-31`, threshold: bigAmount(), skipCategories: fixedNames() }),
+        recurringMarks: () => json('recurring_marks'),
+        bigAmount: () => bigAmount(),
+        big: () => bigSpends(all, { from: summary().from || `${m}-01`, to: summary().to || `${m}-31`, threshold: bigAmount(), skipCategories: fixedNames() }),
         recurring: rec,
         goals,
       };
+      const names = part ? DASHBOARD_PARTS[part] : Object.keys(fields);
+      if (!names) throw new Error(`unknown part ${part}`);
+      return Object.fromEntries(names.map((k) => [k, fields[k]()]));
     },
 
     /**

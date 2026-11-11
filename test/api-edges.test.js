@@ -379,3 +379,28 @@ describe('budgets for Kita and for each person', () => {
     expect(() => api.saveBudgets({ budgets: [{ category: 'Nope', monthly_budget: 1, scope: '' }] })).toThrow('unknown expense category Nope');
   });
 });
+
+describe('the dashboard in parts', () => {
+  const api = () => me(memoryStore({}, { [TABS.budgets]: [{ category: 'Makan', monthly_budget: 1000000, scope: '' }] }));
+  it('the three parts together hold every field of the whole, with the same values, and nothing is in two parts but the month and who', () => {
+    const a = api();
+    const whole = a.dashboard({});
+    const parts = ['main', 'insights', 'bills'].map((part) => a.dashboard({ part }));
+    expect(Object.assign({}, ...parts)).toEqual(whole);
+    expect(Object.keys(Object.assign({}, ...parts)).sort()).toEqual(Object.keys(whole).sort());
+    const counts = new Map();
+    for (const p of parts) for (const k of Object.keys(p)) counts.set(k, (counts.get(k) || 0) + 1);
+    expect([...counts].filter(([, n]) => n > 1).map(([k]) => k).sort()).toEqual(['month', 'who']);
+  });
+  it('the same holds for one person\'s view and for another month', () => {
+    const a = api();
+    for (const args of [{ owner: 'Me' }, { month: '2026-09' }]) {
+      const whole = a.dashboard(args);
+      expect(Object.assign({}, ...['main', 'insights', 'bills'].map((part) => a.dashboard({ ...args, part })))).toEqual(whole);
+    }
+  });
+  it('the whole keeps its fields in the usual order, and an unknown part is refused', () => {
+    expect(Object.keys(api().dashboard({})).slice(0, 8)).toEqual(['month', 'who', 'summary', 'balances', 'trend', 'perDay', 'budgets', 'pendingCount']);
+    expect(() => api().dashboard({ part: 'nope' })).toThrow('unknown part nope');
+  });
+});
