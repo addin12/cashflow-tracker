@@ -491,6 +491,13 @@ export function createApi(store, env) {
       return { ok: true, ids: added.map((r) => r.id) };
     },
 
+    /** Income and expense of one month for the household (owner empty) or one person: what the dashboard's summary and trend show, without the rest. */
+    monthTotals({ month, owner: who } = {}) {
+      const all = who ? rows().filter((r) => r.owner === who) : rows();
+      const t = summarizeMonth(all, cats(), month, '', rangeOf(month));
+      return { month, owner: who || '', income: t.income, expense: t.expense };
+    },
+
     /**
      * The home screen's numbers. With `part` only that part's fields are worked out (so a screen can be fetched in several small
      * requests: see DASHBOARD_PARTS); without it, all of them, in the same order as ever.
@@ -1257,7 +1264,7 @@ export function renameCategoryEverywhere(store, renamed) {
 }
 
 export const API_METHODS = [
-  'init', 'bootstrap', 'review', 'approve', 'ignore', 'restore', 'list', 'update', 'remove', 'add', 'dashboard', 'settings',
+  'init', 'bootstrap', 'review', 'approve', 'ignore', 'restore', 'list', 'update', 'remove', 'add', 'dashboard', 'monthTotals', 'settings',
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
   'yearly', 'importStatement', 'undoImport', 'updateMany', 'tagih', 'owedSet', 'owedRemove', 'savePlans', 'saveAssets', 'markRecurring',

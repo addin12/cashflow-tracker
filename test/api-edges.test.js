@@ -443,3 +443,14 @@ describe('places paid before the rows a store keeps', () => {
     expect(me(store).dashboard({ part: 'main' }).today.some((r) => r.first)).toBe(true);
   });
 });
+
+describe('monthTotals', () => {
+  it('gives the same income and expense as the dashboard summary, for Kita and for a person', () => {
+    const a = me(memoryStore());
+    for (const owner of [undefined, 'Me', 'Dewi']) {
+      const s = a.dashboard({ month: '2026-10', owner, part: 'main' }).summary;
+      expect(a.monthTotals({ month: '2026-10', owner })).toEqual({ month: '2026-10', owner: owner || '', income: s.income, expense: s.expense });
+    }
+    expect(a.monthTotals({ month: '2026-10' }).expense).toBeGreaterThan(0);
+  });
+});
