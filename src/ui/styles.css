@@ -790,8 +790,6 @@ button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
   .ov-pickers { flex-wrap: nowrap; }
   .ov-pickers .seg { flex: none; }
 }
-.ov-sec { min-width: 0; order: var(--o, 0); }
-@media (max-width: 1099px) { .ov-grid.ov { display: flex; flex-direction: column; } .ov-grid.ov > .stack { display: contents; } }
 .monthcard { padding: 24px; }
 .monthcard .k { margin: 0 0 2px; color: var(--muted); font-size: 16px; }
 .monthcard .hero-num { display: block; }
@@ -818,3 +816,64 @@ details.more-rows[open] > summary::after { transform: rotate(90deg); }
 .ov-head { flex-wrap: nowrap; align-items: center; padding-bottom: 0; }
 .ov-sub { margin: 2px 0 0; color: var(--muted); font-size: 16px; }
 .monthcard .under { font-size: 15px; }
+
+/* ---------- second pass: tighter, balanced columns, folded secondary cards */
+.flow { display: block; margin-top: 12px; column-gap: 16px; }
+.flow > * { break-inside: avoid; margin: 0 0 12px; display: block; }
+.flow > .ov-sec > section, .flow > .ov-sec > details { margin: 0; }
+@media (min-width: 900px) { .flow { column-count: 2; } }
+@media (min-width: 1600px) { .flow { column-count: 3; } }
+.card { padding: 16px 18px; }
+.monthcard { padding: 18px; }
+.monthcard .k { font-size: 15px; }
+.mc-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
+.mc-top .hero-num { min-height: 0; }
+.mc-top .cmp { margin: 0; flex: 1 1 180px; }
+.monthcard .budget-foot { margin-top: 10px; padding: 10px 0 0; border-top: 0; }
+.monthcard .budget-foot .bar { margin: 0 0 8px; }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.tile { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px 12px; border-radius: var(--r-field); border: 1px solid var(--line); background: var(--card); font: inherit; color: inherit; min-height: 64px; min-width: 0; }
+button.tile { cursor: pointer; }
+.tile .tl { color: var(--muted); font-size: 14px; }
+.tile b { font-size: 18px; font-weight: 600; white-space: nowrap; }
+.tile .tm { color: var(--muted); font-size: 13px; line-height: 1.3; }
+.notes { margin-top: 10px; }
+.notes p { margin: 2px 0; color: var(--muted); font-size: 14px; line-height: 1.4; }
+.attn .lrow { min-height: 56px; padding: 8px 0; }
+.big-num.md { font-size: 26px; }
+.accounts .acct-total { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.accounts .acct-total h2 { margin: 0; }
+.accounts > .meta { margin: 2px 0 8px; font-size: 14px; }
+.acct-head { display: flex; justify-content: space-between; gap: 12px; margin: 12px 0 6px; font-size: 15px; font-weight: 600; color: var(--ink-2); }
+.acct-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.acct { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 8px; row-gap: 2px; text-align: left; padding: 8px 10px; min-height: 64px; border-radius: var(--r-field); border: 1px solid var(--line-soft); background: var(--zebra); font: inherit; color: inherit; cursor: pointer; min-width: 0; }
+.acct .cat-ic { width: 28px; height: 28px; grid-row: 1 / span 2; }
+.acct .cat-ic .ico, .acct .cat-ic svg { width: 16px; height: 16px; }
+.acct .an { font-size: 14px; color: var(--ink-2); line-height: 1.25; overflow-wrap: anywhere; }
+.acct b { grid-column: 2; font-size: 16px; font-weight: 600; white-space: nowrap; }
+.cat-row, .lrow { min-height: 52px; padding: 9px 0; }
+.section-title { margin: 20px 0 8px; font-size: 20px; }
+.more-title { display: none; }
+details.fold { padding: 0; }
+details.fold > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 10px 18px; cursor: pointer; list-style: none; }
+details.fold > summary::-webkit-details-marker { display: none; }
+.fold-text { min-width: 0; }
+.fold-text h2 { margin: 0; font-size: 17px; }
+.fold-text small { display: block; margin-top: 2px; color: var(--muted); font-size: 14px; line-height: 1.35; }
+.fold-chev::after { content: '›'; display: inline-block; font-size: 22px; color: var(--muted); transition: transform var(--dur-quick) var(--ease-out); }
+details.fold[open] > .fold-chev::after, details.fold[open] > summary .fold-chev::after { transform: rotate(90deg); }
+details.fold > :not(summary) { margin-left: 18px; margin-right: 18px; }
+details.fold > :last-child { margin-bottom: 16px; }
+.fold-act { display: flex; justify-content: flex-end; margin-top: -4px; }
+.ov-pickers .seg.mode-seg { flex: 1 1 200px; }
+.line-chart { height: 130px; }
+.chart { height: 150px; }
+.donut { margin-block: 8px; }
+.tile b { text-align: left; }
+.ov-pickers .seg { flex: 1 1 150px; }
+.ov-pickers .seg.who { flex: 1 1 100%; }
+@media (min-width: 900px) { .ov-pickers .seg, .ov-pickers .seg.who { flex: none; } }
+/* never cut a name short: it wraps (lists in the redesigned summary) */
+.flow .lrow .what b, .flow .lrow .what .meta, .flow .cat-top b { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.ct-name { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; font-size: 15px; line-height: 1.25; }
+.ct-head, .ct-row { grid-template-columns: 32px minmax(88px, 1.6fr) repeat(var(--n, 12), minmax(16px, 1fr)) minmax(84px, auto); }

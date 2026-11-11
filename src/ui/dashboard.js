@@ -36,6 +36,7 @@ export async function viewDashboard() {
   const hour = new Date().getHours();
   const greet = (hour < 11 ? T.greetMorning : hour < 15 ? T.greetNoon : hour < 18 ? T.greetAfternoon : T.greetEvening).replace(/\.$/, '');
   const todayLong = new Date(`${state.boot.today}T00:00:00`).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
+  const modeSeg = report ? `<div class="seg mode-seg">${[['month', T.reportMonthly], ['year', T.reportYearly]].map(([v, l]) => `<button type="button" class="${(v === 'year') === !!state.reportYearly ? 'on' : ''}" aria-pressed="${(v === 'year') === !!state.reportYearly}" data-action="reportmode" data-mode="${v}">${esc(l)}</button>`).join('')}</div>` : '';
   setView(`
     <header class="page-head ov-head"><h1>${esc(T.tabDashboard)}</h1>
       <button class="btn secondary small hide-btn" data-action="hide" aria-pressed="${state.hide}">${state.hide ? EYE_OFF : EYE} ${esc(state.hide ? T.showAmounts : T.hideAmounts)}</button></header>
@@ -46,9 +47,9 @@ export async function viewDashboard() {
         <div class="monthname"><b>${esc(monthLabel(d.month))}</b>${s.from ? `<small>${esc(rangeLabel(s.from, s.to))}</small>` : ''}</div>
         <button class="btn secondary small month-next" data-action="setmonth" data-month="${next}" aria-label="${esc(monthAria(next))}" ${next > current ? 'disabled' : ''}>${esc(monthShort(next))}</button>
       </div>
-      <div class="ov-pickers">${whoSeg()}<div class="seg">${viewBtn('overview', T.viewOverview)}${viewBtn('report', T.viewReport)}</div></div>
+      <div class="ov-pickers">${whoSeg()}<div class="seg">${viewBtn('overview', T.viewOverview)}${viewBtn('report', T.viewReport)}</div>${modeSeg}</div>
     </div>
-    ${report ? `<div class="seg report-seg">${[['month', T.reportMonthly], ['year', T.reportYearly]].map(([v, l]) => `<button type="button" class="${(v === 'year') === !!state.reportYearly ? 'on' : ''}" aria-pressed="${(v === 'year') === !!state.reportYearly}" data-action="reportmode" data-mode="${v}">${esc(l)}</button>`).join('')}</div>${state.reportYearly ? yearlyHtml(state.yearly.data) : reportHtml(d)}` : overviewHtml(d)}`);
+    ${report ? `${state.reportYearly ? yearlyHtml(state.yearly.data) : reportHtml(d)}` : overviewHtml(d)}`);
 }
 
 /** Total balance, then what is free and what is set aside for savings goals. */
@@ -73,6 +74,25 @@ export const bigRp = (n, cls = '') => `<span class="big-num ${cls}"><span class=
 const lineRow = (x) => `<button class="lrow" data-action="edit" data-id="${esc(x.id)}">${icon(x.category)}
   <span class="what"><b>${esc(x.description || x.details || T.noName)}</b><span class="meta">${esc([`${dateLabel(x.date, { weekday: false })}${x.time ? `, ${timeLabel(x.time)}` : ''}`, x.category || T.noCategory, x.stream].filter(Boolean).join(' · '))}${firstBadge(x)}</span></span>
   <span class="amt ${esc(x.direction)}">${signed(x)}</span></button>`;
+
+/**
+ * A secondary card folded into one line (title, and its first sentence as a hint) that opens on a tap: less to scroll past, nothing removed.
+ * Cards that start with a heading (and optionally a ".lead" sentence) fold; anything else is returned as it is. A button in the heading moves into the body.
+ */
+export function fold(html, { open = false } = {}) {
+  if (!html) return '';
+  const m = /^<section class="card([^"]*)">\s*<h2([^>]*)>([\s\S]*?)<\/h2>/.exec(html);
+  if (!m) return html;
+  const btn = (/<button[\s\S]*?<\/button>/.exec(m[3]) || [''])[0];
+  const title = m[3].replace(btn, '');
+  let rest = html.slice(m[0].length).replace(/<\/section>\s*$/, '');
+  const lead = /^\s*<p class="lead">([\s\S]*?)<\/p>/.exec(rest);
+  if (lead) rest = rest.slice(lead[0].length);
+  return `<details class="card fold${m[1]}"${open ? ' open' : ''}><summary><span class="fold-text"><h2 class="ft">${title}</h2>${lead ? `<small>${lead[1]}</small>` : ''}</span><span class="fold-chev" aria-hidden="true"></span></summary>${btn ? `<div class="fold-act">${btn}</div>` : ''}${rest}</details>`;
+}
+
+/** Sections in reading order; on a wide screen they run down two or three balanced columns, so no column is left empty. */
+const flow = (parts) => `<div class="flow">${parts.filter(Boolean).join('')}</div>`;
 
 function overviewHtml(d) {
   const s = d.summary;
@@ -121,72 +141,68 @@ function overviewHtml(d) {
   const totalBudget = d.budgets.reduce((a, b) => a + b.budget, 0);
   const inBudgets = d.budgets.reduce((a, b) => a + b.spent, 0);
   const daysLeft = Math.max(1, days.length - idx + 1);
+  const notes = [
+    d.under && (d.under.under != null || d.under.noSpend) ? T.underLine(d.under.under, d.under.elapsed, rp(d.under.allowance), d.under.noSpend) : '',
+    totalBudget && s.expense - inBudgets > 0 ? T.outsideBudgets(rp(s.expense - inBudgets)) : '',
+    totalBudget && isNow && idx > 2 ? T.onPace(rp((s.expense / idx) * days.length)) : '',
+  ].filter(Boolean).map((t) => `<p>${esc(t)}</p>`).join('');
   const foot = totalBudget ? `<div class="budget-foot">
       <span class="bar total"><i class="${inBudgets > totalBudget ? 'over' : ''}" style="width:${Math.min(100, Math.round((inBudgets / totalBudget) * 100))}%"></i>${isNow ? `<em style="left:${Math.round(elapsed * 100)}%"></em>` : ''}</span>
       <p><b>${esc(inBudgets > totalBudget ? T.budgetOverLine(rp(inBudgets - totalBudget)) : isNow ? T.budgetLeftLine(rp(totalBudget - inBudgets), rp((totalBudget - inBudgets) / daysLeft), daysLeft) : T.budgetLeftEnd(rp(totalBudget - inBudgets)))}</b></p>
-      ${s.expense - inBudgets > 0 ? `<p class="muted">${esc(T.outsideBudgets(rp(s.expense - inBudgets)))}</p>` : ''}
-      ${isNow && idx > 2 ? `<p class="muted">${esc(T.onPace(rp((s.expense / idx) * days.length)))}</p>` : ''}
     </div>` : `<p class="hint"><button class="link" data-action="go" data-tab="settings" data-section="budgets">${esc(T.noBudgetsSet)}</button></p>`;
 
-  // Key figures: a label on the left, the number on the right (a tap goes to the rows behind it).
-  const fig = (label, value, { cls = '', meta = '', attrs = '' } = {}) => {
+  // Key figures as tiles, two by two (a tap goes to the rows behind the number).
+  const tile = (label, value, { cls = '', meta = '', attrs = '' } = {}) => {
     const tag = attrs ? 'button' : 'div';
-    return `<${tag} class="fig" ${attrs}><span class="fl"><b>${esc(label)}</b>${meta ? `<span class="meta">${esc(meta)}</span>` : ''}</span><span class="fv amt ${cls}">${value}</span></${tag}>`;
+    return `<${tag} class="tile" ${attrs}><span class="tl">${esc(label)}</span><b class="amt ${cls}">${value}</b>${meta ? `<span class="tm">${esc(meta)}</span>` : ''}</${tag}>`;
   };
-  const figs = [
-    fig(T.income, `+${rp(s.income)}`, { cls: 'in', attrs: 'data-action="drill" data-direction="in"' }),
-    fig(T.netThisMonth, `${s.balance < 0 ? '' : '+'}${rp(s.balance)}`, { cls: s.balance < 0 ? 'bad' : '', attrs: 'data-action="drill"' }),
-    isNow ? fig(T.perDay, rp(d.perDay.perDay), { meta: T.daysToPayday(d.perDay.daysLeft, dateLabel(d.perDay.nextPayday, { weekday: false })) }) : '',
-    isNow ? fig(T.todayShort, rp(todayTotal), { meta: T.paymentsToday(today.length), attrs: `data-action="drillday" data-date="${esc(state.boot.today)}"` }) : '',
+  const tiles = [
+    tile(T.income, `+${rp(s.income)}`, { cls: 'in', attrs: 'data-action="drill" data-direction="in"' }),
+    tile(T.netThisMonth, `${s.balance < 0 ? '' : '+'}${rp(s.balance)}`, { cls: s.balance < 0 ? 'bad' : '', attrs: 'data-action="drill"' }),
+    isNow ? tile(T.perDay, rp(d.perDay.perDay), { meta: T.daysToPaydayShort(d.perDay.daysLeft, dateLabel(d.perDay.nextPayday, { weekday: false })) }) : '',
+    isNow ? tile(T.todayShort, rp(todayTotal), { meta: T.paymentsToday(today.length), attrs: `data-action="drillday" data-date="${esc(state.boot.today)}"` }) : '',
   ].join('');
   const status = `<section class="card monthcard">
       <p class="k">${esc(T.monthSpending(monthName(d.month), isNow ? idx : 0))}</p>
-      <button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
-      ${prevSame > 0 ? `<p class="cmp ${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '↑' : '↓'} ${esc(diff > 0 ? T.moreThan(rp(diff), prevName) : T.lessThan(rp(-diff), prevName))}</p>` : ''}
-      ${d.under && (d.under.under != null || d.under.noSpend) ? `<p class="muted under">${esc(T.underLine(d.under.under, d.under.elapsed, rp(d.under.allowance), d.under.noSpend))}</p>` : ''}
+      <div class="mc-top"><button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
+        ${prevSame > 0 ? `<p class="cmp ${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '↑' : '↓'} ${esc(diff > 0 ? T.moreThan(rp(diff), prevName) : T.lessThan(rp(-diff), prevName))}</p>` : ''}</div>
       ${foot}
-      <div class="figs">${figs}</div>
+      <div class="tiles">${tiles}</div>
+      ${notes ? `<div class="notes">${notes}</div>` : ''}
       ${isNow && d.perDay.spending < 0 ? `<p><button class="link" data-action="go" data-tab="settings" data-section="accounts">${svgIcon('alert')} ${esc(T.negativeSpending)}</button></p>` : ''}
     </section>`;
 
   const incomeRows = s.byCategory.filter((c) => c.kind === 'income').sort((a, b) => b.amount - a.amount).map((c) => `
     <button class="lrow" data-action="drill" data-category="${esc(c.category)}">${icon(c.category)}<span class="what"><b>${esc(c.category)}</b></span><span class="amt in">+${rp(c.amount)}</span></button>`).join('');
+  // Accounts as tiles, two across: a group's total, then its accounts.
+  const acctTile = (b) => `<button class="acct" data-action="drill" data-stream="${esc(b.stream)}">${acctIcon(b.stream, b.type)}<span class="an">${esc(streamLabel(b.stream))}</span><b class="amt ${b.balance < 0 ? 'bad' : ''}">${rp(b.balance)}</b></button>`;
   const group = (type, title) => {
     const list = d.balances.filter((b) => b.type === type);
     if (!list.length) return '';
-    const total = list.reduce((a, b) => a + b.balance, 0);
-    return `<div class="rowi total-row"><span>${esc(title)}</span><span class="amt">${rp(total)}</span></div>${list.map((b) => `
-      <button class="lrow" data-action="drill" data-stream="${esc(b.stream)}">${acctIcon(b.stream, b.type)}<span class="what"><b>${esc(streamLabel(b.stream))}</b></span><span class="amt">${rp(b.balance)}</span></button>`).join('')}`;
+    return `<div class="acct-head"><span>${esc(title)}</span><b class="amt">${rp(list.reduce((a, b) => a + b.balance, 0))}</b></div><div class="acct-grid">${list.map(acctTile).join('')}</div>`;
   };
-  const accountsCard = `<section class="card"><h2>${esc(T.accounts)}</h2>${walletLine(d)}<p class="lead">${esc(T.accountsHint)}</p><div class="rows">${group('Spending', T.spendingGroup)}${group('Saving', T.savingGroup)}</div></section>`;
-  const todayCard = isNow && today.length ? `<section class="card today-card">
-      <p class="eyebrow">${esc(T.todayIs(dateLabel(state.boot.today)))}</p>
-      <h2>${esc(T.todayLine(today.length, rp(todayTotal)))}</h2>
-      <div class="rows">${today.slice(0, 3).map(lineRow).join('')}</div>${today.length > 3 ? `<button class="link" data-action="drillday" data-date="${esc(state.boot.today)}">${esc(T.moreN(today.length - 3))}</button>` : ''}
-    </section>` : '';
+  const allBalance = (d.balances || []).reduce((t, b) => t + b.balance, 0);
+  const setAside = (d.goals || []).reduce((t, g) => t + Math.min(g.saved, g.target), 0);
+  const accountsCard = `<section class="card accounts"><div class="acct-total"><h2>${esc(T.accounts)}</h2>${bigRp(allBalance, 'md')}</div>
+      <p class="meta">${esc(setAside > 0 ? T.walletSplit(rp(allBalance - setAside), rp(setAside)) : T.walletTotal)}</p>${group('Spending', T.spendingGroup)}${group('Saving', T.savingGroup)}</section>`;
   const latest = (d.recent || []).length ? `<section class="latest"><h2 class="section-title row-title">${esc(T.latestTitle)}<button class="link" data-action="go" data-tab="transactions">${esc(T.seeAll)}</button></h2>
-      <div class="card list-card">${d.recent.slice(0, 5).map(lineRow).join('')}</div></section>` : '';
-  const where = `<section><h2 class="section-title">${esc(T.whereItWent)}<small>${esc(T.expenseByCategoryHint)}</small></h2><div class="card list-card">${catsHtml}</div></section>`;
-  // Everything that is not the month's money itself, one group at the end (each card only when it has something to show).
+      <div class="card list-card">${d.recent.slice(0, 3).map(lineRow).join('')}</div></section>` : '';
+  const where = `<section><h2 class="section-title">${esc(T.whereItWent)}</h2><div class="card list-card">${catsHtml}</div></section>`;
+  // Everything else folds: one line each, open on a tap.
   const more = [owedCard(d.owed), incomeRows ? `<section class="card"><h2>${esc(T.incomeByCategory)}</h2><div class="rows">${incomeRows}</div></section>` : '',
     goalsCard(d.goals), recurringCard(d.recurring), eventsCard(d.events), sharedCard(d.shared), claimsCard(d.claims), warrantiesCard(d.warranties), cardsCard(d.cards),
-    healthCard(d.health), wealthCard(d.wealth)].filter(Boolean).join('');
-  // On a phone the sections run in this order (--o); on a wide screen the two columns keep that order within each column.
+    healthCard(d.health), wealthCard(d.wealth)].map((h) => fold(h));
+  // Reading order (--o): the month, what needs you, the money you have, where it went, the latest, the rest.
   const sec = (o, html) => (html ? `<div class="ov-sec" style="--o:${o}">${html}</div>` : '');
-  return `<div class="ov-grid ov">
-    <div class="stack">
-      ${sec(10, status)}
-      ${sec(50, where)}
-      ${sec(60, latest)}
-    </div>
-    <div class="stack">
-      ${sec(20, isNow ? attentionCard(d, lead) : '')}
-      ${sec(25, isNow ? paydayCard(d.paydayPlan) : '')}
-      ${sec(30, accountsCard)}
-      ${sec(40, todayCard)}
-      ${sec(70, more ? `<h2 class="section-title more-title">${esc(T.ovMore)}</h2><div class="stack">${more}</div>` : '')}
-    </div>
-  </div>`;
+  return flow([
+    sec(10, status),
+    sec(20, isNow ? attentionCard(d, lead) : ''),
+    sec(25, isNow ? paydayCard(d.paydayPlan) : ''),
+    sec(30, accountsCard),
+    sec(50, where),
+    sec(60, latest),
+    ...more.map((h, i) => sec(70 + i, h)),
+  ]);
 }
 
 function reportHtml(d) {
@@ -225,39 +241,31 @@ function reportHtml(d) {
     <button class="m ${t.month === d.month ? 'on' : ''}" data-action="setmonth" data-month="${t.month}" aria-label="${esc(`${monthAria(t.month)}: ${T.income} ${rp(t.income)}, ${T.expense} ${rp(t.expense)}`)}">
       <span class="bars"><i class="in" style="height:${Math.round((t.income / tTop) * 100)}%"></i><i class="out" style="height:${Math.round((t.expense / tTop) * 100)}%"></i></span>
       <span>${esc(monthShort(t.month))}</span></button>`).join('');
-  return `<div class="ov-grid">
-    <div class="stack">
-      <section class="spend"><p class="k">${esc(T.moneyOut)}</p><button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
+  return `<div class="flow">
+      <section class="card spend"><p class="k">${esc(T.moneyOut)}</p><button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
         <p class="muted">${esc(T.ofIncome(rp(s.income), rp(s.balance)))}</p></section>
       <section class="card"><h2>${esc(T.dailyTrend)}</h2><p class="lead">${esc(T.avgPerDay(rp(s.expense / idx)))}</p>
         <div class="hm-grid">${weekdays.map((w) => `<span class="hm-wd">${esc(w)}</span>`).join('')}${cells}</div>
         <div class="hm-legend"><span>${esc(T.heatLess)}</span><i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i><span>${esc(T.heatMore)}</span></div></section>
       <section class="card"><h2>${esc(T.spendTrend)}</h2><p class="lead">${esc(T.spendTrendHint)}</p>${line}
         <div class="legend"><span><i class="out-now"></i>${esc(monthName(d.month))} ${rp(lastA)}</span>${b.length ? `<span><i class="out-prev"></i>${esc(prevName)} ${rp(lastB)}</span>` : ''}</div></section>
-      ${flowCard(d.flow, d)}
-    </div>
-    <div class="stack">
-      ${donutCard(cats, (v) => T.perDayShort(rp(v / idx)))}
-      ${patternCard(d.pattern)}
-      ${tagsCard(d.tags)}
-      ${placesCard(d.places)}
-      ${biggestCard(d.biggest)}
+      ${donutCard(cats, (v) => T.perDayShort(rp(v / idx)), T.whereItWent, 5)}
       ${trend.length ? `<section class="card"><h2>${esc(T.trendTitle)}</h2><p class="lead">${esc(T.trendHint)}</p><div class="chart">${chart}</div></section>` : ''}
-    </div>
+      ${[fold(flowCard(d.flow, d)), fold(patternCard(d.pattern)), fold(tagsCard(d.tags)), fold(placesCard(d.places)), fold(biggestCard(d.biggest))].join('')}
   </div>`;
 }
 
 /** Donut and list of spending categories; `per` labels each row's average (per day or per month). */
-function donutCard(cats, per, title = T.whereItWent) {
+function donutCard(cats, per, title = T.whereItWent, limit = 99) {
   const total = cats.reduce((t, c) => t + c.amount, 0);
   let at = 0;
   const stops = cats.map((c, i) => { const from = at; at += total ? (c.amount / total) * 100 : 0; return `var(--ch${i % 8}) ${from.toFixed(2)}% ${at.toFixed(2)}%`; }).join(', ');
   const list = cats.map((c, i) => `<button class="lrow" data-action="drill" data-category="${esc(c.category)}">${icon(c.category)}
       <span class="what"><b><i class="dot" style="background:var(--ch${i % 8})"></i>${esc(c.category)}</b><span class="meta">${esc(`${total ? Math.round((c.amount / total) * 100) : 0}% · ${per(c.amount)}`)}</span></span>
-      <span class="amt">${rp(c.amount)}</span></button>`).join('');
+      <span class="amt">${rp(c.amount)}</span></button>`);
   return `<section class="card"><h2>${esc(title)}</h2><p class="lead">${esc(T.donutHint)}</p>
     ${total ? `<div class="donut" style="background:conic-gradient(${stops})" role="img" aria-label="${esc(`${T.moneyOut} ${rp(total)}`)}"><div><span>${esc(T.moneyOut)}</span><b>${rp(total)}</b><small>${esc(T.nCats(cats.length))}</small></div></div>
-    <div class="rows">${list}</div>` : `<p class="hint">${esc(T.nothingYet)}</p>`}</section>`;
+    <div class="rows">${list.slice(0, limit).join('')}${list.length > limit ? `<details class="more-rows"><summary>${esc(T.allCats(list.length))}</summary>${list.slice(limit).join('')}</details>` : ''}</div>` : `<p class="hint">${esc(T.nothingYet)}</p>`}</section>`;
 }
 
 /** Top places (by transaction name) and the biggest single payments. */
@@ -331,24 +339,16 @@ function yearlyHtml(y) {
       return `<i class="hm-dot l${lvl}" title="${esc(`${monthShort(m.month)}: ${rp(v)}`)}"></i>`;
     }).join('')}<span class="amt">${rp(c.amount)}</span></button>`;
   }).join('');
-  return `<div class="ov-grid">
-    <div class="stack">
-      ${recapCard(y)}
-      <section class="spend"><p class="k">${esc(T.moneyOutYear(shown.length ? `${monthShort(shown[0].month)}–${monthShort(shown[shown.length - 1].month)}` : String(y.year)))}</p>${bigRp(totalOut, 'lg')}
+  return `<div class="flow">
+      ${fold(recapCard(y))}
+      <section class="card spend"><p class="k">${esc(T.moneyOutYear(shown.length ? `${monthShort(shown[0].month)}–${monthShort(shown[shown.length - 1].month)}` : String(y.year)))}</p>${bigRp(totalOut, 'lg')}
         <p class="muted">${esc(T.ofIncome(rp(totalIn), rp(totalIn - totalOut)))}</p></section>
       <section class="card"><h2>${esc(T.monthlyTrend)}</h2><p class="lead">${esc(T.monthlyTrendHint(rp(avg)))}</p>
         <div class="chart year-chart">${avg ? `<span class="avg-line" style="bottom:calc(${((avg / max) * 100).toFixed(1)}% * 0.82 + 30px)"></span>` : ''}${bars}</div>
         <div class="legend">${legend}</div></section>
       ${grid ? `<section class="card"><h2>${esc(T.catsOverTime)}</h2><p class="lead">${esc(T.catsOverTimeHint)}</p>
         <div class="ct-grid" style="--n:${gridMonths.length}"><div class="ct-head"><span></span><span></span>${gridMonths.map((m) => `<span>${esc(monthShort(m.month).slice(0, 3))}</span>`).join('')}<span></span></div>${grid}</div></section>` : ''}
-    </div>
-    <div class="stack">
-      ${donutCard(cats, (v) => T.perMonthShort(rp(v / Math.max(1, shown.length))))}
-      ${patternCard(y.pattern)}
-      ${tagsCard(y.tags)}
-      ${placesCard(y.places)}
-      ${biggestCard(y.biggest)}
-      ${sptCard(y.year)}
-    </div>
+      ${donutCard(cats, (v) => T.perMonthShort(rp(v / Math.max(1, shown.length))), T.whereItWent, 5)}
+      ${[fold(patternCard(y.pattern)), fold(tagsCard(y.tags)), fold(placesCard(y.places)), fold(biggestCard(y.biggest)), fold(sptCard(y.year))].join('')}
   </div>`;
 }

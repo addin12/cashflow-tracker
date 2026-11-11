@@ -240,8 +240,8 @@ export function attentionCard(d, lead = []) {
   if (!rows.length) return '';
   const row = (r) => `<button class="lrow" ${r.act}><span class="cat-ic ${r.bad ? 'c3' : 'c6'}" aria-hidden="true">${svgIcon(r.icon)}</span><span class="what"><b>${esc(r.title)}</b>${r.meta ? `<span class="meta">${esc(r.meta)}</span>` : ''}</span><span class="chev" aria-hidden="true">›</span></button>`;
   const all = rows.slice(0, 8);
-  const rest = all.slice(3);
-  return `<section class="card attn"><h2>${esc(T.attnTitle)}<span class="badge warn">${all.length}</span></h2><div class="rows">${all.slice(0, 3).map(row).join('')}</div>${rest.length ? `<details class="more-rows"><summary>${esc(T.attnMore(rest.length))}</summary>${rest.map(row).join('')}</details>` : ''}</section>`;
+  const rest = all.slice(2);
+  return `<section class="card attn"><h2>${esc(T.attnTitle)}<span class="badge warn">${all.length}</span></h2><div class="rows">${all.slice(0, 2).map(row).join('')}</div>${rest.length ? `<details class="more-rows"><summary>${esc(T.attnMore(rest.length))}</summary>${rest.map(row).join('')}</details>` : ''}</section>`;
 }
 
 /** Overview, on payday and the two days after: what the salary has to cover until the next one. */

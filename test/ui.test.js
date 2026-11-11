@@ -233,7 +233,7 @@ describe('web app', () => {
     expect(doc.querySelector('#claimBox').textContent).toContain('batas');
     click(doc.querySelector('#modal [data-action=close]'));
     await tab('dashboard', 'Klaim asuransi');
-    const card = [...doc.querySelectorAll('#view section.card')].find((c) => c.querySelector('h2') && c.querySelector('h2').textContent === 'Klaim asuransi');
+    const card = [...doc.querySelectorAll('#view .card')].find((c) => c.querySelector('h2') && c.querySelector('h2').textContent === 'Klaim asuransi');
     expect(card.textContent).toContain('Tokopedia');
     expect(card.textContent).toContain('2 hari lagi'); // 5 Oct to 7 Oct
     const attn = doc.querySelector('#view .attn'); // and near the top (on a phone: right after the month's status, before where the money went)
