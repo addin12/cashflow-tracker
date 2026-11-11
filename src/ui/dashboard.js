@@ -40,8 +40,7 @@ export async function viewDashboard() {
   const todayLong = new Date(`${state.boot.today}T00:00:00`).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
   const modeSeg = report ? `<div class="seg mode-seg">${[['month', T.reportMonthly], ['year', T.reportYearly]].map(([v, l]) => `<button type="button" class="${(v === 'year') === !!state.reportYearly ? 'on' : ''}" aria-pressed="${(v === 'year') === !!state.reportYearly}" data-action="reportmode" data-mode="${v}">${esc(l)}</button>`).join('')}</div>` : '';
   setView(`
-    <header class="page-head ov-head"><h1>${esc(T.tabDashboard)}</h1>
-      <button class="btn secondary small hide-btn" data-action="hide" aria-pressed="${state.hide}">${state.hide ? EYE_OFF : EYE} ${esc(state.hide ? T.showAmounts : T.hideAmounts)}</button></header>
+    <header class="page-head ov-head"><h1>${esc(T.tabDashboard)}</h1></header>
     <p class="sub ov-sub">${esc(greet)} · ${esc(todayLong)}</p>
     <div class="ov-bar">
       <div class="monthbar">

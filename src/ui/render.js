@@ -107,7 +107,18 @@ export function syncLine() {
   return `${esc(T.lastSync)} ${esc(at)}${bad ? ` <span class="badge bad">${svgIcon('alert')} ${esc(T.syncProblem)}</span>` : ''}`;
 }
 
+/** The eye in the app bar: pressed while the amounts are hidden. */
+export function updateHideBtn() {
+  const btn = $('#hideBtn');
+  if (!btn) return;
+  const label = state.hide ? T.showAmounts : T.hideAmounts;
+  btn.setAttribute('aria-pressed', String(!!state.hide));
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
+}
+
 export function updateNav() {
+  updateHideBtn();
   const n = state.review ? state.review.pending.filter(mineRow).length + (state.review.salary || []).length : 0;
   const count = $('#reviewCount');
   if (count) { count.hidden = !n; count.textContent = String(n); count.setAttribute('aria-label', T.pendingNote(n)); }

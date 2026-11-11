@@ -206,12 +206,21 @@ describe('web app', () => {
     await until(() => doc.querySelector('.cat-row'), 'overview again');
   });
 
-  it('the eye hides every amount and shows them again', async () => {
-    click(doc.querySelector('[data-action=hide]'));
+  it('the eye in the app bar (beside the moon and the bell) hides every amount and shows them again', async () => {
+    const eye = doc.querySelector('.appbar-actions #hideBtn');
+    expect(eye).not.toBeNull();
+    expect(eye.nextElementSibling.id).toBe('themeBtn');
+    expect(doc.querySelector('#view [data-action=hide]')).toBeNull(); // no second button on the summary
+    expect(eye.getAttribute('aria-pressed')).toBe('false');
+    click(eye);
     await until(() => view().includes('Rp •••'), 'hidden');
     expect(view()).not.toContain('Rp300.000');
-    click(doc.querySelector('[data-action=hide]'));
+    expect(eye.getAttribute('aria-pressed')).toBe('true');
+    expect(eye.getAttribute('aria-label')).toBe('Tampilkan angka');
+    click(eye);
     await until(() => view().includes('Rp300.000'), 'shown');
+    expect(eye.getAttribute('aria-pressed')).toBe('false');
+    expect(eye.getAttribute('aria-label')).toBe('Sembunyikan angka');
   });
 
   it('tapping a category opens its transactions, filtered', async () => {

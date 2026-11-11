@@ -16,7 +16,7 @@ import { storedOrder } from './accountorder.js';
 import { importChosen, readAccounts, readAssets, readBackup, readCards, readGoals, readPlans, readRules, readStatement, sendSummaryNow, updateBalRow } from './forms.js';
 import { applyLanguage } from './language.js';
 import { goNotification, openNotifications } from './notifications.js';
-import { categoryOptions, dismissToast, fieldMessage, keepInputs, repaint, toast, updateNav } from './render.js';
+import { categoryOptions, dismissToast, fieldMessage, keepInputs, repaint, toast, updateHideBtn, updateNav } from './render.js';
 import { approve, fillBudgets, hideRecurring, ignore, saveSalary, skipSalary, viewReview } from './review.js';
 import { show } from './router.js';
 import { call, refresh, save, scheduleRefresh, syncNow } from './server.js';
@@ -218,6 +218,7 @@ export function onClick(e) {
   if (a === 'hide') {
     state.hide = !state.hide;
     try { window.localStorage.setItem(HIDE_KEY, state.hide ? '1' : '0'); } catch (err) { /* this visit only */ }
+    updateHideBtn();
     toast(state.hide ? T.amountsHidden : T.amountsShown);
     return show(state.tab);
   }

@@ -965,3 +965,8 @@ details.fold > :last-child { margin-bottom: 16px; }
   details.fold[open]::details-content, details.more-rows[open]::details-content { block-size: auto; }
 }
 .tour .eyebrow { margin: 0 0 4px; color: var(--muted); font-size: 14px; font-weight: 600; }
+/* the eye in the app bar, beside the moon and the bell */
+.iconbtn .i-eyeoff { display: none; }
+#hideBtn[aria-pressed="true"] .i-eyeoff { display: block; }
+#hideBtn[aria-pressed="true"] .i-eye { display: none; }
+.iconbtn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
