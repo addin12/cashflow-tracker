@@ -6,7 +6,9 @@ import { remember } from './data.js';
 import { currentMonth, dateLabel, esc, fmt, locale, monthAdd, monthAria, monthDate, monthLabel, monthShort, rangeLabel, rp, signed, timeLabel } from './format.js';
 import { ownPendingCount, setView, skeleton, streamLabel, whoSeg } from './render.js';
 import { call } from './server.js';
-import { T, state } from './state.js';
+import { countUp } from './motion.js';
+import { $, T, state } from './state.js';
+import { maybeTour } from './tour.js';
 import { EYE, EYE_OFF, acctIcon, firstBadge, icon } from './visuals.js';
 
 // Two views of one month: the overview (today, where the money went, the latest rows) and the
@@ -50,6 +52,17 @@ export async function viewDashboard() {
       <div class="ov-pickers">${whoSeg()}<div class="seg">${viewBtn('overview', T.viewOverview)}${viewBtn('report', T.viewReport)}</div>${modeSeg}</div>
     </div>
     ${report ? `${state.reportYearly ? yearlyHtml(state.yearly.data) : reportHtml(d)}` : overviewHtml(d)}`);
+  afterRender(d);
+}
+
+/** The first time a month's screen opens: numbers count up and the charts draw in (not on every quiet refresh), and a first-time visitor gets the tour. */
+function afterRender(d) {
+  const key = `${state.tab}|${d.month}|${state.who || ''}|${state.dashView}|${state.reportYearly ? 'y' : 'm'}`;
+  const first = state.animKey !== key;
+  state.animKey = key;
+  const view = $('#view');
+  if (!view) return;
+  if (first) { view.dataset.anim = '1'; countUp(view); maybeTour(); } else delete view.dataset.anim;
 }
 
 /** Total balance, then what is free and what is set aside for savings goals. */
@@ -68,7 +81,7 @@ function dayOfPeriod(d) {
 
 export const monthName = (ym) => monthDate(ym).toLocaleDateString(locale(), { month: 'long' });
 
-export const bigRp = (n, cls = '') => `<span class="big-num ${cls}"><span class="cur">Rp</span>${state.hide ? '•••' : fmt.format(Math.round(Number(n) || 0))}</span>`;
+export const bigRp = (n, cls = '') => `<span class="big-num ${cls}"${state.hide ? '' : ` data-v="${Math.round(Number(n) || 0)}"`}><span class="cur">Rp</span>${state.hide ? '•••' : fmt.format(Math.round(Number(n) || 0))}</span>`;
 
 /** One transaction as a list line: icon, name, when · category · account, amount. */
 const lineRow = (x) => `<button class="lrow" data-action="edit" data-id="${esc(x.id)}">${icon(x.category)}
@@ -147,8 +160,19 @@ function overviewHtml(d) {
     totalBudget && s.expense - inBudgets > 0 ? T.outsideBudgets(rp(s.expense - inBudgets)) : '',
     totalBudget && isNow && idx > 2 ? T.onPace(rp((s.expense / idx) * days.length)) : '',
   ].filter(Boolean).map((t) => `<p>${esc(t)}</p>`).join('');
+  const usedPct = totalBudget ? Math.round((inBudgets / totalBudget) * 100) : 0;
+  const ringState = inBudgets > totalBudget ? 'over' : isNow && inBudgets / totalBudget > elapsed + 0.05 ? 'ahead' : '';
+  const ring = totalBudget ? `<svg class="ring" viewBox="0 0 64 64" role="img" aria-label="${esc(T.budgetUse(usedPct))}"><circle class="ring-bg" cx="32" cy="32" r="26"/><circle class="ring-fg ${ringState}" cx="32" cy="32" r="26" pathLength="100" stroke-dasharray="${Math.min(100, usedPct)} 100" transform="rotate(-90 32 32)"/>${isNow ? `<line class="ring-tick" x1="32" y1="1" x2="32" y2="8" transform="rotate(${Math.round(elapsed * 360)} 32 32)"/>` : ''}<text x="32" y="37" text-anchor="middle" class="ring-t">${usedPct}%</text></svg>` : '';
+  // One sentence that matters: a budget that is over, one running ahead of the month, or where most of it went.
+  const insight = (() => {
+    const over = d.budgets.filter((b) => b.ratio > 1).sort((x, y) => (y.spent - y.budget) - (x.spent - x.budget))[0];
+    if (over) return T.insightOver(over.category, rp(over.spent - over.budget));
+    const fast = isNow ? d.budgets.filter((b) => b.ratio > 0.5 && b.ratio > elapsed + 0.15).sort((x, y) => y.ratio - x.ratio)[0] : null;
+    if (fast) return T.insightAhead(fast.category, Math.round(fast.ratio * 100), Math.round(elapsed * 100));
+    const first = spent[0];
+    return first && s.expense > 0 && first.amount / s.expense >= 0.3 ? T.insightTop(first.category, Math.round((first.amount / s.expense) * 100)) : '';
+  })();
   const foot = totalBudget ? `<div class="budget-foot">
-      <span class="bar total"><i class="${inBudgets > totalBudget ? 'over' : ''}" style="width:${Math.min(100, Math.round((inBudgets / totalBudget) * 100))}%"></i>${isNow ? `<em style="left:${Math.round(elapsed * 100)}%"></em>` : ''}</span>
       <p><b>${esc(inBudgets > totalBudget ? T.budgetOverLine(rp(inBudgets - totalBudget)) : isNow ? T.budgetLeftLine(rp(totalBudget - inBudgets), rp((totalBudget - inBudgets) / daysLeft), daysLeft) : T.budgetLeftEnd(rp(totalBudget - inBudgets)))}</b></p>
     </div>` : `<p class="hint"><button class="link" data-action="go" data-tab="settings" data-section="budgets">${esc(T.noBudgetsSet)}</button></p>`;
 
@@ -165,8 +189,9 @@ function overviewHtml(d) {
   ].join('');
   const status = `<section class="card monthcard">
       <p class="k">${esc(T.monthSpending(monthName(d.month), isNow ? idx : 0))}</p>
-      <div class="mc-top"><button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
-        ${prevSame > 0 ? `<p class="cmp ${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '↑' : '↓'} ${esc(diff > 0 ? T.moreThan(rp(diff), prevName) : T.lessThan(rp(-diff), prevName))}</p>` : ''}</div>
+      <div class="mc-head"><div class="mc-top"><button class="hero-num" data-action="drill" data-direction="out">${bigRp(s.expense, 'lg')}</button>
+        ${prevSame > 0 ? `<p class="cmp ${diff > 0 ? 'up' : 'down'}">${diff > 0 ? '↑' : '↓'} ${esc(diff > 0 ? T.moreThan(rp(diff), prevName) : T.lessThan(rp(-diff), prevName))}</p>` : ''}</div>${ring}</div>
+      ${insight ? `<p class="insight">${esc(insight)}</p>` : ''}
       ${foot}
       <div class="tiles">${tiles}</div>
       ${notes ? `<div class="notes">${notes}</div>` : ''}
@@ -231,9 +256,9 @@ function reportHtml(d) {
   const lastA = a.length ? a[a.length - 1] : 0;
   const lastB = b.length ? b[b.length - 1] : 0;
   const prevName = monthName(monthAdd(d.month, -1));
-  const line = `<svg class="line-chart" viewBox="0 0 ${W} ${H + 4}" preserveAspectRatio="none" role="img" aria-label="${esc(`${monthName(d.month)} ${rp(lastA)}, ${prevName} ${rp(lastB)}`)}">
+  const line = `<div class="line-wrap" data-line="${esc(JSON.stringify({ a: a.map(Math.round), b: b.map(Math.round), n, now: monthName(d.month), prev: prevName }))}"><svg class="line-chart" viewBox="0 0 ${W} ${H + 4}" preserveAspectRatio="none" role="img" aria-label="${esc(`${monthName(d.month)} ${rp(lastA)}, ${prevName} ${rp(lastB)}`)}">
       ${b.length ? `<path class="prev" d="${path(b)}"/>` : ''}${a.length ? `<path class="now-fill" d="${path(a)} L${(((a.length - 1) / (n - 1)) * W).toFixed(1)},${H} L0,${H} Z"/><path class="now" d="${path(a)}"/>` : ''}
-    </svg>`;
+    </svg><div class="chart-tip" hidden></div></div>`;
   const cats = s.byCategory.filter((c) => c.kind !== 'income').sort((x, y) => y.amount - x.amount);
   const trend = d.trend || [];
   const tTop = Math.max(1, ...trend.map((t) => Math.max(t.income, t.expense)));
@@ -265,7 +290,7 @@ function donutCard(cats, per, title = T.whereItWent, limit = 99) {
       <span class="what"><b><i class="dot" style="background:var(--ch${i % 8})"></i>${esc(c.category)}</b><span class="meta">${esc(`${total ? Math.round((c.amount / total) * 100) : 0}% · ${per(c.amount)}`)}</span></span>
       <span class="amt">${rp(c.amount)}</span></button>`);
   return `<section class="card donut-card"><h2>${esc(title)}</h2><p class="lead">${esc(T.donutHint)}</p>
-    ${total ? `<div class="donut" style="background:conic-gradient(${stops})" role="img" aria-label="${esc(`${T.moneyOut} ${rp(total)}`)}"><div><span>${esc(T.moneyOut)}</span><b>${rp(total)}</b><small>${esc(T.nCats(cats.length))}</small></div></div>
+    ${total ? `<div class="donut" data-segs="${esc(JSON.stringify(cats.map((c) => ({ c: c.category, v: Math.round(c.amount), p: total ? +((c.amount / total) * 100).toFixed(2) : 0 }))))}" style="background:conic-gradient(${stops})" role="img" aria-label="${esc(`${T.moneyOut} ${rp(total)}`)}"><div><span>${esc(T.moneyOut)}</span><b>${rp(total)}</b><small>${esc(T.nCats(cats.length))}</small></div></div>
     <div class="rows">${list.slice(0, limit).join('')}${list.length > limit ? `<details class="more-rows"><summary>${esc(T.allCats(list.length))}</summary>${list.slice(limit).join('')}</details>` : ''}</div>` : `<p class="hint">${esc(T.nothingYet)}</p>`}</section>`;
 }
 

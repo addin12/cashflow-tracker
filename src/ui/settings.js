@@ -1,5 +1,6 @@
 // The Settings screen: the list of sections, and the household, notification and Telegram sections.
 
+import { readLook } from './look.js';
 import { svgIcon } from './icons.js';
 import { setAll } from './data.js';
 import { dateLabel, esc, locale, rp } from './format.js';
@@ -177,11 +178,16 @@ export async function viewSettings(local) {
           ${field(T.salarySettings, `<select name="salary_stream">${accountOptions(cfg.salary_stream, T.chooseAccount)}</select>`, { help: T.salarySettingsHelp })}
           ${field(T.salaryAmountSetting, `<input name="salary_amount" type="number" inputmode="decimal" step="any" min="0" value="${esc(cfg.salary_amount)}">`, { help: T.salaryAmountSettingHelp })}
           ${field(T.ownerNames, `<input name="owner_bank_names" value="${esc(cfg.owner_bank_names)}">`, { help: T.ownerNamesHelp, wide: true })}
-          ${field(T.themeLabel, `<select name="theme">${[['auto', T.themeAuto], ['light', T.themeLight], ['dark', T.themeDark]].map(([v, l]) => `<option value="${v}" ${readTheme() === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`, { help: T.themeHelp })}
+          ${field(T.themeLabel, `<select name="theme">${[['auto', T.themeAuto], ['time', T.themeTime], ['light', T.themeLight], ['dark', T.themeDark]].map(([v, l]) => `<option value="${v}" ${readTheme() === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`, { help: T.themeHelp })}
+          ${field(T.accentLabel, `<select name="accent">${[['blue', T.accentBlue], ['green', T.accentGreen], ['purple', T.accentPurple], ['orange', T.accentOrange], ['rose', T.accentRose]].map(([v, l]) => `<option value="${v}" ${readLook().accent === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`, { help: T.accentHelp })}
+          ${field(T.sizeLabel, `<select name="size">${[['normal', T.sizeNormal], ['large', T.sizeLarge], ['xlarge', T.sizeXLarge]].map(([v, l]) => `<option value="${v}" ${readLook().size === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`)}
         </div>${saveRow(T.saveChanges)}</form>`,
     more: `
       <section class="card"><h2>${esc(T.more)}</h2>
-        <div class="rows"><div class="rowi"><span class="what"><b>${esc(T.selftest)}</b><span class="meta">${esc(s.selftest || T.noName)}</span></span></div>
+        <div class="rows">
+          <button class="rowi" type="button" data-action="tour"><span class="what"><b>${esc(T.tourOpen)}</b><span class="meta">${esc(T.tourOpenHint)}</span></span><span class="chev">›</span></button>
+          ${state.installEvt ? `<button class="rowi" type="button" data-action="install"><span class="what"><b>${esc(T.installApp)}</b><span class="meta">${esc(T.installAppHint)}</span></span><span class="chev">›</span></button>` : ''}
+          <div class="rowi"><span class="what"><b>${esc(T.selftest)}</b><span class="meta">${esc(s.selftest || T.noName)}</span></span></div>
           ${s.push ? `<a class="rowi" target="_top" href="${esc(s.push.site)}/pasang"><span class="what"><b>${esc(T.installTitle)}</b><span class="meta">${esc(T.installHint)}</span></span><span class="chev">↗</span></a>` : ''}
           ${(s.archives || []).map((a) => `<a class="rowi" target="_blank" rel="noopener" href="${esc(a.url)}"><span class="what"><b>${esc(T.archiveOf(a.year))}</b><span class="meta">${esc(T.archiveHint)}</span></span><span class="chev">↗</span></a>`).join('')}</div>
         <div class="actions"><a class="btn secondary" target="_blank" rel="noopener" href="${esc(state.boot.sheetUrl || '#')}">${esc(T.openSheet)} ↗</a></div></section>`,

@@ -28,7 +28,8 @@ describe('motion', () => {
     expect(block).toMatch(/animation-duration:\s*1ms\s*!important/);
     expect(block).toMatch(/\.spin,\s*\.skeleton\s*\{\s*animation:\s*none/);
   });
-  it('keeps the number of looping animations small', () => {
-    expect([...css.matchAll(/@keyframes\s+([\w-]+)/g)].map((m) => m[1]).sort()).toEqual(['shimmer', 'spin']);
+  it('keeps the number of looping animations small, and every other animation plays once', () => {
+    expect([...css.matchAll(/@keyframes\s+([\w-]+)/g)].map((m) => m[1]).sort()).toEqual(['grow', 'pop', 'reveal', 'ringdraw', 'shimmer', 'spin']);
+    expect(declarations('animation').filter((v) => /\binfinite\b/.test(v)).map((v) => v.split(/\s/)[0]).sort()).toEqual(['shimmer', 'spin']);
   });
 });

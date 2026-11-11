@@ -16,9 +16,16 @@ function isDark() {
   return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
 }
 
+/** Dark from 18:00 to 06:00 when the theme is "by time of day". */
+const nightNow = () => { const h = new Date().getHours(); return h >= 18 || h < 6; };
+
+/** Called every minute: a page left open flips at dusk and dawn. */
+export function refreshTimeTheme() { if (readTheme() === 'time') applyTheme('time'); }
+
 export function applyTheme(mode) {
-  const m = mode === 'light' || mode === 'dark' ? mode : 'auto';
-  if (m === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', m);
+  const m = mode === 'light' || mode === 'dark' || mode === 'time' ? mode : 'auto';
+  const shown = m === 'time' ? (nightNow() ? 'dark' : 'light') : m;
+  if (shown === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', shown);
   try { window.localStorage.setItem(THEME_KEY, m); } catch (e) { /* storage unavailable */ }
   const dark = isDark();
   const btn = $('#themeBtn');

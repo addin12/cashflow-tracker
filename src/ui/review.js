@@ -67,7 +67,7 @@ export function viewReview() {
   const recent = r.recentAuto.slice(0, 30).map((x) => `
     <button class="rowi" data-action="edit" data-id="${esc(x.id)}"><span class="what"><b>${esc(x.description)}</b><span class="meta">${tag(x.category)} · ${esc(x.stream)} · ${esc(dateLabel(x.date))}</span></span><span class="amt ${esc(x.direction)}">${signed(x)}</span></button>`).join('');
   setView(`
-    <header class="page-head"><div><h1>${esc(T.reviewTitle)}</h1><p class="sub">${esc(n ? T.reviewSub(n) : T.reviewSubNone)} · ${syncLine()}</p></div>
+    <header class="page-head"><div><h1>${esc(T.reviewTitle)}</h1><p class="sub">${esc(n ? T.reviewSub(n) : T.reviewSubNone)} · ${syncLine()}</p>${cards ? `<p class="hint swipe-hint">${esc(T.swipeHint)}</p>` : ''}</div>
       <div class="tools"><button class="btn secondary small" data-action="sync">↻ ${esc(T.syncNow)}</button></div></header>
     <div class="split">
       <section class="stack" aria-label="${esc(T.reviewTitle)}">${rulesCard}${dayCard(r.day, !!(mine.length || (r.salary || []).length))}${salary}${cards || (salary || theirCards ? '' : empty)}${theirCards}</section>

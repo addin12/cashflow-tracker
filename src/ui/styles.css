@@ -892,3 +892,76 @@ details.fold > :last-child { margin-bottom: 16px; }
   .donut-card > .donut > div { width: 130px; height: 130px; }
   .donut-card > .donut b { font-size: 17px; }
 }
+
+/* ---------- accent colours (Settings -> Preferences; each device chooses its own) */
+:root[data-accent="green"] { --accent: #1a7f37; --accent-press: #166b2e; --accent-soft: #e4f4e8; --accent-btn: #1a7f37; --accent-btn-press: #166b2e; --accent-wash: rgba(26, 127, 55, .15); }
+:root[data-theme="dark"][data-accent="green"] { --accent: #4cc76c; --accent-press: #6ad585; --accent-soft: #11301b; --accent-btn: #1f8a3e; --accent-btn-press: #1a7434; --accent-wash: rgba(76, 199, 108, .2); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"])[data-accent="green"] { --accent: #4cc76c; --accent-press: #6ad585; --accent-soft: #11301b; --accent-btn: #1f8a3e; --accent-btn-press: #1a7434; --accent-wash: rgba(76, 199, 108, .2); } }
+:root[data-accent="purple"] { --accent: #6b46c1; --accent-press: #5b3aa8; --accent-soft: #efe9fb; --accent-btn: #6b46c1; --accent-btn-press: #5b3aa8; --accent-wash: rgba(107, 70, 193, .15); }
+:root[data-theme="dark"][data-accent="purple"] { --accent: #a78bfa; --accent-press: #bda4fb; --accent-soft: #25193f; --accent-btn: #7c4dd6; --accent-btn-press: #6a40bb; --accent-wash: rgba(167, 139, 250, .2); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"])[data-accent="purple"] { --accent: #a78bfa; --accent-press: #bda4fb; --accent-soft: #25193f; --accent-btn: #7c4dd6; --accent-btn-press: #6a40bb; --accent-wash: rgba(167, 139, 250, .2); } }
+:root[data-accent="orange"] { --accent: #b45309; --accent-press: #9a4708; --accent-soft: #fdf0e0; --accent-btn: #b45309; --accent-btn-press: #9a4708; --accent-wash: rgba(180, 83, 9, .15); }
+:root[data-theme="dark"][data-accent="orange"] { --accent: #fb9a4b; --accent-press: #fcae6b; --accent-soft: #3a2209; --accent-btn: #c2570c; --accent-btn-press: #a74a0a; --accent-wash: rgba(251, 154, 75, .2); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"])[data-accent="orange"] { --accent: #fb9a4b; --accent-press: #fcae6b; --accent-soft: #3a2209; --accent-btn: #c2570c; --accent-btn-press: #a74a0a; --accent-wash: rgba(251, 154, 75, .2); } }
+:root[data-accent="rose"] { --accent: #be185d; --accent-press: #a3144f; --accent-soft: #fde7f1; --accent-btn: #be185d; --accent-btn-press: #a3144f; --accent-wash: rgba(190, 24, 93, .15); }
+:root[data-theme="dark"][data-accent="rose"] { --accent: #f472b6; --accent-press: #f78ec6; --accent-soft: #3d1429; --accent-btn: #c0266e; --accent-btn-press: #a61f5d; --accent-wash: rgba(244, 114, 182, .2); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"])[data-accent="rose"] { --accent: #f472b6; --accent-press: #f78ec6; --accent-soft: #3d1429; --accent-btn: #c0266e; --accent-btn-press: #a61f5d; --accent-wash: rgba(244, 114, 182, .2); } }
+
+/* ---------- the Add button that is always there */
+.fab { position: fixed; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 6; display: inline-flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 20px 0 16px; border: 0; border-radius: var(--r-pill); background: var(--accent-btn); color: var(--on-accent); font-family: inherit; font-size: 16px; font-weight: 600; box-shadow: var(--soft-shadow); cursor: pointer; transition: transform var(--dur-quick) var(--ease-out), background-color var(--dur-quick) var(--ease-out); }
+.fab:hover { background: var(--accent-btn-press); }
+.fab:active { transform: scale(.96); }
+.fab[hidden] { display: none; }
+.fab svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+@media (max-width: 899px) { main#view { padding-bottom: calc(132px + env(safe-area-inset-bottom)); } }
+@media (min-width: 900px) { .fab { bottom: 32px; right: 32px; } }
+
+/* ---------- swipe on Cek */
+.txcard:not(.salary-card) { touch-action: pan-y; position: relative; transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-quick) var(--ease-out), background-color var(--dur-quick) var(--ease-out); }
+.txcard.swiping { transition: none; user-select: none; cursor: grabbing; }
+.txcard.swipe-ok { box-shadow: inset 6px 0 0 var(--success); }
+.txcard.swipe-no { box-shadow: inset -6px 0 0 var(--critical); }
+.txcard.swipe-go.swipe-ok { background: var(--success-soft); }
+.txcard.swipe-go.swipe-no { background: var(--critical-soft); }
+.txcard.swiping::after { content: attr(data-swipe-label); position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 6px 16px; border-radius: var(--r-pill); font-weight: 600; font-size: 16px; background: var(--card); border: 1px solid var(--line); }
+.txcard.swipe-ok::after { color: var(--success); }
+.txcard.swipe-no::after { color: var(--critical); }
+.swipe-hint { display: none; }
+@media (pointer: coarse) { .swipe-hint { display: block; margin: 4px 0 0; } }
+
+/* ---------- the budget ring and the one sentence */
+.mc-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ring { width: 72px; height: 72px; flex: none; }
+.ring-bg { fill: none; stroke: var(--line-soft); stroke-width: 8; }
+.ring-fg { fill: none; stroke: var(--accent); stroke-width: 8; stroke-linecap: round; transition: stroke-dasharray var(--dur-base) var(--ease-out); }
+.ring-fg.ahead { stroke: var(--warning); }
+.ring-fg.over { stroke: var(--critical); }
+.ring-tick { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.ring-t { font-size: 15px; font-weight: 700; fill: var(--ink); }
+.insight { margin: 12px 0 0; padding: 10px 12px; border-radius: var(--r-field); background: var(--accent-soft); color: var(--ink); font-size: 15px; line-height: 1.4; }
+
+/* ---------- charts answer a tap */
+.line-wrap { position: relative; touch-action: pan-y; cursor: crosshair; }
+.line-wrap::after { content: ''; position: absolute; top: 8px; bottom: 0; left: var(--x, -10px); width: 1px; background: var(--muted); opacity: 0; transition: opacity var(--dur-quick) var(--ease-out); pointer-events: none; }
+.line-wrap:has(.chart-tip:not([hidden]))::after { opacity: .5; }
+.chart-tip { position: absolute; top: -6px; left: clamp(0px, calc(var(--x, 50%) - 80px), calc(100% - 172px)); width: max-content; max-width: 172px; padding: 6px 10px; border-radius: 10px; background: var(--toast); color: var(--on-toast); font-size: 13px; line-height: 1.4; pointer-events: none; z-index: 2; }
+.chart-tip[hidden] { display: none; }
+.chart-tip span { display: block; }
+.donut[data-segs] { cursor: pointer; }
+
+/* ---------- motion: charts draw in the first time a month opens (not on quiet refreshes) */
+@keyframes reveal { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes grow { from { transform: scaleY(0); } }
+@keyframes pop { from { opacity: 0; transform: scale(.9) rotate(-25deg); } }
+@keyframes ringdraw { from { stroke-dasharray: 0 100; } }
+[data-anim] .line-chart .now, [data-anim] .line-chart .now-fill { animation: reveal .9s var(--ease-out) both; }
+[data-anim] .chart .bars i, [data-anim] .stack-bar i { transform-origin: bottom; animation: grow .6s var(--ease-out) both; }
+[data-anim] .donut { animation: pop .8s var(--ease-out) both; }
+[data-anim] .ring-fg { animation: ringdraw .9s var(--ease-out) both; }
+/* folded cards open smoothly where the browser can animate it; elsewhere they simply open */
+@supports (interpolate-size: allow-keywords) {
+  :root { interpolate-size: allow-keywords; }
+  details.fold::details-content, details.more-rows::details-content { block-size: 0; overflow: clip; transition: block-size var(--dur-base) var(--ease-out), content-visibility var(--dur-base) allow-discrete; }
+  details.fold[open]::details-content, details.more-rows[open]::details-content { block-size: auto; }
+}
+.tour .eyebrow { margin: 0 0 4px; color: var(--muted); font-size: 14px; font-weight: 600; }

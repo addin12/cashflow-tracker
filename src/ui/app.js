@@ -23,12 +23,17 @@ import { show } from './router.js';
 import { call, net, queue, scheduleRefresh, status } from './server.js';
 import { updateSplitLeft } from './split.js';
 import { $, T, state } from './state.js';
-import { applyTheme, readTheme } from './theme.js';
+import { initInstall } from './install.js';
+import { applyLook } from './look.js';
+import { initCharts } from './motion.js';
+import { initSwipe } from './swipe.js';
+import { applyTheme, readTheme, refreshTimeTheme } from './theme.js';
 
 const POLL_MS = 60000;
 
 /** Cheap check (no spreadsheet on Google's side): refresh only when the sync changed something. */
 async function pollChanges() {
+  refreshTimeTheme();
   if (document.hidden || queue.length || net.refreshing || !state.boot) return;
   try {
     const s = await call('stamp');
@@ -43,6 +48,10 @@ async function pollChanges() {
 
 export async function start() {
   applyTheme(readTheme());
+  applyLook();
+  initSwipe();
+  initCharts();
+  initInstall();
   document.addEventListener('click', onClick);
   const modal = $('#modal');
   if (modal && window.MutationObserver) {

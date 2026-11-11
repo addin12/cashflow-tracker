@@ -23,6 +23,9 @@ import { call, refresh, save, scheduleRefresh, syncNow } from './server.js';
 import { NOTIF_EVENTS, saveForm, viewSettings } from './settings.js';
 import { openSplit, splitRow, splitSummary, submitSplit, unsplit, updateSplitLeft } from './split.js';
 import { $, $$, HIDE_KEY, T, state } from './state.js';
+import { installApp } from './install.js';
+import { applyLook, saveLook } from './look.js';
+import { tourStep } from './tour.js';
 import { applyTheme, toggleTheme } from './theme.js';
 import { applyPicked, drill, exportCsv, setKind, setPreset, showResults, viewTransactions } from './transactions.js';
 
@@ -258,6 +261,9 @@ export function onClick(e) {
   if (a === 'close') return closeModal();
   if (a === 'sync') return syncNow(el);
   if (a === 'theme') return toggleTheme();
+  if (a === 'tour') { closeModal(); return tourStep(0); }
+  if (a === 'tourstep') return tourStep(Number(el.dataset.i));
+  if (a === 'install') return installApp();
   if (a === 'notifications') return openNotifications();
   if (a === 'notifgo') return goNotification(el);
   if (a === 'approve') return approve(card);
@@ -540,6 +546,7 @@ export function onChange(e) {
     btn.textContent = T.importSave(n); btn.disabled = !n;
     return null;
   }
+  if ((e.target.name === 'accent' || e.target.name === 'size') && e.target.closest('form[data-form=config]')) { saveLook({ [e.target.name]: e.target.value }); applyLook(); return null; }
   if (e.target.name === 'theme' && e.target.closest('form[data-form=config]')) { applyTheme(e.target.value); return null; }
   const f = e.target.closest('[data-filter]');
   if (f) {
