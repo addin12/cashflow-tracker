@@ -2,6 +2,7 @@
 /* global google */
 
 import { writeCache } from './cache.js';
+import { callCloud } from './cloud.js';
 import { absorb, setAll } from './data.js';
 import { esc, wait } from './format.js';
 import { repaint, toast } from './render.js';
@@ -11,6 +12,8 @@ import { $, T, state } from './state.js';
 export const net = { seq: 0, refreshing: false };
 
 export function call(name, payload = {}) {
+  // Outside Google (the page served by the Cloudflare Worker) there is no google.script: the calls go to the Worker.
+  if (typeof google === 'undefined' || !google.script) return callCloud(name, payload);
   return new Promise((resolve, reject) => {
     google.script.run
       .withSuccessHandler((text) => {

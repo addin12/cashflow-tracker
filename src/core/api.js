@@ -375,6 +375,9 @@ export function createApi(store, env) {
     },
 
     /** Everything the first screen needs, in one round trip. */
+    /** The newest rows that came from email (what the bell calls "new"); also part of init. */
+    incoming() { return newestFromEmail(rows()); },
+
     init() {
       const boot = this.bootstrap();
       return { at: nowIso(), boot, review: this.review(), dashboard: this.dashboard({}), incoming: newestFromEmail(rows()) };
@@ -1264,7 +1267,7 @@ export function renameCategoryEverywhere(store, renamed) {
 }
 
 export const API_METHODS = [
-  'init', 'bootstrap', 'review', 'approve', 'ignore', 'restore', 'list', 'update', 'remove', 'add', 'dashboard', 'monthTotals', 'settings',
+  'init', 'bootstrap', 'review', 'approve', 'ignore', 'restore', 'list', 'update', 'remove', 'add', 'dashboard', 'monthTotals', 'incoming', 'settings',
   'saveAccounts', 'saveCategories', 'saveRules', 'saveBudgets', 'saveConfig', 'balanceCheck', 'syncNow', 'split', 'unsplit', 'sendSummary', 'saveGoals',
   'recordSalary', 'skipSalary', 'unskipSalary', 'hideRecurring', 'unhideRecurring', 'balanceCheckAll',
   'yearly', 'importStatement', 'undoImport', 'updateMany', 'tagih', 'owedSet', 'owedRemove', 'savePlans', 'saveAssets', 'markRecurring',
