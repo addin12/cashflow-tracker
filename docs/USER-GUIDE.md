@@ -2,6 +2,8 @@
 
 *Bahasa Indonesia di bawah setiap bagian ada versi English.*
 
+> **Catatan / Note (2026-11-12):** aplikasi sekarang berjalan di Cloudflare, bukan lagi di Google Sheets. Bagian yang menyebut spreadsheet, menu "Cashflow Tracker" atau email otomatis sudah tidak berlaku; masuk lewat email (kode sekali pakai) dan notifikasi HP menggantikannya. / The app now runs on Cloudflare, not Google Sheets: parts that mention the spreadsheet, the "Cashflow Tracker" menu or automatic e-mails no longer apply; sign-in is by e-mail code and phone notifications replace those e-mails.
+
 ## Membuka aplikasi / Opening the app
 
 Link aplikasi sama untuk HP dan PC (ada di `private/webapp.json`, juga dikirim lewat chat). Login dengan akun Google yang sama dengan spreadsheet.
@@ -63,8 +65,8 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 - **Daftar harta untuk SPT** (Laporan → Tahunan): harta dan utang dengan kode SPT, bisa diunduh sebagai CSV.
 - **Pertama kali:** pembayaran pertama ke tempat yang belum pernah dibayar diberi tanda, supaya transaksi yang tidak dikenal cepat terlihat.
 - **Tutup kemarin:** lupa menutup hari? Sampai jam 12.00 besoknya masih bisa, runtutannya tidak putus.
-- **Pasang di layar utama:** buka **karjimut.vercel.app/pasang** di HP, lalu **Pasang aplikasi** (Android) atau **Bagikan → Tambahkan ke Layar Utama** (iPhone). Ikon dompet Cashflow langsung membuka aplikasi; tekan lama untuk Tambah, Cek dan Ringkasan.
-- **Link pendek:** karjimut.vercel.app/tambah, /cek, /ringkasan, /transaksi, /pengaturan membuka layar itu.
+- **Pasang di layar utama:** buka **karjimut.addinalayubi12.workers.dev/pasang** di HP, lalu **Pasang aplikasi** (Android) atau **Bagikan → Tambahkan ke Layar Utama** (iPhone). Ikon dompet Cashflow langsung membuka aplikasi; tekan lama untuk Tambah, Cek dan Ringkasan.
+- **Link pendek:** karjimut.addinalayubi12.workers.dev/tambah, /cek, /ringkasan, /transaksi, /pengaturan membuka layar itu.
 - **Notifikasi di HP** (Pengaturan → Notifikasi di HP): ketuk **Aktifkan di perangkat ini** di tiap HP, lalu pilih jenisnya: transaksi baru, pengeluaran besar, tagihan besok, hari gajian, pengingat 21.00. **Kirim tes** untuk mencoba. Di iPhone, pasang dulu di layar utama dan aktifkan dari ikonnya (iOS 16.4+).
 - **Cadangan bulanan:** email laporan bulanan (tanggal 1) melampirkan file CSV berisi semua transaksi. Simpan di tempat yang aman: spreadsheet bukan satu-satunya salinan.
 - **Cari dengan jumlah** (Transaksi): ketik `>20rb`, `<=50rb`, `30rb-100rb` atau `28rb` (tepat), boleh bersama kata, mis. `kopi >20rb`.
@@ -121,7 +123,7 @@ Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
 Kalian berdua setara di aplikasi ini: hak yang sama, dan masing-masing punya pengaturan sendiri.
 
 - **Pengaturan → Pasangan** (siapa saja): nama, email Google (boleh lebih dari satu, pisahkan koma) dan nama seperti di rekening bank, untuk **keduanya**. Spreadsheet dibagikan otomatis ke semua email yang tertulis. Mengganti nama membawa transaksi dan rekeningnya. Email milikmu sendiri tidak bisa dihapus (supaya tidak terkunci).
-- **Yang baru bergabung:** buka spreadsheet Cashflow dengan akun Google-nya → menu **Cashflow Tracker → Hubungkan Gmail** → izinkan. Sejak itu **karjimut.vercel.app** terbuka untuknya, dan **Pengaturan → Pasangan** menunjukkan Gmail mana yang terhubung. Tambahkan rekeningnya di **Rekening** dengan **Pemilik** = namanya (nama rekening dibedakan, mis. "BCA" dan "BCA <nama>").
+- **Yang baru bergabung:** buka spreadsheet Cashflow dengan akun Google-nya → menu **Cashflow Tracker → Hubungkan Gmail** → izinkan. Sejak itu **karjimut.addinalayubi12.workers.dev** terbuka untuknya, dan **Pengaturan → Pasangan** menunjukkan Gmail mana yang terhubung. Tambahkan rekeningnya di **Rekening** dengan **Pemilik** = namanya (nama rekening dibedakan, mis. "BCA" dan "BCA <nama>").
 - **Punya masing-masing:** tanggal gajian dan kartu gaji, "Tutup hari" beserta runtutannya, email otomatis, notifikasi dan perangkatnya, kalender, pencarian langganan tahunan. Kosongkan tanggal gajian kalau belum tahu: kartu gaji baru muncul setelah diisi.
 - **Kita / Aku / Dia** di Ringkasan dan Transaksi: uang berdua, punyamu saja, atau punya pasangan saja. Sebuah transaksi milik pemilik rekeningnya.
 - Email kalian tidak saling terbaca: tiap Gmail hanya dibaca oleh sinkronnya sendiri; yang dibagi hanya transaksinya. Transfer di antara kalian berdua dicatat sebagai transfer, bukan pengeluaran. Tagihan, klaim dan garansi dinotifikasi sekali sehari ke kalian berdua.
