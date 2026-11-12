@@ -200,7 +200,7 @@ export function showResults() {
   const items = rows.map((x) => { const flags = `${statusBadge(x.status)}${firstBadge(x)}`; return `${dayHead(x)}
     <button class="trow${state.selecting ? ' picking' : ''}${state.picked.has(String(x.id)) ? ' picked' : ''}" data-action="${state.selecting ? 'pick' : 'edit'}" data-id="${esc(x.id)}" ${state.selecting ? `aria-pressed="${state.picked.has(String(x.id))}"` : ''}>
       <span class="c-date">${state.selecting ? `<span class="pick-box" aria-hidden="true">${state.picked.has(String(x.id)) ? '✓' : ''}</span>` : ''}${esc(timeLabel(x.time) || '')}</span>
-      <span class="c-desc">${icon(x.category)}<span>${esc(x.description || T.noName)}${flags ? `<span class="flags">${flags}</span>` : ''}${x.details ? `<small>${esc(x.details)}</small>` : ''}</span></span>
+      <span class="c-desc">${icon(x.category)}<span>${esc(x.description || T.noName)}${x.details ? `<small>${esc(x.details)}</small>` : ''}</span></span>
       <span class="c-mobile-meta">${esc([timeLabel(x.time), x.category || T.noCategory, x.stream ? streamLabel(x.stream) : T.noAccount].filter(Boolean).join(' · '))}</span>
       <span class="c-cat">${tag(x.category)}</span>
       <span class="c-flags">${flags}</span>
@@ -210,7 +210,7 @@ export function showResults() {
   box.innerHTML = `${f.category ? categoryDetail(f.category) : ''}
     <div class="summary-bar"><span><b>${esc(T.countTransactions(all.total))}</b></span>
       <span>${esc(T.kindIn)} <b class="amt in">+${rp(sum('in'))}</b> · ${esc(T.kindOut)} <b class="amt">${rp(sum('out'))}</b></span></div>
-    ${rows.length ? `<div class="table"><div class="thead" aria-hidden="true"><span>${esc(T.time)}</span><span>${esc(T.description)}</span><span>${esc(T.category)}</span><span>${esc(T.account)}</span><span class="r">${esc(T.amount)}</span></div>${items}</div>`
+    ${rows.length ? `<div class="table"><div class="thead" aria-hidden="true"><span>${esc(T.time)}</span><span>${esc(T.description)}</span><span>${esc(T.category)}</span><span>${esc(T.status)}</span><span>${esc(T.account)}</span><span class="r">${esc(T.amount)}</span></div>${items}</div>`
     : `<div class="card empty"><b>${esc(T.noTransactions)}</b>${esc(chips.length ? T.noTransactionsFiltered : '')}</div>`}
     ${all.total > rows.length ? `<div class="more"><span>${esc(T.showing(rows.length, all.total))}</span><button class="btn secondary" data-action="more">${esc(T.showMore)}</button></div>` : ''}
     ${state.selecting ? `<div class="pick-bar" role="region" aria-label="${esc(T.selectMany)}"><b>${esc(T.pickedN(state.picked.size))}</b>
