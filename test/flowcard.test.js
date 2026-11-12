@@ -33,7 +33,7 @@ describe('flowCard', () => {
 describe('Transaksi table on a wide screen', () => {
   it('shows the category column on every row and gives state badges their own column, so the columns stay aligned', async () => {
     const css = (await import('node:fs')).readFileSync(new URL('../src/ui/styles.css', import.meta.url), 'utf8');
-    const wide = css.slice(css.indexOf('@media (min-width: 1100px)'));
+    const wide = css.slice(css.indexOf('@media (min-width: 1240px)'));
     expect(wide).toMatch(/\.trow \.c-cat \{ display: flex/);
     expect(wide).toMatch(/\.trow \.c-flags \{ display: flex/); // its own Status column, not inside the name or the category
     expect(css).not.toMatch(/\.c-cat:not\(:has/);

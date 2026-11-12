@@ -14,7 +14,7 @@ import { answers } from './demo-data.mjs';
 
 // ---- shots
 const built = readFileSync('dist/index.html', 'utf8');
-const sizes = { phone: [390, Number((process.argv.find((a) => a.startsWith('--phone-height=')) || '=1500').split('=')[1])], pc: [1440, Number((process.argv.find((a) => a.startsWith('--pc-height=')) || '=1000').split('=')[1])] };
+const sizes = { phone: [390, Number((process.argv.find((a) => a.startsWith('--phone-height=')) || '=1500').split('=')[1])], pc: [1440, Number((process.argv.find((a) => a.startsWith('--pc-height=')) || '=1000').split('=')[1])], mid: [1120, 1000], mid2: [1260, 1000] }; // mid: just above the table breakpoint, only with --only=mid-...
 const shots = [
   ['review'], ['dashboard'], ['transactions'], ['add'], ['settings'],
   ['editor', "document.querySelector('.nav [data-tab=transactions]').click(); setTimeout(function(){ document.querySelector('.trow').click(); }, 300);"],
@@ -46,6 +46,7 @@ for (const [size, [w, h]] of Object.entries(sizes)) {
   for (const [name, script] of shots) {
     const id = `${size}-${name}`;
     if (only.length && !only.includes(id)) continue;
+    if (size.startsWith('mid') && !only.length) continue;
     const click = script || `document.querySelector('.nav [data-tab=${name}]').click();`;
     const harness = `<script>
 window.google = { script: { get run() { var ok; var r = { withSuccessHandler: function (f) { ok = f; return r; }, withFailureHandler: function () { return r; },
