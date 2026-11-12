@@ -21,10 +21,8 @@ A personal cashflow tracker that reads bank transaction emails from Gmail (read-
 npm install                     # also installs the pre-commit hook (personal-data scan + tests)
 npm test                        # unit tests
 npm run build                   # src/ -> dist/Code.js for Apps Script
-npx clasp login                 # once
-node scripts/upload-template.mjs   # once: template .xlsx -> Google Sheet + bound script
-npm run push                    # build + clasp push (sheet menus, sync)
-npm run deploy                  # build + push + move the web app URL to the new code
+# The Google Sheet / Apps Script version was retired on 2026-11-12 (clasp and the push/deploy scripts were removed).
+# The app runs on Cloudflare: see the cashflow-worker repository (npm run deploy there builds and publishes this UI).
 ```
 
 Then in the sheet: **Cashflow Tracker → Set up**, **Self-test**, and **Hubungkan Gmail / Connect Gmail** (one Google consent; installs the 10-minute sync). First-run data comes from `private/seed.json` (git-ignored). Without it, the build uses [config/seed.example.json](config/seed.example.json).

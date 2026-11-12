@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { existsSync } from 'node:fs';
 import { categoryCellFormula, ledgerFormula, setupSlotFormulas, templatePatches, isOpenEnded } from '../src/core/formulas.js';
 
 const patches = templatePatches();
@@ -87,56 +86,5 @@ describe('template patches', () => {
 
   it('replaces the hard-coded payday', () => {
     expect(byCell('CASHFLOW', 'Y52').formula).toMatch(/CFG_PAYDAY/);
-  });
-});
-
-// Checks against the real template file, when it is present locally (it is git-ignored).
-const TEMPLATE = new URL('../template/Template Cashflow 2025, V.1.xlsx', import.meta.url);
-describe.skipIf(!existsSync(TEMPLATE))('patches against the template file', async () => {
-  const { default: ExcelJS } = await import('exceljs');
-  const wb = new ExcelJS.Workbook();
-  // skipIf doesn't stop this body from running while tests are collected: without the file (CI) don't read it.
-  if (existsSync(TEMPLATE)) await wb.xlsx.readFile(decodeURIComponent(TEMPLATE.pathname.replace(/^\/([A-Za-z]:)/, '$1')));
-
-  const cells = [];
-  for (const p of patches) {
-    if (p.op === 'formula') cells.push([p.sheet, p.cell, p]);
-    if (p.op === 'listValidation') p.cells.forEach((c) => cells.push([p.sheet, c, p]));
-    if (p.op === 'formulas' || p.op === 'values') cells.push([p.sheet, p.range.split(':')[0], p]);
-  }
-
-  it('every patched sheet exists', () => {
-    for (const [sheet] of cells) expect(wb.getWorksheet(sheet), sheet).toBeTruthy();
-  });
-
-  it('no patch writes into the hidden part of a merged cell', () => {
-    for (const [sheet, cell] of cells) {
-      const c = wb.getWorksheet(sheet).getCell(cell);
-      expect(!c.isMerged || c.master === c, `${sheet}!${cell} is inside a merge`).toBe(true);
-    }
-  });
-
-  it('single-cell formula fixes replace an existing formula, never a label', () => {
-    for (const [sheet, cell, p] of cells.filter(([, , x]) => x.op === 'formula' && !x.replacesValue)) {
-      const v = wb.getWorksheet(sheet).getCell(cell).value;
-      expect(v && typeof v === 'object' && ('formula' in v || 'sharedFormula' in v), `${sheet}!${cell} (${p.why})`).toBe(true);
-    }
-  });
-
-  it('only the two marked cells replace a plain value', () => {
-    expect(patches.filter((p) => p.replacesValue).map((p) => `${p.sheet}!${p.cell}`)).toEqual(['CASHFLOW!B6', 'CASHFLOW!Y52']);
-  });
-
-  it('month headers are JAN..DEC in L1:W1, as the formulas expect', () => {
-    const ws = wb.getWorksheet('CASHFLOW');
-    const names = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-    ['L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W'].forEach((col, i) => expect(ws.getCell(`${col}1`).value).toBe(names[i]));
-  });
-
-  it('category formulas sum the right amount column (income G, expense H) like the originals', () => {
-    const ws = wb.getWorksheet('CASHFLOW');
-    const orig = (r) => { const v = ws.getCell(`L${r}`).value; return v.formula || ''; };
-    for (let r = 5; r <= 10; r += 1) expect(orig(r)).toMatch(/\$G\$6/);
-    for (let r = 11; r <= 40; r += 1) expect(orig(r)).toMatch(/\$H\$6/);
   });
 });
