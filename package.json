@@ -3,12 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Gmail bank emails -> Google Sheets cashflow template (Apps Script).",
+  "description": "Cashflow: the screens and the shared core of the app (the Cloudflare Worker in the cashflow-worker repository serves and runs them).",
   "scripts": {
     "test": "vitest run",
     "build": "node scripts/build.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
-    "upload-template": "node scripts/upload-template.mjs",
     "prepare": "git config core.hooksPath .githooks",
     "check:browser": "npm run build && node scripts/browser-check.mjs --docwrite"
   },

@@ -1,5 +1,7 @@
 # Backlog
 
+> **Historical (2026-11-12):** this document describes the Google Sheet / Apps Script version, retired and removed from the code on 2026-11-12. The app now runs on Cloudflare (see the cashflow-worker repository and README.md). Where it mentions the spreadsheet, clasp, `src/gas`, Telegram or the monthly e-mails, those parts no longer exist. The shared core in `src/core` and the screens in `src/ui` are still the live code.
+
 What is left after round 29 (2026-11-04). Nothing here is broken; each item is waiting for a decision or for a person.
 
 ## Waiting for a person

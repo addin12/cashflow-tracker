@@ -1,4 +1,4 @@
-// The Settings screen: the list of sections, and the household, notification and Telegram sections.
+// The Settings screen: the list of sections, and the household and notification sections.
 
 import { readLook } from './look.js';
 import { svgIcon } from './icons.js';

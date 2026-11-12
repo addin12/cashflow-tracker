@@ -8,7 +8,7 @@ import { financialHealth, interestCompare, upcomingBills } from '../src/core/wea
 import { cardBills, cardProblems } from '../src/core/cards.js';
 import { sptList } from '../src/core/spt.js';
 import { findYearly, yearlyItems } from '../src/core/yearly.js';
-import { calendarEvents } from '../src/gas/calendar.js';
+import { calendarEvents } from '../src/core/calevents.js';
 import { isWorkday, workdayOnOrBefore } from '../src/core/holidays.js';
 import { createApi } from '../src/core/api.js';
 import { buildCategorySlots } from '../src/core/categories.js';

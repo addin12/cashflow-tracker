@@ -1,5 +1,7 @@
 # Template Analysis: "Template Cashflow 2025, V.1.xlsx"
 
+> **Historical (2026-11-12):** this document describes the Google Sheet / Apps Script version, retired and removed from the code on 2026-11-12. The app now runs on Cloudflare (see the cashflow-worker repository and README.md). Where it mentions the spreadsheet, clasp, `src/gas`, Telegram or the monthly e-mails, those parts no longer exist. The shared core in `src/core` and the screens in `src/ui` are still the live code.
+
 The original is kept untouched in `template/`. This file records how the template works, so the app writes data the way the formulas expect, and lists the fixes the adapted copy needs.
 
 The workbook is a **Google Sheets original** exported to Excel. It uses Sheets-only functions (`SEQUENCE`, `FILTER` stored as `__xludf.DUMMYFUNCTION`, lowercase `sum`) and the FAQ says "File > Make a copy".

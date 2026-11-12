@@ -1,5 +1,7 @@
 # Cashflow Tracker: Design & Build Plan
 
+> **Historical (2026-11-12):** this document describes the Google Sheet / Apps Script version, retired and removed from the code on 2026-11-12. The app now runs on Cloudflare (see the cashflow-worker repository and README.md). Where it mentions the spreadsheet, clasp, `src/gas`, Telegram or the monthly e-mails, those parts no longer exist. The shared core in `src/core` and the screens in `src/ui` are still the live code.
+
 Status: **DRAFT for review** (2026-10-05). Nothing has been built yet. Decisions are recorded in §11. The architecture (§2) is waiting for final approval.
 
 **Scope decided 2026-10-05:** v1 connects **one Gmail account** (your Gmail). Working together with your partner (their Gmail, shared views) is a planned future phase, described in §12. v1 is built so that adding them later needs no data migration.

@@ -1,30 +1,34 @@
 # Cashflow Tracker
 
-A personal cashflow tracker that reads bank transaction emails from Gmail (read-only) and fills a Google Sheet built on the *Template Cashflow 2025, V.1* cashflow template. A phone-friendly web app (Indonesian / English) is used to review, add and see totals.
+A two-person household cashflow app. It reads bank transaction e-mails from Gmail (read-only), keeps the transactions, and shows them in a phone-friendly web app (Indonesian / English): review, add, search, summaries, reports, budgets, bills, savings goals and a question box ("Tanya apa saja").
 
-- **Stack:** Google Sheets + Google Apps Script (sync checks Gmail every minute) + Apps Script web app. No server, no hosting cost.
-- **Banks supported (planned v1):** BCA (myBCA), Livin' by Mandiri, BRI (BRImo), blu by BCA Digital, Jago, Mandiri Sekuritas dividends, GoPay monthly summary.
-- **Status:** all v1 phases built (0 setup, 1 email parsers, 2 Gmail sync, 3–4 web app, 5 month-end). 139 automated tests, plus a self-test on the real spreadsheet. v1 connects one Gmail account; collaboration with a partner's Gmail is a planned future phase.
+**Where it runs.** On Cloudflare (free plan): a Worker with a D1 database, queues, an R2 backup bucket and Cloudflare Access sign-in, in the separate `cashflow-worker` repository. This repository holds the two parts the Worker is built from:
 
-| File | What |
-|---|---|
-| [docs/UI-DIRECTION.md](docs/UI-DIRECTION.md) | The UI direction and design tokens: read it before changing the interface (a test keeps the tokens in step with the stylesheet) |
-| [docs/DESIGN.md](docs/DESIGN.md) | Architecture, data model, sync pipeline, screens, security, build plan, decisions |
-| [docs/TEMPLATE-ANALYSIS.md](docs/TEMPLATE-ANALYSIS.md) | How the template works, plus 14 problems found and their fixes |
-| [docs/EMAIL-SOURCES.md](docs/EMAIL-SOURCES.md) | Bank emails that can be parsed and the rules for each |
-| [docs/mockup.html](docs/mockup.html) | Screen mockup (open in a browser) |
-| [template/](template/) | Where your own copy of the template goes (not included: it is a paid product) |
+- `src/core/`: the shared logic (parsers for each bank's e-mails, rules, summaries, the app's API, the question engine). The Worker keeps a mirror of it in `vendor/core`.
+- `src/ui/`: the screens and styles. `npm run build` here writes `dist/index.html`; the Worker builds its own copy the same way.
+
+The Google Sheet / Apps Script version this started as was retired on 2026-11-12, and its code (`src/gas`, the Apps Script build, clasp) was removed from this repository on the same day. It stays in git history.
 
 ## Development
 
 ```sh
-npm install                     # also installs the pre-commit hook (personal-data scan + tests)
-npm test                        # unit tests
-npm run build                   # src/ -> dist/Code.js for Apps Script
-# The Google Sheet / Apps Script version was retired on 2026-11-12 (clasp and the push/deploy scripts were removed).
-# The app runs on Cloudflare: see the cashflow-worker repository (npm run deploy there builds and publishes this UI).
+npm install        # also installs the pre-commit hook (personal-data scan + tests)
+npm test           # unit and screen tests
+npm run build      # dist/index.html, what the screenshot and browser-check scripts read
+node scripts/screens.mjs --only=pc-ask,phone-ask   # screenshots of the screens (demo data); see the script for names and --dark
 ```
 
-Then in the sheet: **Cashflow Tracker → Set up**, **Self-test**, and **Hubungkan Gmail / Connect Gmail** (one Google consent; installs the 10-minute sync). First-run data comes from `private/seed.json` (git-ignored). Without it, the build uses [config/seed.example.json](config/seed.example.json).
+To publish a change to the live app: copy `src/core` into `cashflow-worker/vendor/core`, then `npm run deploy` in `cashflow-worker`.
 
-**Privacy:** this repository is public. It contains no personal or financial data. Names, accounts and transactions live only in the owner's Google Sheet. See [DESIGN.md §13](docs/DESIGN.md#13-public-repository-rules).
+## Docs
+
+| File | What |
+|---|---|
+| [docs/USER-GUIDE.md](docs/USER-GUIDE.md) | How to use the app (Indonesian, with English summaries) |
+| [docs/UI-DIRECTION.md](docs/UI-DIRECTION.md) | The UI direction and design tokens: read it before changing the interface (a test keeps the tokens in step with the stylesheet) |
+| [docs/EMAIL-SOURCES.md](docs/EMAIL-SOURCES.md) | Bank e-mails that can be parsed and the rules for each |
+| [docs/DESIGN.md](docs/DESIGN.md) | Historical design record from the Apps Script era (the data model and decisions still explain the core) |
+| [docs/BACKLOG.md](docs/BACKLOG.md), [docs/TEMPLATE-ANALYSIS.md](docs/TEMPLATE-ANALYSIS.md) | Historical |
+| [docs/RETIRE-GOOGLE-APP.md](docs/RETIRE-GOOGLE-APP.md) | How the Google side was shut down |
+
+**Privacy:** this repository is public. It contains no personal or financial data: names, accounts and transactions live only in the owner's Cloudflare database. A pre-commit hook scans for personal terms.

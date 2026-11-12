@@ -11,7 +11,7 @@ import { findYearly } from '../src/core/yearly.js';
 import { weeklySummary, summaryEmail } from '../src/core/summary.js';
 import { monthlyEmail } from '../src/core/notices.js';
 import { claimsNotice, warrantyNotice } from '../src/core/push.js';
-import { calendarEvents } from '../src/gas/calendar.js';
+import { calendarEvents } from '../src/core/calevents.js';
 import { createApi } from '../src/core/api.js';
 import { buildCategorySlots } from '../src/core/categories.js';
 import { TABS } from '../src/core/schema.js';

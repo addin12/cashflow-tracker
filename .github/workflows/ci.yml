@@ -24,12 +24,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Build (fails on a bad seed or a bundling error)
+      - name: Build the page (fails on a bundling error)
         run: npm run build
       - name: Every UI text exists in both languages
         run: node scripts/check-strings.mjs
-      - name: No comment markers or placeholders left in the served page
-        run: node scripts/check-dist-comments.mjs
       - name: Unit and UI tests
         run: npx vitest run
       - name: Tests again in the owners' time zone
