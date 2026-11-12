@@ -730,8 +730,8 @@ describe('web app', () => {
     await until(() => /Waiting for Dewi \(1\)/.test(view()), 'the partner part of Review', 4000);
     expect(Number(doc.querySelector('#reviewCount').textContent)).toBeLessThanOrEqual(mineBefore + 1); // Dewi's row is not counted
     expect(doc.querySelector('.txcard[data-id=dw1]')).not.toBeNull(); // but it can still be settled from here
-    // An unreadable email of Dewi's mailbox has no "Open in Gmail" here (it is not in this inbox); the others keep theirs.
-    expect(view()).toContain('Transfer Berhasil');
+    // An unreadable email of Dewi's mailbox is hers alone: neither its subject nor a link shows here (the guide promises that neither of you reads the other's e-mail).
+    expect(view()).not.toContain('Transfer Berhasil');
     expect(doc.querySelectorAll('a[href*="mail.google.com"]').length).toBeLessThanOrEqual(Math.max(linksBefore, 1));
     expect(doc.querySelector('a[href*="gdw9"]')).toBeNull();
     store.t[TABS.inboxLog] = store.t[TABS.inboxLog].filter((l) => l.gmail_id !== 'gdw9');

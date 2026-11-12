@@ -82,12 +82,12 @@ Kalian setara di aplikasi ini: hak yang sama, dan masing-masing punya pengaturan
 ## Kalau ada masalah / If something looks wrong
 
 - **Pengaturan → Rutin → Sinkron Gmail** menunjukkan kapan terakhir sinkron dan apakah normal. **Sinkron sekarang** memeriksa saat itu juga; emailnya dibaca satu per satu di belakang, jadi tombolnya menjawab berapa email baru yang ditemukan.
-- Email bank yang tidak bisa dibaca muncul di **Cek → Email yang belum terbaca** dengan link ke Gmail; yang bukan transaksi bisa diabaikan.
+- Email bank yang tidak bisa dibaca muncul di **Cek → Email yang belum terbaca** dengan link ke Gmail; yang bukan transaksi bisa diabaikan. Tiap orang hanya melihat email dari Gmail-nya sendiri; pemilik aplikasi hanya diberi tahu jumlahnya untuk Gmail pasangan, tanpa judul email.
 - **Perlu perhatian** (Ikhtisar): rekening baru yang belum ditambahkan, saldo awal yang belum diisi, transfer yang baru tercatat satu sisi (ketuk untuk menggabungkan; app tidak pernah menggabungkan sendiri), dan langkah pertama untuk pengguna baru.
 - Kalau penyimpanan gagal, transaksinya kembali ke layar dengan alasannya; kalau sinkron sedang berjalan, app menunggu dan mencoba lagi sendiri.
 - Aplikasi tidak mau muncul atau terlihat lama? Muat ulang (di PC Ctrl+F5; di HP tutup lalu buka lagi dari ikonnya).
 
-> Settings → Gmail sync shows the last sync and whether it is healthy; Sync now checks at once (mails are then read one by one in the background, so it reports how many it found). Unreadable bank e-mails appear in Review with a Gmail link. "Needs attention" lists new accounts, missing opening balances, one-sided transfers (you join them; the app never does) and first steps for newcomers. A failed save comes back with its reason. If the app looks stale, reload it (Ctrl+F5, or close and reopen from the icon).
+> Settings → Gmail sync shows the last sync and whether it is healthy; Sync now checks at once (mails are then read one by one in the background, so it reports how many it found). Unreadable bank e-mails appear in Review with a Gmail link, each person seeing only those of their own Gmail (the owner is told only how many there are in the other one, without subjects). "Needs attention" lists new accounts, missing opening balances, one-sided transfers (you join them; the app never does) and first steps for newcomers. A failed save comes back with its reason. If the app looks stale, reload it (Ctrl+F5, or close and reopen from the icon).
 
 ## Cadangan / Backup
 
