@@ -643,19 +643,6 @@ button.lrow:active { opacity: .6; } /* no side padding to tint, so it dims */
 .hm-dot.l1 { background: color-mix(in srgb, var(--accent) 18%, var(--card)); } .hm-dot.l2 { background: color-mix(in srgb, var(--accent) 38%, var(--card)); }
 .hm-dot.l3 { background: color-mix(in srgb, var(--accent) 62%, var(--card)); } .hm-dot.l4 { background: var(--accent); }
 
-.flow { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
-.flow-root { display: flex; align-items: center; gap: 10px; }
-.flow-in { width: 32px; height: 32px; border-radius: var(--r-pill); border: 1.5px solid var(--ink-2); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; }
-.flow-root .amt { margin-left: auto; }
-.flow-node { margin-left: 15px; padding-left: 18px; border-left: 2px solid var(--line); }
-.flow-acct { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.flow-acct small { color: var(--muted); font-size: 14px; flex-basis: 100%; padding-left: 50px; margin-top: -4px; }
-.flow-node ul { list-style: none; margin: 6px 0 0 20px; padding: 0 0 0 16px; border-left: 2px dashed var(--line); }
-.flow-node li { display: flex; align-items: center; gap: 8px; padding: 6px 0; min-height: 40px; }
-.flow-node li .amt { margin-left: auto; }
-.flow-tag { font-size: 13px; font-weight: 600; padding: 3px 8px; border-radius: var(--r-tag); border: 1px solid var(--line); color: var(--ink-2); flex: none; }
-.flow-tag.save { background: var(--success-soft); color: var(--success); border-color: transparent; }
-.flow-tag.spend { background: var(--line-soft); }
 
 .wallet-total { margin: 4px 0 8px; }
 .wallet-total p { margin: 2px 0 0; font-size: 15px; }
@@ -978,3 +965,26 @@ details.tech > summary { color: var(--muted); font-size: 14px; cursor: pointer; 
 .mc-top .hero-num { min-height: var(--hit); display: inline-flex; align-items: center; }
 .tile .tm, .hm-wd { font-size: 14px; }
 .big-num .cur { font-size: .5em; }
+
+/* ---------- Alur uang: one block per account, the same three columns in every line */
+.fl-total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 17px; font-weight: 500; }
+.fl-total .amt { font-size: 22px; font-weight: 700; }
+.fl-acct { padding: 14px 0; border-bottom: 1px solid var(--line-soft); }
+.fl-acct:last-child { border-bottom: 0; padding-bottom: 0; }
+.fl-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; font-size: 17px; }
+.fl-head b { font-weight: 600; overflow-wrap: anywhere; }
+.fl-lines { list-style: none; margin: 0; padding: 0; }
+.fl-line { display: grid; grid-template-columns: minmax(7.5em, auto) minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; width: 100%; min-height: var(--hit); padding: 6px 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; }
+button.fl-line { cursor: pointer; }
+.fl-tag { justify-self: start; padding: 3px 10px; border-radius: var(--r-pill); background: var(--line-soft); color: var(--ink-2); font-size: 14px; font-weight: 600; white-space: nowrap; }
+.fl-tag.in { background: var(--success-soft); color: var(--success); }
+.fl-tag.save { background: var(--accent-soft); color: var(--accent); }
+.fl-text { min-width: 0; color: var(--ink-2); font-size: 16px; overflow-wrap: anywhere; }
+.fl-amt { font-size: 17px; font-weight: 600; text-align: right; white-space: nowrap; }
+@media (max-width: 420px) { .fl-line { grid-template-columns: auto minmax(0, 1fr) auto; } }
+
+/* ---------- Transaksi on a wide screen: the category column is there for EVERY row (a rule hid it when a row had no state badge, so the amounts slid left) */
+@media (min-width: 1100px) {
+  .trow .c-cat, .trow .c-cat:not(:has(.badge)) { display: flex; }
+  .trow .c-amt { text-align: right; justify-self: end; white-space: nowrap; font-weight: 600; font-size: 17px; }
+}

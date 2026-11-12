@@ -310,26 +310,29 @@ function biggestCard(list) {
  * Where the money moved this month: income into accounts, transfers between them (a saving
  * account is "saved"), and what was spent from each.
  */
-function flowCard(flow, d) {
+export function flowCard(flow, d) {
   if (!flow || (!flow.income.length && !flow.transfers.length && !flow.spent.length)) return '';
-  const type = new Map((d.balances || []).map((b) => [b.stream, b.type]));
+  const type = new Map((d.balances || []).map((x) => [x.stream, x.type]));
   const income = new Map(flow.income.map((x) => [x.stream, x.amount]));
   const spent = new Map(flow.spent.map((x) => [x.stream, x.amount]));
-  const inFrom = new Map();
-  for (const t of flow.transfers) inFrom.set(t.to, (inFrom.get(t.to) || 0) + t.amount);
   const order = [...new Set([...flow.income.map((x) => x.stream), ...flow.transfers.map((t) => t.from), ...flow.transfers.map((t) => t.to), ...flow.spent.map((x) => x.stream)])];
   const totalIn = flow.income.reduce((t, x) => t + x.amount, 0);
+  // Every line is the same three things: a small label, what it is about, and the amount on the right.
+  const line = (cls, tag, text, amount, tail = '') => `<span class="fl-tag ${cls}">${esc(tag)}</span><span class="fl-text">${esc(text)}</span><b class="amt fl-amt ${tail}">${amount}</b>`;
   const node = (stream) => {
-    const kids = [
-      ...flow.transfers.filter((t) => t.from === stream).map((t) => `<li><span class="flow-tag ${type.get(t.to) === 'Saving' ? 'save' : ''}">${esc(type.get(t.to) === 'Saving' ? T.flowSave : T.flowMove)}</span><span>→ ${esc(t.to)}</span><b class="amt">${rp(t.amount)}</b></li>`),
-      spent.get(stream) ? `<li><span class="flow-tag spend">${esc(T.flowSpend)}</span><button class="link" data-action="drill" data-stream="${esc(stream)}">${esc(T.flowSpentFrom(stream))}</button><b class="amt">${rp(spent.get(stream))}</b></li>` : '',
-    ].filter(Boolean);
-    const got = [income.get(stream) ? T.flowIncome(rp(income.get(stream))) : '', inFrom.get(stream) ? T.flowFrom(rp(inFrom.get(stream))) : ''].filter(Boolean).join(' · ');
-    return `<div class="flow-node"><div class="flow-acct">${acctIcon(stream)}<b>${esc(stream)}</b>${got ? `<small>${esc(got)}</small>` : ''}</div>${kids.length ? `<ul>${kids.join('')}</ul>` : ''}</div>`;
+    const rows = [];
+    if (income.get(stream)) rows.push(`<li><div class="fl-line">${line('in', T.flowRowIn, '', `+${rp(income.get(stream))}`, 'in')}</div></li>`);
+    for (const t of flow.transfers.filter((x) => x.to === stream)) rows.push(`<li><div class="fl-line">${line('in', T.flowRowGot, T.flowRowFrom(streamLabel(t.from)), `+${rp(t.amount)}`, 'in')}</div></li>`);
+    for (const t of flow.transfers.filter((x) => x.from === stream)) {
+      const save = type.get(t.to) === 'Saving';
+      rows.push(`<li><div class="fl-line">${line(save ? 'save' : 'move', save ? T.flowSave : T.flowMove, T.flowRowTo(streamLabel(t.to)), `−${rp(t.amount)}`)}</div></li>`);
+    }
+    if (spent.get(stream)) rows.push(`<li><button type="button" class="fl-line" data-action="drill" data-stream="${esc(stream)}">${line('spend', T.flowRowSpent, '', `−${rp(spent.get(stream))}`)}</button></li>`);
+    return `<div class="fl-acct"><div class="fl-head">${acctIcon(stream)}<b>${esc(streamLabel(stream))}</b></div><ul class="fl-lines">${rows.join('')}</ul></div>`;
   };
-  return `<section class="card"><h2>${esc(T.flowTitle)}</h2><p class="lead">${esc(T.flowHint)}</p>
-    <div class="flow"><div class="flow-root"><span class="flow-in" aria-hidden="true">↓</span><b>${esc(T.flowMoneyIn)}</b><span class="amt in">+${rp(totalIn)}</span></div>
-    ${order.map(node).join('')}</div></section>`;
+  return `<section class="card fl"><h2>${esc(T.flowTitle)}</h2><p class="lead">${esc(T.flowHint)}</p>
+    <div class="fl-total"><span>${esc(T.flowMoneyIn)}</span><b class="amt in">+${rp(totalIn)}</b></div>
+    ${order.map(node).join('')}</section>`;
 }
 
 /** A year month by month: bars split by the biggest categories, a category × month grid, places. */
