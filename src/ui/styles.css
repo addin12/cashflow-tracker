@@ -989,3 +989,30 @@ button.fl-line { cursor: pointer; }
 @media (min-width: 1240px) {
   .trow .c-amt { text-align: right; justify-self: end; white-space: nowrap; font-weight: 600; font-size: 17px; }
 }
+
+/* ---------- Tanya apa saja: the question box at the top of Ikhtisar, the four buttons, and the answer under it */
+.ask { margin-bottom: 16px; }
+.ask-label { display: block; margin-bottom: 8px; font-size: 17px; font-weight: 600; }
+.ask-row { display: flex; gap: 8px; }
+.ask-row input { flex: 1; min-width: 0; min-height: var(--hit); }
+.ask-row .btn { min-height: var(--hit); white-space: nowrap; }
+.ask-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.ask-chips .chip { padding: 0 14px; }
+.ask-out:not(:empty) { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.ask-head { margin: 0; font-size: 17px; font-weight: 600; }
+.ask-sub, .ask-meta, .ask-ai { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
+.ask-ai { margin-top: 12px; font-size: 14px; }
+.ask-big { margin: 6px 0 4px; font-size: 28px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.ask-list { list-style: none; margin: 8px 0 0; padding: 0; color: var(--ink-2); font-size: 16px; }
+.ask-list li { padding: 4px 0; overflow-wrap: anywhere; }
+.ask-rows li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.ask-rows li:last-child { border-bottom: 0; }
+.ask-name { min-width: 0; overflow-wrap: anywhere; }
+.ask-rows .amt { white-space: nowrap; font-weight: 600; }
+.ask-change { margin: 8px 0 0; font-size: 17px; font-weight: 600; }
+.ask-change.up { color: var(--warning); }
+.ask-change.down { color: var(--success); }
+.ask-none { margin: 0 0 4px; color: var(--ink-2); font-size: 16px; }
+.ask-see { margin-top: 12px; }
+.ask-busy { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: 16px; }
+@media (max-width: 420px) { .ask-row { flex-direction: column; } .ask-row .btn { width: 100%; } }

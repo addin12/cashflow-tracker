@@ -1,6 +1,7 @@
 // The Summary screen: overview, report and yearly views.
 
 import { svgIcon } from './icons.js';
+import { askCard } from './ask.js';
 import { attentionCard, cardsCard, claimsCard, eventsCard, goalsCard, healthCard, owedCard, patternCard, paydayCard, recapCard, recurringCard, sharedCard, sptCard, tagsCard, warrantiesCard, wealthCard } from './cards.js';
 import { remember } from './data.js';
 import { currentMonth, dateLabel, esc, fmt, locale, monthAdd, monthAria, monthDate, monthLabel, monthShort, rangeLabel, rp, signed, timeLabel } from './format.js';
@@ -217,8 +218,8 @@ function overviewHtml(d) {
   const more = [owedCard(d.owed), incomeRows ? `<section class="card"><h2>${esc(T.incomeByCategory)}</h2><div class="rows">${incomeRows}</div></section>` : '',
     goalsCard(d.goals), recurringCard(d.recurring), eventsCard(d.events), sharedCard(d.shared), claimsCard(d.claims), warrantiesCard(d.warranties), cardsCard(d.cards),
     healthCard(d.health), wealthCard(d.wealth)].map((h) => fold(h));
-  // Reading order (--o): the month, what needs you, the money you have, where it went, the latest, the rest.
-  return flow([
+  // Reading order (--o): the month, what needs you, the money you have, where it went, the latest, the rest. The question box goes above all of it.
+  return askCard() + flow([
     sec(10, status),
     sec(20, isNow ? attentionCard(d, lead) : ''),
     sec(25, isNow ? paydayCard(d.paydayPlan) : ''),

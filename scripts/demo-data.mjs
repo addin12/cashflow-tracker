@@ -57,4 +57,4 @@ const store = {
   config: (k) => cfg[k] ?? '', setConfig() {}, slots: () => slots, setSlots() {},
 };
 const api = createApi(store, { now: () => new Date(2026, 9, 6, 10, 0), sync: () => ({ added: 0 }), sheetUrl: 'https://example.invalid/sheet' });
-export const answers = { init: api.init(), list: api.list({ limit: 1e6 }), settings: api.settings(), 'dashboard:2026-09': api.dashboard({ month: '2026-09' }), yearly: api.yearly({ year: 2026 }) };
+export const answers = { init: api.init(), list: api.list({ limit: 1e6 }), settings: api.settings(), ask: api.ask({ text: 'tinjau minggu ini' }), 'dashboard:2026-09': api.dashboard({ month: '2026-09' }), yearly: api.yearly({ year: 2026 }) };

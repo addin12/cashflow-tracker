@@ -4,6 +4,7 @@ import { isShared, toggleSharedTag } from '../core/shared.js';
 import { renamedCategories } from '../core/app.js';
 import { buildCategorySlots } from '../core/categories.js';
 import { compileRule } from '../core/rules.js';
+import { askDrill, runAsk } from './ask.js';
 import { amountValue, showCalc, submitAdd, useUsual, viewAdd } from './add.js';
 import { copyRecap, openBills, openInterest, openSpt, openSubs, openTagBudget, sptCsv } from './cards.js';
 import { viewDashboard } from './dashboard.js';
@@ -84,6 +85,8 @@ export function onClick(e) {
   if (a === 'resetfilters') { state.filters = { q: '', month: '', from: '', to: '', stream: '', category: '', status: '', direction: '', owner: state.who }; state.limit = 50; saveView({ preset: 'all', kind: 'all' }); return viewTransactions(); }
   if (a === 'preset') { setPreset(el.dataset.p); state.limit = 50; saveView({ preset: presetOf(state.filters), kind: kindOf(state.filters) }); return viewTransactions(); }
   if (a === 'kindchip') { setKind(el.dataset.k); state.limit = 50; saveView({ preset: presetOf(state.filters), kind: kindOf(state.filters) }); return viewTransactions(); }
+  if (a === 'askchip') return runAsk(el.dataset.q);
+  if (a === 'askdrill') return askDrill(el);
   if (a === 'dashview') { state.dashView = el.dataset.view; saveView(); return viewDashboard(); }
   if (a === 'usual') return useUsual(Number(el.dataset.i));
   if (a === 'bills') return openBills();
@@ -324,6 +327,7 @@ export function onSubmit(e) {
   e.preventDefault();
   const kind = form.dataset.form;
   const d = Object.fromEntries(new FormData(form).entries());
+  if (kind === 'ask') return runAsk(d.q);
   if (kind === 'add') return submitAdd(form);
   if (kind === 'split') return submitSplit(form);
   if (kind === 'edit') {
