@@ -59,7 +59,7 @@ export function viewReview() {
   const empty = `<div class="card empty"><div class="big" aria-hidden="true">✓</div><b>${esc(T.reviewEmpty)}</b>${esc(T.reviewEmptySub)}
     <div class="actions" style="justify-content:center"><button class="btn secondary" data-action="go" data-tab="dashboard">${esc(T.seeSummary)}</button></div></div>`;
   const errors = r.errors.map((x) => `
-    <div class="rowi"><div class="what"><b>${esc(x.subject || x.from)}</b><div class="meta">${esc(x.reason)}</div>
+    <div class="rowi"><div class="what"><b>${esc(x.subject || x.from)}</b><details class="tech"><summary>${esc(T.techDetail)}</summary><p class="hint">${esc(String(x.reason || '').replace(/\s*\[outline:[\s\S]*\]\s*$/, ''))}</p></details>
       <div class="actions" style="justify-content:flex-start;margin-top:8px">${gmailLink(x, 'btn secondary small')}
       <button class="btn plain small" data-action="go" data-tab="add">${esc(T.enterManually)}</button>
       <button class="btn plain small" data-action="dismissmail" data-id="${esc(x.gmail_id)}">${esc(T.dismissMail)}</button></div></div></div>`).join('');

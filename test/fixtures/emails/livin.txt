@@ -179,3 +179,30 @@ epoch: 1790256226000
 | Jam | 20:23:43 WIB |
 | |
 | Nominal Transaksi | Rp 150.000,00 |
+
+=== livin-transfer-nominal
+from: noreply.livin@bankmandiri.co.id
+subject: Transfer Berhasil
+epoch: 1790907842000
+---
+Livin' by Mandiri
+
+| |
+
+| ## Transfer Berhasil |
+| Halo BUDI SANTOSO PUTRA, Berikut adalah detail transaksi Anda: |
+
+| |
+| Penerima#### SITI AMINAH Bank Mandiri - ****2468 |
+
+| Tanggal | 2 Okt 2026 |
+| |
+| Jam | 09:23:59 WIB |
+| |
+| Nominal | Rp 50.000,00 |
+| |
+| No. Referensi | 2610021100000000002 |
+| |
+| Keterangan | - |
+
+| Sumber Dana#### BUDI SANTOSO PUT ****1357 |

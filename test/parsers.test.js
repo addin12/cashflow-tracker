@@ -120,6 +120,13 @@ describe("Livin' by Mandiri", () => {
       description: 'CIRCLEKA INDONESIA UTAMA', details: 'QRIS · JAKARTA TIMUR', refNo: '2610021100000000001',
     });
   });
+  it('a transfer whose amount is labelled just "Nominal" (text form and the real HTML layout)', () => {
+    expect(one('livin-transfer-nominal')).toMatchObject({ type: 'transfer', date: '2026-10-02', time: '09:23:59', amount: 50000, account: { institution: 'Mandiri', hint: '1357' }, description: expect.stringContaining('SITI AMINAH') });
+    const html = readFileSync(new URL('./fixtures/emails/livin-transfer-nominal.html', import.meta.url), 'utf8');
+    const r = parseEmail({ ...F['livin-transfer-nominal'], body: html, isHtml: true });
+    expect(r.status).toBe('ok');
+    expect(r.events[0]).toMatchObject({ type: 'transfer', date: '2026-10-02', amount: 50000, description: 'SITI AMINAH', refNo: '2610021100000000002' });
+  });
   it('payment to a virtual account with a fee', () => {
     expect(one('livin-va')).toMatchObject({ type: 'payment', amount: 250000, fee: 1000, description: 'Tokopedia', account: { hint: '2468' } });
   });

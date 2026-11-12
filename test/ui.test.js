@@ -100,6 +100,15 @@ describe('web app', () => {
     expect(doc.querySelector('.txcard[data-id="t2"] .similar summary').textContent).toContain('1 transaksi serupa');
     expect(doc.querySelector('#reviewCount').textContent).toBe('2');
     expect(view()).toContain('Email yang belum terbaca');
+    // the parser's technical reason is folded away under "Detail teknis", not shown as the card's text
+    const tech = doc.querySelector('details.tech');
+    expect(tech.querySelector('summary').textContent).toBe('Detail teknis');
+    expect(tech.open).toBe(false);
+    expect(tech.textContent).toContain('no amount found');
+  });
+
+  it('the technical reason never carries the parser\'s layout outline', () => {
+    expect(doc.querySelector('details.tech').textContent).not.toContain('outline');
   });
 
   it('the bell counts what needs attention, lists it, and clears once seen', () => {
