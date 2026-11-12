@@ -31,9 +31,11 @@ describe('flowCard', () => {
 });
 
 describe('Transaksi table on a wide screen', () => {
-  it('keeps the category column for rows that have no state badge, so the columns stay aligned', async () => {
+  it('shows the category column on every row and keeps state badges out of it, so the columns stay aligned', async () => {
     const css = (await import('node:fs')).readFileSync(new URL('../src/ui/styles.css', import.meta.url), 'utf8');
-    const wide = css.slice(css.lastIndexOf('@media (min-width: 1100px)'));
-    expect(wide).toMatch(/\.trow \.c-cat:not\(:has\(\.badge\)\)\s*\{\s*display:\s*flex/);
+    const wide = css.slice(css.indexOf('@media (min-width: 1100px)'));
+    expect(wide).toMatch(/\.trow \.c-cat \{ display: flex/);
+    expect(wide).toMatch(/\.trow \.c-flags \{ display: none/);
+    expect(css).not.toMatch(/\.c-cat:not\(:has/);
   });
 });

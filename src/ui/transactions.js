@@ -197,15 +197,16 @@ export function showResults() {
     const label = k === state.boot.today ? T.today : k === yesterday ? T.yesterday : dateLabel(k);
     return `<div class="day-head" role="heading" aria-level="2"><span>${esc(label)}</span><span class="amt">${t.out ? `−${rp(t.out)}` : ''}${t.in ? ` <span class="in">+${rp(t.in)}</span>` : ''}</span></div>`;
   };
-  const items = rows.map((x) => `${dayHead(x)}
+  const items = rows.map((x) => { const flags = `${statusBadge(x.status)}${firstBadge(x)}`; return `${dayHead(x)}
     <button class="trow${state.selecting ? ' picking' : ''}${state.picked.has(String(x.id)) ? ' picked' : ''}" data-action="${state.selecting ? 'pick' : 'edit'}" data-id="${esc(x.id)}" ${state.selecting ? `aria-pressed="${state.picked.has(String(x.id))}"` : ''}>
       <span class="c-date">${state.selecting ? `<span class="pick-box" aria-hidden="true">${state.picked.has(String(x.id)) ? '✓' : ''}</span>` : ''}${esc(timeLabel(x.time) || '')}</span>
-      <span class="c-desc">${icon(x.category)}<span>${esc(x.description || T.noName)}${x.details ? `<small>${esc(x.details)}</small>` : ''}</span></span>
+      <span class="c-desc">${icon(x.category)}<span>${esc(x.description || T.noName)}${flags ? `<span class="flags">${flags}</span>` : ''}${x.details ? `<small>${esc(x.details)}</small>` : ''}</span></span>
       <span class="c-mobile-meta">${esc([timeLabel(x.time), x.category || T.noCategory, x.stream ? streamLabel(x.stream) : T.noAccount].filter(Boolean).join(' · '))}</span>
-      <span class="c-cat">${tag(x.category)}${statusBadge(x.status)}${firstBadge(x)}</span>
+      <span class="c-cat">${tag(x.category)}</span>
+      <span class="c-flags">${flags}</span>
       <span class="c-acct">${esc(x.stream ? streamLabel(x.stream) : T.noAccount)}</span>
       <span class="c-amt amt ${esc(x.direction)}">${signed(x)}</span>
-    </button>`).join('');
+    </button>`; }).join('');
   box.innerHTML = `${f.category ? categoryDetail(f.category) : ''}
     <div class="summary-bar"><span><b>${esc(T.countTransactions(all.total))}</b></span>
       <span>${esc(T.kindIn)} <b class="amt in">+${rp(sum('in'))}</b> · ${esc(T.kindOut)} <b class="amt">${rp(sum('out'))}</b></span></div>
