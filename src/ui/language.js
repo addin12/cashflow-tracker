@@ -22,7 +22,7 @@ export function applyLanguage(configured) {
   document.documentElement.lang = lang;
   $$('[data-t]').forEach((el) => { el.textContent = T[el.dataset.t]; });
   const btn = $('#langBtn');
-  if (btn) { btn.textContent = lang.toUpperCase(); btn.setAttribute('aria-label', T.langSwitch); btn.title = T.langSwitch; }
+  if (btn) { btn.textContent = lang.toUpperCase(); const name = `${lang.toUpperCase()} · ${T.langSwitch}`; btn.setAttribute('aria-label', name); btn.title = name; }
   updateNav();
   applyTheme(readTheme());
 }

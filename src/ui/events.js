@@ -1,7 +1,6 @@
 // What the page does when something is tapped, submitted or changed.
 
 import { isShared, toggleSharedTag } from '../core/shared.js';
-import { validToken } from '../core/telegram.js';
 import { renamedCategories } from '../core/app.js';
 import { buildCategorySlots } from '../core/categories.js';
 import { compileRule } from '../core/rules.js';
@@ -13,7 +12,7 @@ import { openEditor, tagihForm, updateTagih } from './editor.js';
 import { closeModal, trigger } from './modal.js';
 import { rp } from './format.js';
 import { storedOrder } from './accountorder.js';
-import { importChosen, readAccounts, readAssets, readBackup, readCards, readGoals, readPlans, readRules, readStatement, sendSummaryNow, updateBalRow } from './forms.js';
+import { importChosen, readAccounts, readAssets, readBackup, readCards, readGoals, readPlans, readRules, readStatement, updateBalRow } from './forms.js';
 import { applyLanguage, chooseLanguage } from './language.js';
 import { goNotification, openNotifications } from './notifications.js';
 import { categoryOptions, dismissToast, fieldMessage, keepInputs, repaint, toast, updateHideBtn, updateNav } from './render.js';
@@ -130,11 +129,6 @@ export function onClick(e) {
     return null;
   }
   if (a === 'interest') return openInterest();
-  if (a === 'tgunlink' || a === 'tgremove') {
-    if (a === 'tgremove' && !window.confirm(T.tgRemoveAsk)) return null;
-    return call(a === 'tgunlink' ? 'telegramUnlink' : 'telegramRemove').then(async () => { toast(a === 'tgunlink' ? T.tgUnlinked : T.tgRemoved); viewSettings(await call('settings')); })
-      .catch((err) => toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }));
-  }
   if (a === 'toggleshared') {
     const input = el.closest('form') && el.closest('form').querySelector('[name=details]');
     if (input) {
@@ -247,7 +241,6 @@ export function onClick(e) {
     if (inputs.length) inputs[inputs.length - 1].focus();
     return null;
   }
-  if (a === 'sendsummary') return sendSummaryNow(el);
   if (a === 'addgoal' || a === 'delgoal') {
     const form = el.closest('form');
     state.settings.goals = readGoals(form);
@@ -418,11 +411,6 @@ export function onSubmit(e) {
     })();
     return null;
   }
-  if (kind === 'telegramtoken') {
-    const token = form.querySelector('[name=token]').value.trim();
-    if (!fieldMessage(form.querySelector('[name=token]'), validToken(token) ? '' : T.tgBad)) return null;
-    return saveForm(form, 'saveTelegramToken', { token }, async () => { viewSettings(await call('settings')); });
-  }
   if (kind === 'notif') {
     const events = NOTIF_EVENTS.filter((k) => form.querySelector(`[name=push_${k}]`).checked);
     return saveForm(form, 'saveConfig', { push_events: events });
@@ -524,12 +512,6 @@ export function onSubmit(e) {
     });
     if (!ok) return null;
     return saveForm(form, 'saveGoals', { goals }, () => { state.settings.goals = goals; state.dashByMonth = {}; });
-  }
-  if (kind === 'weekly') {
-    const v = (n) => (form.querySelector(`[name=${n}]`).checked ? 'on' : 'off');
-    return saveForm(form, 'saveConfig', { weekly_email: v('weekly_email'), monthly_email: v('monthly_email'), payday_email: v('payday_email'), bill_email: v('bill_email'), close_email: v('close_email'), calendar_sync: v('calendar_sync') }, (r) => {
-      if (r && r.calendar) form.querySelector('.state').textContent = r.calendar.error ? T.calendarFailed : `✓ ${T.calendarDone(r.calendar.events)}`;
-    });
   }
   return null;
 }

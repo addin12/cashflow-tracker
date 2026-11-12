@@ -206,18 +206,6 @@ export function previewRule(el) {
   out.textContent = hits.length ? T.ruleMatches(hits.length, names.join(', ')) : T.ruleMatchesNone;
 }
 
-export async function sendSummaryNow(btn) {
-  const st = btn.closest('form').querySelector('.state');
-  btn.disabled = true;
-  st.className = 'state'; st.textContent = T.weeklySending;
-  try {
-    const r = await call('sendSummary');
-    st.className = 'state ok'; st.textContent = `✓ ${T.weeklySent(r.to || '')}`;
-  } catch (e) {
-    st.className = 'state bad'; st.textContent = `${T.notSaved}: ${e.message}`;
-  } finally { btn.disabled = false; }
-}
-
 /**
  * Balance check of every account on one form: the app's balance and the last check next to each,
  * the difference as you type, and what to record it as (Penyesuaian, or a real income/expense

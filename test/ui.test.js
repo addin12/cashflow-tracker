@@ -235,7 +235,7 @@ describe('web app', () => {
   it('tapping a category opens its transactions, filtered', async () => {
     click(doc.querySelector('[data-action=drill][data-category="Belanja Online"]'));
     await until(() => view().includes('Tokopedia') && !view().includes('WARUNG'), 'drill-down');
-    expect([...doc.querySelectorAll('.chip')].map((c) => c.textContent.trim())).toEqual(['Oktober 2026 ✕', 'Belanja Online ✕']);
+    expect([...doc.querySelectorAll('.chip')].map((c) => c.textContent.trim())).toEqual(['Belanja Online ✕']) // the default period is lit above, not repeated as a chip;
   });
 
   it('a claim is marked from the editor and then shows on the overview', async () => {
@@ -305,7 +305,8 @@ describe('web app', () => {
   });
 
   it('transactions list filters by search', async () => {
-    click(doc.querySelector('[data-action=resetfilters]'));
+    const reset = doc.querySelector('[data-action=resetfilters]'); // only there while a filter is active (the default period does not count)
+    if (reset) click(reset);
     await until(() => view().includes('WARUNG'), 'all transactions');
     const lists = calls.filter((c) => c === 'list').length;
     const q = doc.querySelector('[data-filter=q]');
@@ -503,21 +504,12 @@ describe('web app', () => {
     expect(store.t[TABS.rules].find((r) => r.id === 'r1')).toMatchObject({ pattern: 'TOKOPEDIA', hits: 3 }); // the others keep their counts
   });
 
-  it('the weekly summary can be switched off', async () => {
-    await section('emails', 'form[data-form=weekly]');
-    const form = doc.querySelector('form[data-form=weekly]');
-    expect(form.querySelector('[name=weekly_email]').checked).toBe(true);
-    form.querySelector('[name=weekly_email]').checked = false;
-    form.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
-    await until(() => store.cfg.weekly_email === 'off', 'weekly off');
-  });
-
   it('settings show one section at a time, with a way back to the list', async () => {
     expect(doc.querySelector('.settings').classList.contains('show-detail')).toBe(true);
     expect(doc.querySelectorAll('.set-detail > form, .set-detail > section').length).toBe(1);
     click(doc.querySelector('.set-back'));
     await until(() => !doc.querySelector('.settings').classList.contains('show-detail'), 'back to the list');
-    expect(doc.querySelectorAll('.set-row').length).toBe(17);
+    expect(doc.querySelectorAll('.set-row').length).toBe(15); // Telegram and e-mail are gone
     expect(doc.querySelector('[data-section=accounts]').textContent).toContain('3 rekening');
   });
 

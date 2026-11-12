@@ -31,7 +31,7 @@ describe('interface details', () => {
   });
   it('draws every on / off setting as a switch, and only those', () => {
     const switches = settings.match(/<label class="check switch">/g) || [];
-    expect(switches.length).toBe(8); // six email and calendar options, the push events, auto-approve of a rule
+    expect(switches.length).toBe(2); // the push events, auto-approve of a rule (the e-mail and calendar options are gone)
     expect(settings).not.toMatch(/<label class="check"><input type="checkbox" name="(weekly|monthly|payday|bill|close)_email"/);
   });
   it('has no colour literal outside the token blocks (a colour is a token, so a theme change reaches it)', () => {

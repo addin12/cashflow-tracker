@@ -27,7 +27,7 @@ function notifications() {
     out.push({ id: `salary:${x.month}`, kind: 'warn', title: T.notifSalary(dateLabel(x.date, { weekday: false })), text: T.salaryNoticeSub, go: 'review', goLabel: T.salaryRecord });
   }
   for (const e of (r && r.errors) || []) {
-    out.push({ id: `unread:${e.gmail_id}`, kind: 'warn', title: T.notifUnread, text: `${e.subject || e.from} · ${e.reason}`, go: 'review', goLabel: T.reviewNow });
+    out.push({ id: `unread:${e.gmail_id}`, kind: 'warn', title: T.notifUnread, text: `${e.subject || e.from} · ${T.unreadShort}`, go: 'review', goLabel: T.reviewNow });
   }
   const c = (state.boot.connections || [])[0];
   if (c && /^ERROR/.test(String(c.last_status || ''))) {

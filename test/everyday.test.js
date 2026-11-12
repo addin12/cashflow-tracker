@@ -95,10 +95,15 @@ describe('swipe on Cek', () => {
 });
 
 describe('the Add button, and looks', () => {
-  it('is on every screen but Add, and opens Add', async () => {
+  it('is on Ringkasan and Transaksi, off where it would cover buttons (Cek, Tambah, Pengaturan), and opens Add', async () => {
     const fab = doc.querySelector('#fab');
+    expect(fab.hidden).toBe(true); // Cek is the first screen: Simpan and Abaikan are at the right
+    await tab('transactions', '.day-head, .trow, .empty');
     expect(fab.hidden).toBe(false);
     expect(fab.textContent).toContain('Tambah');
+    await tab('settings', '.set-row');
+    expect(fab.hidden).toBe(true);
+    await tab('transactions', '.day-head, .trow, .empty');
     click(fab);
     await until(() => doc.querySelector('form[data-form=add]'), 'add form');
     expect(fab.hidden).toBe(true);
@@ -165,13 +170,13 @@ describe('the app bar and the language button', () => {
     click(btn);
     await until(() => doc.querySelector('.nav [data-tab=review] b').textContent === 'Review', 'english tabs');
     expect(btn.textContent).toBe('EN');
-    expect(btn.getAttribute('aria-label')).toBe('Switch language to Indonesian');
+    expect(btn.getAttribute('aria-label')).toBe('EN · Switch language to Indonesian'); // starts with what is written on the button
     expect(doc.documentElement.lang).toBe('en');
     expect(dom.window.localStorage.getItem('cashflow.lang.v1')).toBe('en');
     click(btn);
     await until(() => doc.querySelector('.nav [data-tab=review] b').textContent === 'Cek', 'indonesian tabs');
     expect(btn.textContent).toBe('ID');
-    expect(btn.getAttribute('aria-label')).toBe('Ganti bahasa ke English');
+    expect(btn.getAttribute('aria-label')).toBe('ID · Ganti bahasa ke English');
   });
 });
 

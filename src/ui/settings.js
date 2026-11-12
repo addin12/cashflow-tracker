@@ -12,25 +12,6 @@ import { shownOrder } from './accountorder.js';
 import { readTheme } from './theme.js';
 import { tag } from './visuals.js';
 
-/** Settings → Telegram: your own bot, and which chats may log by it. */
-function telegramSection(s) {
-  const t = s.telegram;
-  if (!t) return `<section class="card"><h2>${esc(T.tgTitle)}</h2><p class="lead">${esc(T.tgNotSetUp)}</p></section>`;
-  if (!t.configured) {
-    return `<form class="card" data-form="telegramtoken" novalidate><h2>${esc(T.tgTitle)}</h2><p class="lead">${esc(T.tgIntro)}</p>
-      <ol>${T.tgSteps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>
-      ${field(T.tgToken, '<input name="token" type="password" autocomplete="off" spellcheck="false" placeholder="123456789:AAH…">', { help: T.tgTokenHelp })}
-      <div class="actions"><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.tgSave)}</button></div></form>`;
-  }
-  const mine = t.chats.some((c) => c.mine);
-  const chats = t.chats.map((c) => `<div class="rowi"><span class="what"><b>${esc(c.label)}</b><span class="meta">${esc([c.owner, c.at ? T.notifSince(dateLabel(c.at.slice(0, 10), { weekday: false })) : ''].filter(Boolean).join(' · '))}</span></span></div>`).join('');
-  return `<section class="card"><h2>${esc(T.tgTitle)}</h2><p class="lead">${esc(T.tgBot(t.username))}</p>
-      ${chats ? `<div class="rows">${chats}</div>` : `<p class="hint">${esc(T.tgNoChats)}</p>`}
-      <div class="actions" style="justify-content:flex-start">${t.link ? `<a class="btn primary" target="_blank" rel="noopener" href="${esc(t.link)}">${esc(mine ? T.tgLinkAgain : T.tgLinkBtn)}</a>` : ''}${mine ? `<button class="btn secondary" type="button" data-action="tgunlink">${esc(T.tgUnlink)}</button>` : ''}</div>
-      <p class="hint">${esc(T.tgLinkHint)}</p><h3 class="sub-title">${esc(T.tgUsageTitle)}</h3><p class="hint pre">${esc(T.tgUsage)}</p></section>
-    <section class="card"><div class="actions" style="justify-content:flex-start"><button class="btn danger" type="button" data-action="tgremove">${esc(T.tgRemove)}</button></div><p class="hint">${esc(T.tgRemoveHint)}</p></section>`;
-}
-
 /** Settings → Pasangan: both of you, the same for each. Either of you can change any of it. */
 function householdSection(s) {
   const h = s.household || {};
@@ -135,7 +116,6 @@ export async function viewSettings(local) {
     assets: assetsForm(s),
     cards: cardsForm(s),
     notif: notifSection(s),
-    telegram: telegramSection(s),
     household: householdSection(s),
     sync: `
       <section class="card"><h2>${esc(T.settingsSync)}</h2><p class="lead">${esc(T.settingsSyncHint)}</p><div class="rows">${conns}</div>
@@ -155,18 +135,6 @@ export async function viewSettings(local) {
     rules: `
       <form class="card" data-form="rules" novalidate><h2>${esc(T.rulesTitle)}</h2><p class="lead">${esc(T.rulesHint)}</p>${rules || `<p class="hint">${esc(T.noRules)}</p>`}
         <div class="actions"><button class="btn secondary left" type="button" data-action="addrule">＋ ${esc(T.addRule)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveRules)}</button></div></form>`,
-    emails: `
-      <form class="card" data-form="weekly" novalidate><h2>${esc(T.emailsTitle)}</h2><p class="lead">${esc(T.emailsHint)}</p>
-        <label class="check switch"><input type="checkbox" name="weekly_email" ${cfg.weekly_email !== 'off' ? 'checked' : ''}> ${esc(T.weeklyOn)}</label>
-        <label class="check switch"><input type="checkbox" name="monthly_email" ${cfg.monthly_email !== 'off' ? 'checked' : ''}> ${esc(T.monthlyOn)}</label>
-        <label class="check switch"><input type="checkbox" name="payday_email" ${cfg.payday_email !== 'off' ? 'checked' : ''}> ${esc(T.paydayOn)}</label>
-        <label class="check switch"><input type="checkbox" name="bill_email" ${cfg.bill_email !== 'off' ? 'checked' : ''}> ${esc(T.billEmailOn)}</label>
-        <label class="check switch"><input type="checkbox" name="close_email" ${cfg.close_email === 'on' ? 'checked' : ''}> ${esc(T.closeEmailOn)}</label>
-        <label class="check switch"><input type="checkbox" name="calendar_sync" ${cfg.calendar_sync === 'on' ? 'checked' : ''}> ${esc(T.calendarOn)}</label>
-        ${cfg.calendar_status ? `<p class="hint">${esc(T.calendarStatus(cfg.calendar_status))}</p>` : ''}
-        <p class="hint">${esc(T.noteEmailHint)}</p>
-        <p class="hint">${esc(T.alertsAlways)}</p>
-        <div class="actions"><button class="btn secondary left" type="button" data-action="sendsummary">${esc(T.weeklySendNow)}</button><span class="state" role="status"></span><button class="btn primary" type="submit">${esc(T.saveChanges)}</button></div></form>`,
     prefs: `
       <form class="card" data-form="config" novalidate><h2>${esc(T.preferences)}</h2>
         <div class="fields2" style="margin-top:12px">
@@ -187,20 +155,18 @@ export async function viewSettings(local) {
         <div class="rows">
           <button class="rowi" type="button" data-action="tour"><span class="what"><b>${esc(T.tourOpen)}</b><span class="meta">${esc(T.tourOpenHint)}</span></span><span class="chev">›</span></button>
           ${state.installEvt ? `<button class="rowi" type="button" data-action="install"><span class="what"><b>${esc(T.installApp)}</b><span class="meta">${esc(T.installAppHint)}</span></span><span class="chev">›</span></button>` : ''}
-          <div class="rowi"><span class="what"><b>${esc(T.selftest)}</b><span class="meta">${esc(s.selftest || T.noName)}</span></span></div>
           ${s.push ? `<a class="rowi" target="_top" href="${esc(s.push.site)}/pasang"><span class="what"><b>${esc(T.installTitle)}</b><span class="meta">${esc(T.installHint)}</span></span><span class="chev">↗</span></a>` : ''}
-          ${(s.archives || []).map((a) => `<a class="rowi" target="_blank" rel="noopener" href="${esc(a.url)}"><span class="what"><b>${esc(T.archiveOf(a.year))}</b><span class="meta">${esc(T.archiveHint)}</span></span><span class="chev">↗</span></a>`).join('')}</div>
-        <div class="actions"><a class="btn secondary" target="_blank" rel="noopener" href="${esc(state.boot.sheetUrl || '#')}">${esc(T.openSheet)} ↗</a></div></section>`,
+          <a class="rowi" href="/backup.csv" download><span class="what"><b>${esc(T.backupTitle)}</b><span class="meta">${esc(T.backupHint)}</span></span><span class="chev" aria-hidden="true">↓</span></a>
+        </div></section>`,
     goals: goalsForm(s),
   };
   const conn = (s.connections || [])[0];
   const syncNote = !conn || !conn.last_sync ? T.neverSynced : /^ERROR/.test(String(conn.last_status || '')) ? T.syncProblem : T.syncHealthy;
-  const emailsOn = ['weekly_email', 'monthly_email', 'payday_email', 'bill_email'].filter((k) => cfg[k] !== 'off').length + (cfg.close_email === 'on' ? 1 : 0);
   const lang = cfg.language === 'en' ? 'English' : cfg.language === 'id' ? 'Bahasa Indonesia' : T.languageAuto;
   const groups = [
     [T.setGroupRoutine, [['monthend', T.monthEnd, T.monthEndShort], ['import', T.importTitle, (s.imports || []).length ? T.importLast(new Date(s.imports[0].at).toLocaleDateString(locale(), { day: 'numeric', month: 'short' })) : T.importNever], ['sync', T.settingsSync, syncNote]]],
     [T.setGroupMoney, [['accounts', T.accountsTitle, T.nAccounts(s.accounts.length)], ['budgets', T.budgetsTitle, T.nBudgets(s.budgets.length)], ['goals', T.goalsTitle, T.nGoals((s.goals || []).length)], ['assets', T.assetsTitle, T.nAssets((s.assets || []).length)], ['cards', T.cardsTitle, T.nCards((s.cards || []).length)]]],
-    [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['plans', T.plansTitle, T.nPlans((s.plans || []).length)], ['emails', T.emailsTitle, T.nEmailsOn(emailsOn, 5)], ['notif', T.notifTitle, s.push ? T.nDevices(s.push.devices.length) : T.notifOff], ['telegram', T.tgTitle, s.telegram && s.telegram.configured ? T.nChats(s.telegram.chats.length) : T.tgOff]]],
+    [T.setGroupAuto, [['categories', T.categoriesTitle, T.nCategories(s.categories.income.length, s.categories.expense.length)], ['rules', T.rulesTitle, T.nRules(s.rules.length)], ['plans', T.plansTitle, T.nPlans((s.plans || []).length)], ['notif', T.notifTitle, s.push ? T.nDevices(s.push.devices.length) : T.notifOff]]],
     [T.setGroupApp, [['household', T.hhTitle, ((s.household && s.household.members.find((m) => m.role !== s.household.myRole)) || {}).name || T.hhNone], ['prefs', T.preferences, T.prefSummary(lang, Number(cfg.payday_day) || 28)], ['more', T.more, T.moreSummary]]],
   ];
   if (state.settingsSection && !sections[state.settingsSection]) state.settingsSection = null;

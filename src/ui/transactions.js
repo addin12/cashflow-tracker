@@ -92,8 +92,7 @@ export async function viewTransactions() {
   setView(`
     <header class="page-head"><div><h1>${esc(T.tabTransactions)}</h1><p class="sub">${esc(T.transactionsSub)}</p></div>
       <div class="tools">${whoSeg()}<button class="btn secondary small" data-action="selectmode" aria-pressed="${!!state.selecting}">${esc(state.selecting ? T.selectDone : T.selectMany)}</button>
-        <button class="btn secondary small" data-action="exportcsv">${esc(T.exportCsv)}</button>
-        <button class="btn primary small" data-action="go" data-tab="add">＋ ${esc(T.addTransaction)}</button></div></header>
+        <button class="btn secondary small" data-action="exportcsv">${esc(T.exportCsv)}</button></div></header>
     <div class="pchips" role="group" aria-label="${esc(T.period)}">${[['period', T.presetPeriod], ['30', T.presetThirty], ['90', T.presetNinety], ['year', T.presetYear], ['all', T.presetAll]]
       .map(([v, l]) => `<button type="button" class="${presetOf(f) === v ? 'on' : ''}" aria-pressed="${presetOf(f) === v}" data-action="preset" data-p="${v}">${esc(l)}</button>`).join('')}</div>
     <div class="pchips" role="group" aria-label="${esc(T.kind)}">${[['all', T.allKinds], ['out', T.kindOut], ['in', T.kindIn], ['transfer', T.kindTransfer], ['adjust', T.kindAdjust]]
@@ -169,7 +168,7 @@ export function showResults() {
   const chips = [
     f.q && ['q', `“${f.q}”`], f.month && ['month', monthLabel(f.month)], (f.from || f.to) && ['period', f.to ? (f.from === f.to ? dateLabel(f.from) : rangeLabel(f.from, f.to)) : T.since(dateLabel(f.from, { weekday: false }))], f.stream && ['stream', f.stream], f.category && ['category', f.category],
     f.direction && ['direction', f.direction === 'in' ? T.kindIn : T.kindOut], f.status && ['status', T[`status${f.status[0].toUpperCase()}${f.status.slice(1)}`]],
-  ].filter(Boolean);
+  ].filter(Boolean).filter(([k]) => !(k === 'month' && presetOf(f) === 'period')); // the default period is already lit above
   const fc = $('#filterCount');
   if (fc) fc.textContent = chips.length ? ` (${T.activeN(chips.length)})` : '';
   $('#txChips').innerHTML = chips.length ? `${chips.map(([k, label]) => `<button class="chip" data-action="unfilter" data-key="${k}" aria-label="${esc(T.removeFilter(label))}">${esc(label)} <span class="x" aria-hidden="true">✕</span></button>`).join('')}
