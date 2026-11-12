@@ -1,6 +1,6 @@
 // Apps Script entry points. The build turns every export below into a top-level function.
 // SEED (first-run data) and SYNC_DEFAULT ('preview' | 'live') are injected by scripts/build.mjs.
-/* global SpreadsheetApp, HtmlService, LockService, Utilities, SEED, SYNC_DEFAULT */
+/* global SpreadsheetApp, HtmlService, LockService, Utilities, SEED, SYNC_DEFAULT, RETIRED */
 
 import { runSetup, configValue, setConfigValue } from './gas/setup.js';
 import { runSelfTest } from './gas/selftest.js';
@@ -20,7 +20,13 @@ import { refreshPrices } from './gas/prices.js';
 
 const MENU = 'Cashflow Tracker';
 
+// A retired build (private/retired.json at build time, global RETIRED = { url }) does nothing any more: every trigger and menu item returns at once,
+// the web app says where Cashflow moved to, and the data in the Sheet stays exactly as it was (a backup, and the way back).
+const retired = () => (typeof RETIRED !== 'undefined' && RETIRED && RETIRED.url ? RETIRED : null);
+const MOVED = (url, tab) => `<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><div style="font:17px/1.5 -apple-system,Segoe UI,sans-serif;max-width:480px;margin:48px auto;padding:0 20px;color:#1d1d1f"><h1 style="font-size:28px;margin:0 0 12px">Cashflow sudah pindah</h1><p>Aplikasi ini sudah tidak dipakai lagi. Cashflow sekarang ada di alamat baru, dengan data yang sama.</p><p><a target="_top" href="${url}${tab ? `?tab=${encodeURIComponent(tab)}` : ''}" style="display:inline-block;padding:14px 24px;border-radius:999px;background:#0066cc;color:#fff;text-decoration:none;font-weight:600">Buka Cashflow</a></p><p style="color:#66666b;font-size:15px">Cashflow has moved. Open it at the new address above; your data came along.</p></div>`;
+
 export function onOpen() {
+  if (retired()) return null;
   SpreadsheetApp.getUi()
     .createMenu(MENU)
     .addItem('Hubungkan Gmail / Connect Gmail', 'menuConnect')
@@ -46,23 +52,27 @@ function describe(s) {
 }
 
 export function menuConnect() {
+  if (retired()) return { retired: true };
   const ui = SpreadsheetApp.getUi();
   const s = connect(SEED, SYNC_DEFAULT);
   ui.alert('Gmail terhubung / Connected', `${describe(s)}\n\nSinkron otomatis tiap menit. / Syncs every minute.`, ui.ButtonSet.OK);
 }
 
 export function menuSyncNow() {
+  if (retired()) return { retired: true };
   const ui = SpreadsheetApp.getUi();
   ui.alert('Sinkron / Sync', describe(runSync({ seed: SEED, defaultMode: SYNC_DEFAULT })), ui.ButtonSet.OK);
 }
 
 export function menuSetup() {
+  if (retired()) return { retired: true };
   const ui = SpreadsheetApp.getUi();
   const log = runSetup(appSpreadsheet(), SEED);
   ui.alert('Setup selesai / Setup done', log.join('\n'), ui.ButtonSet.OK);
 }
 
 export function menuSelfTest() {
+  if (retired()) return { retired: true };
   const ui = SpreadsheetApp.getUi();
   const r = runSelfTest(appSpreadsheet(), SEED);
   const head = r.ok ? `LULUS / PASS: ${r.checks} checks` : `GAGAL / FAIL: ${r.failures.length} of ${r.checks} checks`;
@@ -88,6 +98,10 @@ function openAsMember() {
 }
 
 export function doGet(e) {
+  if (retired()) {
+    const tab = e && e.parameter && /^[a-z]{1,20}$/.test(e.parameter.tab || '') ? e.parameter.tab : '';
+    return HtmlService.createHtmlOutput(MOVED(retired().url, tab)).setTitle('Cashflow').addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
   const who = openAsMember();
   if (!who) return HtmlService.createHtmlOutput(NO_ACCESS).setTitle('Cashflow').addMetaTag('viewport', 'width=device-width, initial-scale=1');
   const p = (e && e.parameter) || {};
@@ -117,6 +131,7 @@ const READ_ONLY = new Set(['init', 'bootstrap', 'review', 'list', 'dashboard', '
  * Answers with a JSON string because google.script.run can't carry Date objects.
  */
 export function api(name, payloadJson) {
+  if (retired()) return JSON.stringify({ error: `Cashflow sudah pindah ke ${retired().url}` });
   const t0 = Date.now();
   try {
     // Asked every minute by the open page: answered without opening the spreadsheet.
@@ -169,6 +184,7 @@ export function api(name, payloadJson) {
 
 /** Time-driven trigger (every minute): a quick look at Gmail, the full sync only when needed. */
 export function syncTrigger() {
+  if (retired()) return { retired: true };
   const t0 = Date.now();
   try {
     return runSync({ seed: SEED, defaultMode: SYNC_DEFAULT, quick: true });
@@ -179,6 +195,7 @@ export function syncTrigger() {
 
 /** Time-driven trigger (Mondays 07:00): the weekly summary email, then the weekly self-test in its own run. */
 export function weeklySummaryTrigger() {
+  if (retired()) return { retired: true };
   try {
     return sendWeeklySummary(appSpreadsheet());
   } finally {
@@ -188,16 +205,19 @@ export function weeklySummaryTrigger() {
 
 /** Time-driven trigger (every day 21:00): the "anything to log today?" nudge, when switched on. */
 export function eveningTrigger() {
+  if (retired()) return { retired: true };
   return runEvening(appSpreadsheet());
 }
 
 /** Time-driven trigger (every day 07:00): monthly report on the 1st, balance-check reminder on payday. */
 export function dailyTrigger() {
+  if (retired()) return { retired: true };
   return runDaily(appSpreadsheet());
 }
 
 /** One-off time trigger (after an upgrade, and weekly): runs the self-test, emails the owner if it fails. */
 export function selfTestTrigger() {
+  if (retired()) return { retired: true };
   clearSelfTestTrigger();
   const ss = appSpreadsheet();
   const r = runSelfTest(ss, SEED);
@@ -207,6 +227,7 @@ export function selfTestTrigger() {
 
 /** Which senders look financial but have no reader (domains and counts only, nothing is saved). */
 export function menuCoverage() {
+  if (retired()) return { retired: true };
   const ui = SpreadsheetApp.getUi();
   const r = mailCoverage();
   const lines = r.uncovered.slice(0, 15).map((x) => `${x.domain}: ${x.count}`);
@@ -215,6 +236,7 @@ export function menuCoverage() {
 }
 
 export function menuPrices() {
+  if (retired()) return { retired: true };
   const ui = SpreadsheetApp.getUi();
   const ss = appSpreadsheet();
   const n = refreshPrices(ss, { maxAgeMs: 0 });
@@ -222,6 +244,7 @@ export function menuPrices() {
 }
 
 export function menuWeeklySummary() {
+  if (retired()) return { retired: true };
   const ui = SpreadsheetApp.getUi();
   const r = sendWeeklySummary(appSpreadsheet(), { force: true });
   ui.alert('Ringkasan mingguan / Weekly summary', `Terkirim ke / Sent to ${r.to}`, ui.ButtonSet.OK);
@@ -230,17 +253,19 @@ export function menuWeeklySummary() {
 /** Same as the menu items, callable from the Apps Script editor's Run button. */
 /** Editor: fetch prices now, and make sure the background triggers exist (they go when access is removed and given again). */
 export function updatePrices() {
+  if (retired()) return { retired: true };
   installTrigger();
   installMailTriggers();
   return refreshPrices(appSpreadsheet(), { maxAgeMs: 0 });
 }
 /** Editor, once: asks Google for Calendar access, switches the Cashflow calendar on and fills it. */
 export function connectCalendar() {
+  if (retired()) return { retired: true };
   installTrigger();
   installMailTriggers();
   const ss = appSpreadsheet();
   setConfigValue(ss, roleKey(ss, 'calendar_sync'), 'on'); // yours, whichever of you runs it
   return syncCalendar(ss);
 }
-export function setup() { return runSetup(appSpreadsheet(), SEED); }
-export function selfTest() { return runSelfTest(appSpreadsheet(), SEED); }
+export function setup() { return retired() ? { retired: true } : runSetup(appSpreadsheet(), SEED); }
+export function selfTest() { return retired() ? { retired: true } : runSelfTest(appSpreadsheet(), SEED); }
