@@ -1,149 +1,97 @@
 # Cara pakai / How to use
 
-*Bahasa Indonesia di bawah setiap bagian ada versi English.*
-
-> **Catatan / Note (2026-11-12):** aplikasi sekarang berjalan di Cloudflare, bukan lagi di Google Sheets. Bagian yang menyebut spreadsheet, menu "Cashflow Tracker" atau email otomatis sudah tidak berlaku; masuk lewat email (kode sekali pakai) dan notifikasi HP menggantikannya. / The app now runs on Cloudflare, not Google Sheets: parts that mention the spreadsheet, the "Cashflow Tracker" menu or automatic e-mails no longer apply; sign-in is by e-mail code and phone notifications replace those e-mails.
+*Bahasa Indonesia dulu, ringkasan English di bawah tiap bagian. Panduan ini untuk aplikasi di Cloudflare (sejak 2026-11-12); spreadsheet Google tidak dipakai lagi.*
 
 ## Membuka aplikasi / Opening the app
 
-Link aplikasi sama untuk HP dan PC (ada di `private/webapp.json`, juga dikirim lewat chat). Login dengan akun Google yang sama dengan spreadsheet.
-- **HP:** menu di bawah. Tambahkan ke layar utama (Chrome: ⋮ → *Add to Home screen*; Safari: Bagikan → *Add to Home Screen*).
-- **PC:** menu di kiri, tabel transaksi lengkap, ringkasan dua kolom. Simpan sebagai bookmark.
+- **Alamat:** satu link untuk HP dan PC (diberikan terpisah). Pertama kali, masukkan email-mu, lalu ketik **kode 6 angka** yang dikirim ke email itu. Setelah itu kamu tetap masuk sekitar satu bulan di perangkat yang sama. Hanya dua email yang boleh masuk: milikmu dan milik pasanganmu.
+- **Pasang di layar utama:** buka `karjimut.addinalayubi12.workers.dev/pasang` di HP. Android: **Pasang aplikasi**. iPhone (Safari): **Bagikan → Tambahkan ke Layar Utama**. Ikon dompet langsung membuka aplikasi; tekan lama untuk Tambah, Cek, Ringkasan. Link pendek: `/tambah`, `/cek`, `/ringkasan`, `/transaksi`, `/pengaturan`.
+- **HP:** menu di bawah. **PC:** menu di kiri, tabel transaksi lengkap, ringkasan dua kolom; tombol **N** membuka Tambah.
+- **Di pojok kanan atas**, dari kiri ke kanan: **lonceng** (tagihan 7 hari ke depan, klaim, garansi, hal yang perlu perhatian), **mata** (sembunyikan semua angka), **bulan/matahari** (mode gelap/terang), **ID/EN** (bahasa).
+- Aplikasi mengingat pilihan terakhirmu di perangkat itu: Kita/Aku/Dia, Ikhtisar atau Laporan, Bulanan atau Tahunan, periode dan jenis di Transaksi. **Tur singkat** ada di **Pengaturan → Lainnya**.
 
-Banner kecil "dibuat oleh pengguna Google Apps Script" di atas itu normal.
-
-> One link for phone and PC (in `private/webapp.json`, also sent in chat), signed in with the same Google account as the spreadsheet. Phone: tab bar at the bottom, add it to your home screen. PC: sidebar on the left, a full transactions table and a two-column summary; bookmark it. The small "created by a Google Apps Script user" banner is normal.
+> One link for phone and PC. Sign in with your e-mail and the 6-digit code sent to it; you stay signed in for about a month per device, and only the two household e-mails can enter. Install it from `karjimut.addinalayubi12.workers.dev/pasang` (Android: Install app; iPhone Safari: Share → Add to Home Screen). Top right: bell, eye (hide numbers), moon/sun (dark mode), ID/EN (language). The app remembers your last choices on each device. A short tour is in Settings → More.
 
 ## Setiap hari / Every day
 
-- **Tidak perlu apa-apa.** Email transaksi bank masuk otomatis ke spreadsheet dalam 1–2 menit, dan app yang sedang terbuka memperbarui dirinya sendiri. Merchant yang sudah dikenal langsung masuk laporan.
-- **Cek** (menu pertama, angka merah = jumlah yang menunggu): pilih kategori → **Simpan**. Kartu langsung hilang; penyimpanan ke Google berjalan di belakang (lihat tanda "Menyimpan…" di pojok kanan atas). Salah pencet? Ketuk **Urungkan** di pesan bawah.
-- Biarkan *Selalu pakai kategori ini untuk …* tercentang supaya merchant itu otomatis lain kali (transaksi lain dari merchant yang sama ikut tersimpan).
-- **Tambah**: untuk uang tunai atau yang tidak ada emailnya. Rekening dan tanggal terakhir diingat, jadi transaksi berikutnya lebih cepat.
-- Salah kategori? **Transaksi** → ketuk barisnya → ubah → **Simpan perubahan**.
-- **Ringkasan**: ketuk Pemasukan, Pengeluaran, kategori atau rekening untuk langsung melihat transaksinya.
+- **Tidak perlu apa-apa.** Email transaksi bank dibaca otomatis (biasanya dalam 1–2 menit; tombol **Pengaturan → Sinkron Gmail → Sinkron sekarang** mengeceknya saat itu juga). Merchant yang sudah dikenal langsung masuk laporan.
+- **Cek** (angka merah = yang menunggu): pilih kategori → **Simpan**. Salah pencet? Ketuk **Urungkan** di pesan bawah. Biarkan *Selalu pakai kategori ini untuk …* tercentang supaya merchant itu otomatis lain kali.
+- **Tambah:** untuk uang tunai atau yang tidak ada emailnya. **Tulis saja**: ketik "kopi 28rb gopay", "gaji 8,5jt BCA" atau "parkir 5k kemarin #trip", form terisi sendiri, Enter untuk simpan. Jumlah bisa dihitung: `12000+3500`, `3x25rb`. Tombol **Yang biasa** mengisi form dari yang sering kamu ketik. Kalau ada transaksi dengan jumlah sama di hari yang sama, app bertanya dulu (**Jangan simpan** atau **Tetap simpan**).
+- **Transaksi:** pilih periode (Periode ini, 30 hari, 90 hari, Tahun ini, Semua), jenis (Pengeluaran, Pemasukan, Transfer, Penyesuaian), dan filter bulan, rekening, kategori, status. Cari dengan kata atau jumlah: `kopi >20rb`, `<=50rb`, `30rb-100rb`, `#trip`. Ketuk baris untuk mengubahnya. **Pilih** beberapa baris untuk memberi satu kategori sekaligus; **Ekspor CSV** mengunduh daftar yang tampil.
+- **Ringkasan:** **Ikhtisar** (pengeluaran hari ini dan bulan ini dibanding bulan lalu, budget per kategori) dan **Laporan**. Ketuk angka, kategori, tanggal atau rekening untuk melihat transaksinya.
 
-> Nothing to do: within a minute or two bank emails become rows (an open app updates itself), and known merchants go straight to the reports. **Review** (red number = how many wait): pick a category → **Save**. The card goes at once and the save runs in the background ("Saving…" top right); tap **Undo** if you slipped. Keep "Always use this category for …" ticked. **Add** is for cash and remembers your last account and date. Wrong category? **Transactions** → tap the row → edit. In **Summary**, tap income, expenses, a category or an account to see its transactions.
+> Nothing to do: bank e-mails become rows by themselves (Settings → Gmail sync → Sync now checks at once). **Review**: pick a category → Save; Undo if you slipped. **Add** is for cash: type it in one line ("coffee 28k gopay"), amounts can be sums, "The usual" chips refill the form, and a same-amount same-day duplicate is asked about first. **Transactions**: period, kind and filters, search by words or amounts (`coffee >20k`, `30k-100k`, `#trip`), Select many rows, Export CSV. **Summary**: Overview and Reports; tap a number, category, date or account to see its transactions.
 
 ## Fitur lain / More features
 
-- **Detail belanja:** pembayaran ke APPLE.COM/BILL, Tokopedia, Shopee, Xendit dan toko luar negeri otomatis diberi nama toko dan barangnya (dari email struk mereka). Kalau kategorinya belum pasti, transaksinya muncul lagi di **Cek**.
-- **Bagi transaksi:** satu pembayaran berisi beberapa hal (mis. buku + barang hobi)? **Transaksi** → ketuk barisnya → **Bagi transaksi ini** → isi jumlah dan kategori tiap bagian. Totalnya harus pas; app memberi tahu sisanya. **Gabungkan lagi** untuk membatalkan.
-- **Langganan & tagihan rutin** (di **Ringkasan**): tagihan berikutnya dan perkiraan totalnya per bulan.
-- **Detail kategori:** di **Transaksi**, pilih satu kategori → grafik 6 bulan, rata-rata per bulan, tempat teratas dan pengeluaran terbesarnya muncul di atas daftar.
-- **Aturan otomatis** (di **Pengaturan**): ubah kata dan kategori, tambah aturan baru; app menunjukkan transaksi mana yang cocok.
-- **Email otomatis** (atur di **Pengaturan → Email otomatis**): ringkasan mingguan (Senin 07.00), laporan bulanan (tanggal 1), dan pengingat cek saldo (tanggal gajian). Kalau sinkron Gmail bermasalah atau ada email bank baru yang tidak terbaca, Anda juga dikirimi email.
-- **Peringatan dobel:** saat **Tambah**, kalau sudah ada transaksi dengan jumlah sama di hari yang sama (mis. dari email bank), app bertanya dulu: **Jangan simpan** atau **Tetap simpan**.
-- **Ringkasan → Ikhtisar / Laporan:** Ikhtisar menunjukkan pengeluaran hari ini, pengeluaran bulan ini dibanding bulan lalu di hari yang sama, dan budget per kategori (garis tipis = sudah sejauh mana bulan berjalan; oranye = lebih cepat dari jadwal). Laporan menunjukkan kalender pengeluaran harian (ketuk tanggal untuk melihat transaksinya), tren dibanding bulan lalu, dan diagram ke mana uangnya. Tombol mata menyembunyikan semua angka.
-- **Transaksi:** pilih periode (Periode ini, 30 hari, 90 hari, Tahun ini, Semua) dan jenis (Pengeluaran, Pemasukan, Transfer, Penyesuaian) dengan satu ketukan; transaksi dikelompokkan per hari dengan totalnya.
-- **Impor mutasi bank** (Pengaturan → Impor mutasi bank): BCA tidak mengirim email untuk uang masuk. Unduh mutasi rekening dari KlikBCA (Informasi Rekening → Mutasi Rekening → Download, file CSV), pilih rekeningnya, pilih filenya. App menunjukkan mana yang sudah tercatat (dilewati) dan mana yang baru; centang yang mau ditambahkan, lalu **Tambahkan**. Bisa dibatalkan di Riwayat impor.
-- **Laporan Bulanan / Tahunan:** tahunan menunjukkan pengeluaran per bulan per kategori, kategori dari bulan ke bulan, tempat teratas dan pengeluaran terbesar. **Alur uang** menunjukkan uang masuk, pindah antar rekening, dan dibelanjakan dari mana.
-- **Transaksi:** **Pilih** beberapa baris lalu pakai satu kategori (atau abaikan) sekaligus; **Ekspor CSV** mengunduh daftar yang sedang tampil. Di PC, tombol **N** membuka Tambah.
-- **Tulis saja** (Tambah): ketik misalnya "kopi 28rb gopay", "gaji 8,5jt BCA" atau "parkir 5k kemarin #trip"; form terisi sendiri, Enter untuk simpan. Kolom jumlah bisa menghitung: 12000+3500, 3x25rb.
-- **Tagih:** buka transaksi → **Tagih** → nama-nama teman (pisahkan koma); jumlah per orang dihitung otomatis. Di Ringkasan, kartu **Piutang**: ketuk **Lunas** saat uangnya masuk.
-- **Tag:** tulis #tag di catatan transaksi (mis. #trip); Laporan menunjukkan total per tag, dan pencarian "#trip" menampilkan semuanya.
-- **Langganan → Kelola:** total per bulan dan per tahun, tandai "Masih dipakai" atau "Mau berhenti", dan link cara berhenti.
-- **Transaksi rutin** (Pengaturan): kos, iuran tunai, dll. Di tanggalnya transaksi masuk ke Cek (atau langsung tercatat).
-- **Aset, utang & koleksi** (Pengaturan): motor, emas, saham (kode seperti IDX:BBCA ikut harga pasar), koleksi dan utang; Ringkasan menunjukkan **Kekayaan bersih**.
-- **Gaji:** bank tidak mengirim email untuk uang masuk, jadi di tanggal gajian **Cek** menampilkan kartu "Gaji 28 …": isi jumlahnya → **Simpan gaji** (jumlah terakhir sudah terisi). Tidak ada gaji bulan itu? **Tidak ada gaji**. Rekening gaji dan gaji biasanya bisa diubah di **Pengaturan → Preferensi**.
-- **Ringkasan dari gajian ke gajian** (Pengaturan → Preferensi → Ringkasan dihitung): "Oktober" = 28 Sep – 27 Okt, jadi gaji tanggal 28 dihitung untuk bulan berikutnya. Laporan di spreadsheet tetap per bulan kalender.
-- **Bukan langganan:** di kartu *Langganan & tagihan rutin*, ketuk **Bukan langganan** di bawah nama yang bukan tagihan rutin.
-- **Budget untuk Kita dan untuk masing-masing orang:** di **Pengaturan → Budget bulanan** ada pilihan **Kita / nama masing-masing**. Tiap pilihan punya angka sendiri, dan Ringkasan memakai budget sesuai pilihan yang sedang ditampilkan (Kita = uang berdua, nama = uang orang itu saja). Yang sudah ada sebelumnya jadi budget Kita. Satu tombol **Simpan budget** menyimpan semuanya.
-- **Budget cepat:** di **Pengaturan → Budget bulanan**, tiap kategori menunjukkan pengeluaran bulan lalu; **Isi dari pengeluaran sebelumnya** mengisi yang masih kosong, lalu **Simpan budget**.
-- **Target tabungan** (atur di **Pengaturan → Target tabungan**): pilih rekening, nama, jumlah target dan tanggal (opsional). **Ringkasan** menunjukkan berapa yang sudah terkumpul dan berapa yang perlu disisihkan per bulan; laporan bulanan juga.
-- **Catat lewat email:** kirim email ke diri sendiri berisi "catat kopi 28rb gopay" (subjek atau isi; satu baris satu transaksi). Dalam 1–2 menit masuk; yang belum lengkap menunggu di **Cek**.
-- **Yang biasa** (Tambah): yang sering Anda ketik sendiri muncul sebagai tombol; satu ketukan mengisi form.
-- **Tagihan 7 hari ke depan:** tombol lonceng menunjukkan transaksi rutin dan langganan yang segera jatuh tempo. Pengingat email sehari sebelumnya bisa dinyalakan di **Pengaturan → Email otomatis**.
-- **Acara & trip** (Ringkasan): beri budget untuk #tag (mis. #bali); semua transaksi dengan tag itu dihitung, lintas bulan.
-- **Hari ini** (Cek): tulis pengeluaran tunai lalu Enter, kemudian **Tutup hari**; angka 🔥 = hari berturut-turut yang sudah ditutup. Pengingat jam 21.00 (mati secara bawaan) ada di **Pengaturan → Email otomatis**.
-- **Jenis aset** sekarang juga: reksa dana, obligasi/SBN, deposito, dana pensiun, gadget & barang, piutang, dan paylater/kartu kredit (dihitung sebagai utang).
-- **Gajian maju:** kalau tanggal gajian jatuh di Sabtu, Minggu, libur nasional atau cuti bersama, app memakai hari kerja sebelumnya (kartu gaji, periode ringkasan, sisa hari).
-- **Langganan berubah:** kartu Langganan dan email mingguan menandai yang *naik harga*, yang *baru*, dan yang *belum ditagih* (mungkin sudah berhenti).
-- **Langganan tahunan:** Langganan → Kelola → **Cari langganan tahunan** membaca email bank dan struk setahun ke belakang (1–4 menit). Yang ditemukan muncul dengan tanggal perpanjangannya. Berjalan sendiri sekali.
-- **Kartu kredit & paylater** (Pengaturan): tambahkan kartunya sebagai rekening, lalu isi tanggal cetak dan jatuh tempo. Ringkasan menunjukkan tagihan, yang sudah dibayar, dan pengingatnya.
-- **Cek kesehatan keuangan** (Ringkasan): berapa bulan dana darurat cukup, berapa persen pemasukan yang disisihkan, dan utang dibanding harta. **Simulasi bunga** membandingkan deposito dan SBN setelah pajak.
-- **Daftar harta untuk SPT** (Laporan → Tahunan): harta dan utang dengan kode SPT, bisa diunduh sebagai CSV.
+**Mencatat dan merapikan**
+- **Detail belanja:** pembayaran ke APPLE.COM/BILL, Tokopedia, Shopee, Xendit dan toko luar negeri diberi nama toko dan barangnya dari struk emailnya.
+- **Bagi transaksi:** satu pembayaran, beberapa kategori. Ketuk barisnya → **Bagi transaksi ini** → isi jumlah tiap bagian (totalnya harus pas). **Gabungkan lagi** untuk membatalkan.
+- **Aturan otomatis** (Pengaturan → Otomatis): ubah kata dan kategori, tambah aturan; app menunjukkan transaksi mana yang cocok. **Kategori** juga bisa diubah di situ.
+- **Transaksi rutin** (kos, iuran, dll.): di tanggalnya masuk ke Cek atau langsung tercatat.
 - **Pertama kali:** pembayaran pertama ke tempat yang belum pernah dibayar diberi tanda, supaya transaksi yang tidak dikenal cepat terlihat.
-- **Tutup kemarin:** lupa menutup hari? Sampai jam 12.00 besoknya masih bisa, runtutannya tidak putus.
-- **Pasang di layar utama:** buka **karjimut.addinalayubi12.workers.dev/pasang** di HP, lalu **Pasang aplikasi** (Android) atau **Bagikan → Tambahkan ke Layar Utama** (iPhone). Ikon dompet Cashflow langsung membuka aplikasi; tekan lama untuk Tambah, Cek dan Ringkasan.
-- **Link pendek:** karjimut.addinalayubi12.workers.dev/tambah, /cek, /ringkasan, /transaksi, /pengaturan membuka layar itu.
-- **Notifikasi di HP** (Pengaturan → Notifikasi di HP): ketuk **Aktifkan di perangkat ini** di tiap HP, lalu pilih jenisnya: transaksi baru, pengeluaran besar, tagihan besok, hari gajian, pengingat 21.00. **Kirim tes** untuk mencoba. Di iPhone, pasang dulu di layar utama dan aktifkan dari ikonnya (iOS 16.4+).
-- **Cadangan bulanan:** email laporan bulanan (tanggal 1) melampirkan file CSV berisi semua transaksi. Simpan di tempat yang aman: spreadsheet bukan satu-satunya salinan.
-- **Cari dengan jumlah** (Transaksi): ketik `>20rb`, `<=50rb`, `30rb-100rb` atau `28rb` (tepat), boleh bersama kata, mis. `kopi >20rb`.
-- **Klaim asuransi:** buka transaksi → **Klaim asuransi** → *Perlu diklaim*. Batasnya = tanggal bayar + batas klaim (Pengaturan → Preferensi, bawaan 30 hari). Ringkasan menunjukkan yang belum diklaim, dan kamu diingatkan 3 hari sebelum batas. Tandai *Sudah diklaim* atau *Tidak perlu* kalau selesai.
-- **Langganan pindah rekening:** kartu Langganan menandai "pindah dari GoPay" kalau tagihannya sekarang dari rekening lain.
-- **Hari di bawah budget:** Ringkasan menunjukkan berapa hari bulan ini yang pengeluarannya di bawah jatah harian budget, dan berapa hari tanpa belanja.
-- **Kebiasaan per kategori:** layar kategori (Transaksi) menunjukkan 90 hari terakhir: berapa kali, berapa total, rata-rata, dan kira-kira tiap berapa hari.
-- **Garansi:** isi **Garansi sampai** di Pengaturan → Aset; diingatkan 30, 7 dan 1 hari sebelum habis (bel, notifikasi, email mingguan, kalender).
-- **Rekap tahun:** Ringkasan → Laporan → Tahunan: pemasukan, pengeluaran, berapa persen disisihkan, bulan paling hemat dan paling boros, kategori terbesar, tempat paling sering. Ketuk **Salin** untuk membagikannya. Mulai 15 Desember ada tombol di Ringkasan.
-- **Biaya bersama** (berdua): tulis **#bersama** di catatan sebuah pembayaran, atau ketuk tombol **Biaya bersama** di transaksinya. Ringkasan menunjukkan siapa yang menalangi berapa dan siapa berutang ke siapa; ketuk **Tandai lunas** setelah membayar (bisa sebagian; **Batalkan** kalau salah). Pembagian (bawaan 50/50) diatur di Pengaturan → Pasangan.
-- **Telegram** (Pengaturan → Telegram): buat bot sendiri lewat @BotFather (/newbot), tempel tokennya, ketuk **Hubungkan Telegram-ku**, lalu tekan Start di Telegram. Sejak itu kirim "kopi 28rb gopay" (satu baris satu transaksi) dan bot membalas apa yang dicatat; yang belum lengkap menunggu di Cek. Tiap orang menghubungkan chat-nya sendiri. Token disimpan di Apps Script, bukan di spreadsheet.
-- **Tahun baru:** pada 1 Januari spreadsheet otomatis pindah ke tahun baru dan saldo berlanjut. Tahun yang selesai disimpan sebagai salinan "(arsip)", linknya ada di **Pengaturan → Lainnya**.
+- **Impor mutasi bank** (Pengaturan → Rutin): BCA tidak mengirim email untuk uang masuk. Unduh mutasi dari KlikBCA (CSV), pilih rekening dan file; app menunjukkan mana yang sudah tercatat dan mana yang baru. Bisa dibatalkan di Riwayat impor.
+- **Dompet digital (OVO, DANA, ShopeePay, GoPay):** tambahkan tiap dompet sebagai rekening. Top-up jadi transfer ke dompet; pengeluarannya hanya tercatat kalau ada emailnya atau kamu mengetiknya. Isi saldo dompet di **Cek saldo akhir bulan** sebulan sekali: selisihnya adalah sisa pengeluaran.
 
-> **Log by email:** send yourself "catat coffee 28k gopay" (one line per transaction). **The usual** chips on Add fill the form in one tap. The bell lists **bills due in 7 days** (optional reminder email the day before). **Trips & events** give a #tag a budget across months. **Today** in Review takes cash spending and **Close the day** builds a streak (optional 21:00 reminder, off by default). New asset kinds include funds, bonds, deposits, pension, goods, money lent and paylater (a debt).
+**Uang, rencana, dan pengingat**
+- **Gaji:** bank tidak mengirim email untuk uang masuk, jadi di tanggal gajian **Cek** menampilkan kartu gaji: isi jumlahnya → **Simpan gaji** (atau **Tidak ada gaji**). Kalau gajian jatuh di akhir pekan atau libur, app memakai hari kerja sebelumnya. Di hari gajian Ringkasan menunjukkan **Hari gajian**: gaji, tagihan sampai gajian berikutnya, kebutuhan target tabungan, sisa, dan sisa per hari. Ringkasan bisa dihitung dari gajian ke gajian (Pengaturan → Aplikasi → Preferensi).
+- **Budget** (Pengaturan → Uang & rekening): per kategori, untuk **Kita** dan untuk masing-masing orang. **Isi dari pengeluaran sebelumnya** mengisi yang kosong. **Acara & trip:** beri budget untuk sebuah #tag (mis. #bali), dihitung lintas bulan.
+- **Target tabungan:** pilih rekening, nama, target dan tanggal (opsional); Ringkasan menunjukkan yang terkumpul dan yang perlu disisihkan per bulan.
+- **Aset, utang & koleksi:** motor, emas, saham (kode seperti IDX:BBCA mengikuti harga pasar), reksa dana, SBN, deposito, piutang, paylater. Ringkasan menunjukkan **Kekayaan bersih**. Isi **Garansi sampai** di sini; kamu diingatkan 30, 7 dan 1 hari sebelumnya.
+- **Kartu kredit & paylater:** tambahkan sebagai rekening, isi tanggal cetak dan jatuh tempo; Ringkasan menunjukkan tagihan dan pengingatnya.
+- **Langganan & tagihan rutin** (Ringkasan): tagihan berikutnya, total per bulan, yang naik harga, yang baru, dan yang belum ditagih. **Kelola**: tandai "Masih dipakai" atau "Mau berhenti". **Cari langganan tahunan** membaca email setahun ke belakang. **Bukan langganan** menyembunyikan yang bukan tagihan rutin.
+- **Tagih:** ketuk transaksi → **Tagih** → nama teman (pisahkan koma); jumlah per orang dihitung. Kartu **Piutang**: ketuk **Lunas** saat uangnya masuk.
+- **Klaim asuransi:** ketuk transaksi → **Klaim asuransi** → *Perlu diklaim*. Batasnya = tanggal bayar + batas klaim (Preferensi, bawaan 30 hari); kamu diingatkan 3 hari sebelumnya.
+- **Biaya bersama (berdua):** tulis **#bersama** di catatan, atau ketuk **Biaya bersama** di transaksinya. Ringkasan menunjukkan siapa menalangi berapa; **Tandai lunas** setelah membayar. Pembagian (bawaan 50/50) ada di Pengaturan → Pasangan.
+- **Tutup hari** (Cek): tulis pengeluaran tunai hari itu lalu **Tutup hari**; angka 🔥 = hari berturut-turut. Kemarin masih bisa ditutup sampai jam 12.00.
+- **Tag:** tulis #tag di catatan; Laporan menunjukkan total per tag.
+- **Kalender:** tagihan dan rencana bisa muncul di Google Calendar lewat alamat langganan pribadi (diberikan terpisah; jangan dibagikan). Pengingat diatur di kalendernya sendiri.
 
-> **Shared costs:** tag a payment #bersama (or use its "Shared cost" button); the Summary shows who paid what and who owes whom, and **Mark as settled** records a settle-up (split 50/50 unless changed in Settings → Partner). **Telegram:** make your own bot with @BotFather, paste its token in Settings → Telegram, connect your chat, then message it "coffee 28k gopay".
+**Laporan**
+- **Laporan Bulanan:** kalender pengeluaran harian, tren dibanding bulan lalu, ke mana uangnya, dan **Alur uang** (uang masuk, pindah antar rekening, dibelanjakan per rekening; ketuk "Dibelanjakan" untuk melihat transaksinya).
+- **Laporan Tahunan:** pengeluaran per bulan per kategori, tempat teratas, pengeluaran terbesar, **Rekap tahun** (bisa disalin untuk dibagikan; tombolnya di Ringkasan mulai 15 Desember), **Cek kesehatan keuangan**, **Simulasi bunga** (deposito vs SBN setelah pajak), dan **Daftar harta untuk SPT** (bisa diunduh CSV).
 
-> **Backup:** the monthly email attaches a CSV of every transaction. **Search** understands `>20k`, `<=50k`, `30k-100k`. **Insurance claims:** mark a payment "To claim" (deadline = payment date + claim window in Preferences) and get reminded. A subscription paid from another account says so. Summary shows days under the budget's daily share and no-spend days; a category shows its last-90-days habit. **Warranty** dates on assets give reminders. **Year in review** is in Reports → Yearly (Copy to share).
+> **Receipts** name Apple/Tokopedia/Shopee/Xendit/foreign charges. **Split** a payment into categories. **Rules**, categories and **recurring transactions** are under Settings → Automatic. **First time** marks a first payment to a place. **Import bank statement** (BCA sends no mail for incoming money). **E-wallets** are accounts; check their balance at month end. **Salary**: enter it on payday (Review shows a card); the Summary then shows the **payday plan**; payday moves to the working day before weekends and holidays. **Budgets** per category for Us and for each person, **trip/event budgets** per #tag, **savings goals**, **assets and debts** (net worth, warranty reminders), **credit cards and paylater**, **subscriptions** (price rises, new, stopped, Find yearly plans), **Bill friends** (Receivables card), **insurance claims**, **Shared costs** (#bersama, Mark as settled), **Close the day** streak, **tags**, a **calendar** subscription. **Reports**: monthly (daily calendar, trend, where it went, Money flow) and yearly (per month per category, top places, biggest spending, Year in review from 15 December, money health check, interest calculator, SPT asset list).
 
-> **Payday** moves to the working day before a weekend or national holiday. **Subscriptions** show price rises, new ones and ones that stopped; **Find yearly plans** reads Gmail a year back. **Credit cards & paylater** (Settings) get their bill and due date. **Money health check** and an **interest calculator** (deposit vs SBN) are on the Summary; the **SPT asset list** is in Reports → Yearly. **First time** marks the first payment to a place. Yesterday can be closed until 12:00.
+## Notifikasi di HP / Phone notifications
 
-> **Salary:** banks send no email for money coming in, so on payday **Review** shows a salary card: enter the amount → **Save salary** (or **No salary**). **Summary from payday to payday** is a setting (Settings → Preferences). **Not a subscription** under a name on the subscriptions card hides it. **Fill from earlier spending** in Settings → Monthly budgets fills the empty budgets.
+- **Pengaturan → Otomatis → Notifikasi di HP:** ketuk **Aktifkan di perangkat ini** di tiap HP, lalu pilih jenisnya: transaksi baru, pengeluaran besar, tagihan besok, hari gajian, pengingat jam 21.00. **Kirim tes** untuk mencoba. Di iPhone, pasang dulu di layar utama (lihat atas) dan aktifkan dari ikonnya (iOS 16.4 ke atas).
+- Notifikasi menggantikan email: tidak ada lagi email mingguan atau bulanan. Kalau pembaca Gmail diam berjam-jam atau ada email bank yang tidak terbaca, kamu juga dapat notifikasi.
 
-> **Savings goals** (Settings → Savings goals): account, name, target and an optional date; the Summary and the monthly report show how much is saved and what to put aside each month.
-
-> Shop receipts name the APPLE.COM/BILL, Tokopedia, Shopee, Xendit and foreign shop charges with the shop and items. **Split** a payment into parts with their own category (Transactions → tap the row → Split this transaction). **Subscriptions & regular bills** in Summary. Pick a category in Transactions to see its 6-month trend. Edit **automatic rules** in Settings with a live preview. A **weekly summary** email arrives every Monday at 07:00 (Settings → Weekly summary).
-
-> **Payday plan:** on your payday and the two days after, the Summary shows **Hari gajian**: your salary, the bills until the next payday, what each savings goal asks this month, what is left and what that is per day. **Restore from backup** (Settings → Import): pick the CSV from the monthly email; it adds only the transactions that are missing and never overwrites or removes anything. The editor says who changed a transaction last and when. A newcomer sees **first steps** in "Perlu perhatian" until their own accounts and payday are set. Reports → Yearly follows Us / Me / Them.
-
-> **Review:** when your rules fit waiting transactions (for example a newcomer's first emails), a card offers **Terapkan aturan / Apply rules**. An email that is not a transaction can be dismissed (**Abaikan**). The overview card "Perlu perhatian" also names unreadable emails and accounts that still need an opening balance. **Settings → Pasangan** shows, for each Google account of a person, whether it is connected and when it was last read.
-
-> **Review is per person:** the number on Review, the bell and the first screen count your own waiting transactions. The other person's wait below, under "Menunggu <name>", and either of you can settle them.
-
-> **A new bank account:** when emails mention an account you haven't added (for example a new person's first bank emails), "Perlu perhatian" says which bank and number and how many transactions wait. Tap it, give the account a name, **Simpan rekening**: the waiting transactions move onto it.
+> Settings → Automatic → Phone notifications: tap Enable on this device on each phone and choose what you want (new transactions, big spending, bills tomorrow, payday, 21:00 reminder); Send test tries it. On iPhone install to the home screen first. Notifications replace the old e-mails (weekly, monthly, reminders); you are also notified when Gmail reading stops or a bank e-mail cannot be read.
 
 ## Akhir bulan / Month end (±5 menit)
 
-0. Di tanggal gajian: catat dulu **gaji** di **Cek**, baru cek saldo (kalau tidak, gajinya tercatat sebagai Penyesuaian).
-1. **Pengaturan → Cek saldo akhir bulan**: semua rekening ada di satu layar, dengan saldo di app dan kapan terakhir dicek. Isi saldo asli rekening yang ingin dicek (yang kosong dilewati), lalu **Cek saldo**. Selisihnya tampil langsung; catat sebagai *Penyesuaian*, atau pilih kategori kalau tahu asalnya (mis. uang masuk ke BCA yang tidak ada emailnya → *Pemasukan Lainnya*). Pada cek pertama sebuah rekening, centang **Jadikan saldo awal** (sudah tercentang kalau saldo awalnya masih 0): selisihnya masuk ke saldo awal, bukan sebagai pengeluaran/pemasukan.
+0. Di tanggal gajian catat dulu **gaji** di **Cek**, baru cek saldo (kalau tidak, gajinya tercatat sebagai Penyesuaian).
+1. **Pengaturan → Rutin → Cek saldo akhir bulan:** semua rekening di satu layar. Isi saldo asli rekening yang ingin dicek (yang kosong dilewati), lalu **Cek saldo**. Selisihnya tampil langsung; catat sebagai *Penyesuaian*, atau pilih kategori kalau tahu asalnya (mis. uang masuk tanpa email → *Pemasukan Lainnya*). Pada cek pertama sebuah rekening, centang **Jadikan saldo awal**: selisihnya masuk ke saldo awal, bukan sebagai pemasukan atau pengeluaran.
 2. Ringkasan GoPay bulanan masuk ke **Cek** sebagai "Pengeluaran GoPay (ringkasan bulanan)": pilih kategorinya.
-3. Laporan lengkap (Growth, Quarter, Budget, Final Statement) ada di spreadsheet: **Pengaturan → Buka spreadsheet**.
 
-> At month end: Settings → Month-end balance check, enter each account's real balance (the difference becomes a *Penyesuaian* row; on an account's first check, "Use as opening balance" puts it into the opening balance instead). The GoPay monthly summary arrives in Review: pick its category. Full reports are in the spreadsheet.
-
-## Pertama kali / First time
-
-- **Pengaturan → Rekening & saldo awal**: isi saldo tiap rekening per **31 Agustus 2026** (malam), lalu **Simpan rekening**. Tanpa ini saldo per rekening dimulai dari 0.
-- **Pengaturan → Budget bulanan** (opsional): isi budget per kategori. Ringkasan lalu menunjukkan sisa atau kelebihan budget.
-
-> First time: Settings → Accounts & opening balances: enter each balance as of the end of 31 Aug 2026. Optional: monthly budgets (the Summary then shows what's left or over).
+> Month end: Settings → Routine → Month-end balance check: enter each account's real balance; the difference becomes a *Penyesuaian* row (or, on an account's first check, the opening balance). Record salary first on payday. The GoPay monthly summary arrives in Review: pick its category.
 
 ## Berdua dengan pasangan / With your partner
 
-Kalian berdua setara di aplikasi ini: hak yang sama, dan masing-masing punya pengaturan sendiri.
+Kalian setara di aplikasi ini: hak yang sama, dan masing-masing punya pengaturan sendiri.
+- **Pengaturan → Aplikasi → Pasangan** (siapa saja): nama, email Google dan nama seperti di rekening bank, untuk **keduanya**. Mengganti nama membawa transaksi dan rekeningnya. Email milikmu sendiri tidak bisa dihapus (supaya tidak terkunci).
+- **Kita / Aku / Dia** di Ringkasan dan Transaksi: uang berdua, punyamu saja, atau punya pasangan saja. Sebuah transaksi milik pemilik rekeningnya. Tambahkan rekening pasanganmu di **Rekening** dengan **Pemilik** = namanya.
+- **Punya masing-masing:** tanggal gajian dan kartu gaji, "Tutup hari" beserta runtutannya, notifikasi dan perangkatnya, budget pribadi, dan kalender.
+- Email kalian tidak saling terbaca: tiap Gmail hanya dibaca sinkronnya sendiri; yang dibagi hanya transaksinya. Transfer di antara kalian dicatat sebagai transfer, bukan pengeluaran. Tagihan, klaim dan garansi dinotifikasi ke kalian berdua.
+- **Yang baru bergabung:** masuk dengan emailnya (kode 6 angka), pasang di layar utama, lalu aktifkan notifikasi. Gmail-nya dihubungkan lewat pembaca Gmail (diatur oleh pemilik; **Pengaturan → Aplikasi → Pasangan** menunjukkan Gmail mana yang terhubung dan kapan terakhir dibaca).
 
-- **Pengaturan → Pasangan** (siapa saja): nama, email Google (boleh lebih dari satu, pisahkan koma) dan nama seperti di rekening bank, untuk **keduanya**. Spreadsheet dibagikan otomatis ke semua email yang tertulis. Mengganti nama membawa transaksi dan rekeningnya. Email milikmu sendiri tidak bisa dihapus (supaya tidak terkunci).
-- **Yang baru bergabung:** buka spreadsheet Cashflow dengan akun Google-nya → menu **Cashflow Tracker → Hubungkan Gmail** → izinkan. Sejak itu **karjimut.addinalayubi12.workers.dev** terbuka untuknya, dan **Pengaturan → Pasangan** menunjukkan Gmail mana yang terhubung. Tambahkan rekeningnya di **Rekening** dengan **Pemilik** = namanya (nama rekening dibedakan, mis. "BCA" dan "BCA <nama>").
-- **Punya masing-masing:** tanggal gajian dan kartu gaji, "Tutup hari" beserta runtutannya, email otomatis, notifikasi dan perangkatnya, kalender, pencarian langganan tahunan. Kosongkan tanggal gajian kalau belum tahu: kartu gaji baru muncul setelah diisi.
-- **Kita / Aku / Dia** di Ringkasan dan Transaksi: uang berdua, punyamu saja, atau punya pasangan saja. Sebuah transaksi milik pemilik rekeningnya.
-- Email kalian tidak saling terbaca: tiap Gmail hanya dibaca oleh sinkronnya sendiri; yang dibagi hanya transaksinya. Transfer di antara kalian berdua dicatat sebagai transfer, bukan pengeluaran. Tagihan, klaim dan garansi dinotifikasi sekali sehari ke kalian berdua.
-
-> The two of you are equal in the app: the same rights, and each with your own settings. **Settings → Partner** (either of you) holds both people's names, Google accounts (several allowed) and bank names; the spreadsheet is shared with every account listed. A newcomer opens the spreadsheet with their Google account → **Cashflow Tracker → Connect Gmail** → Allow. Each of you has your own payday and salary card, "Close the day" streak, emails, notifications and devices, calendar and yearly-plan scan. **Us / Me / Them** switches the view; a transaction belongs to the owner of its account. Neither of you can read the other's email; money between you is a transfer.
+> You are equal in the app and each has your own settings. Settings → Partner holds both names, Google accounts and bank names. **Us / Me / Them** switches the view; a transaction belongs to the owner of its account (add your partner's accounts with Owner = their name). Each has their own payday, salary card, Close-the-day streak, notifications, budgets and calendar. Neither reads the other's e-mail; money between you is a transfer. A newcomer signs in with their e-mail code, installs the app and turns on notifications; their Gmail is connected through the mail reader, which the owner sets up.
 
 ## Kalau ada masalah / If something looks wrong
 
-- **Pengaturan → Sinkron Gmail** menunjukkan kapan terakhir sinkron dan apakah berjalan normal.
-- Email bank yang tidak bisa dibaca muncul di **Cek → Email yang belum terbaca** dengan link ke Gmail.
-- Kalau penyimpanan gagal, transaksinya kembali ke layar dengan alasannya. Kalau sinkron sedang berjalan, app menunggu dan mencoba lagi sendiri.
-- Di spreadsheet, menu **Cashflow Tracker → Sinkron sekarang** menjalankan sinkron langsung.
-- **Perlu perhatian → "keluar dari satu rekening dan masuk ke yang lain":** satu transfer antar rekeningmu baru tercatat satu sisi, dan ada satu transaksi lain dengan jumlah yang sama (selisih sehari) di rekening lain. Ketuk untuk menggabungkan keduanya; setelah itu tidak dihitung sebagai pengeluaran. App tidak pernah menggabungkan sendiri.
-- Email bank yang tidak bisa dibaca dicatat di **Inbox Log** dengan *outline*-nya: bentuk email tanpa nama, jumlah, nomor atau tanggal (mis. `<text:2> | nominal: | <amount>`), supaya pembacanya bisa diperbaiki tanpa membaca emailmu.
-- Di spreadsheet, menu **Cashflow Tracker → Cek cakupan email** menunjukkan pengirim (hanya domain dan jumlah) email berbau keuangan 90 hari terakhir yang belum punya pembaca. Tidak ada yang disimpan.
+- **Pengaturan → Rutin → Sinkron Gmail** menunjukkan kapan terakhir sinkron dan apakah normal. **Sinkron sekarang** memeriksa saat itu juga; emailnya dibaca satu per satu di belakang, jadi tombolnya menjawab berapa email baru yang ditemukan.
+- Email bank yang tidak bisa dibaca muncul di **Cek → Email yang belum terbaca** dengan link ke Gmail; yang bukan transaksi bisa diabaikan.
+- **Perlu perhatian** (Ikhtisar): rekening baru yang belum ditambahkan, saldo awal yang belum diisi, transfer yang baru tercatat satu sisi (ketuk untuk menggabungkan; app tidak pernah menggabungkan sendiri), dan langkah pertama untuk pengguna baru.
+- Kalau penyimpanan gagal, transaksinya kembali ke layar dengan alasannya; kalau sinkron sedang berjalan, app menunggu dan mencoba lagi sendiri.
+- Aplikasi tidak mau muncul atau terlihat lama? Muat ulang (di PC Ctrl+F5; di HP tutup lalu buka lagi dari ikonnya).
 
-> Settings → Gmail sync shows the last sync and whether it works normally. Emails that couldn't be read appear in Review with a Gmail link. If a save fails, the transaction comes back on screen with the reason; while a sync is running the app waits and retries by itself. In the spreadsheet, Cashflow Tracker → Sync now runs a sync immediately.
+> Settings → Gmail sync shows the last sync and whether it is healthy; Sync now checks at once (mails are then read one by one in the background, so it reports how many it found). Unreadable bank e-mails appear in Review with a Gmail link. "Needs attention" lists new accounts, missing opening balances, one-sided transfers (you join them; the app never does) and first steps for newcomers. A failed save comes back with its reason. If the app looks stale, reload it (Ctrl+F5, or close and reopen from the icon).
 
-> A transfer between your own accounts that is recorded on one side only, with exactly one matching row on another account (same amount, within a day), shows in "Needs attention": tap to join the two (it then does not count as spending); the app never joins them by itself. Unreadable bank emails are logged in the Inbox Log with an outline (the shape of the email, with no names, amounts, numbers or dates). The spreadsheet menu **Cashflow Tracker → Mail coverage** lists the sender domains (with counts only) of financial-looking mail from the last 90 days that has no reader yet; nothing is saved.
+## Cadangan / Backup
 
-- **Dompet digital (OVO, DANA, ShopeePay, GoPay, e-money):** tambahkan tiap dompet sebagai rekening di **Pengaturan → Rekening** (kartu "perlu perhatian" menawarkannya begitu ada top-up ke dompet itu, dan mengisi namanya). Setelah itu top-up berikutnya menjadi transfer ke dompet, jadi saldonya naik sebesar top-up; pengeluaran dari dompet hanya tercatat kalau ada emailnya (struk Grab yang dibayar dengan dompet) atau kamu mengetiknya. Isi saldo dompet di **Cek saldo akhir bulan** sebulan sekali: selisihnya adalah sisa pengeluaran dompet. Top-up lama bisa dijadikan transfer dengan satu ketukan di kartu "perlu perhatian".
+- **Unduh cadangan** (Pengaturan → Aplikasi → Lainnya): semua transaksi sebagai file CSV, bisa dibuka di Excel atau Google Sheets. Simpan di tempat aman sebulan sekali.
+- Cadangan lengkap database dan cara memulihkannya ada di `cashflow-worker/docs/RESTORE.md` (untuk pemilik).
 
-> E-wallets: add each wallet as an account (Settings → Accounts; the "Needs attention" card offers it once a top-up to that wallet shows up, and fills in the name). After that, new top-ups are transfers into the wallet, so its balance rises by the top-up. Spending from a wallet is recorded only when there is an email for it (Grab receipts paid with the wallet) or when you type it: enter the wallet's balance in the month-end balance check about once a month, and the difference is the rest of its spending. Past top-ups can be turned into transfers with one tap on the "Needs attention" card.
+> Settings → More → Download backup gives every transaction as a CSV. The full database backup and restore steps are in `cashflow-worker/docs/RESTORE.md` (owner only).
