@@ -76,6 +76,12 @@ function categoryDetail(category) {
 
 export async function viewTransactions() {
   if (state.filters.month == null) state.filters.month = state.month;
+  if (state.txStart) { // what was chosen last time on this device (the current period is the default and stays as it is)
+    const { preset, kind } = state.txStart;
+    state.txStart = null;
+    if (preset && preset !== 'period') setPreset(preset);
+    if (kind && kind !== 'all') setKind(kind);
+  }
   if (!state.all) {
     skeleton(T.tabTransactions, 'list');
     setAll((await call('list', { limit: 1000000 })).rows);
@@ -115,7 +121,7 @@ export async function viewTransactions() {
 }
 
 /** Which period chip the filters match ('' = none). */
-function presetOf(f) {
+export function presetOf(f) {
   const cur = state.dashByMonth[currentMonth()];
   const r = cur && cur.summary && cur.summary.from ? cur.summary : null;
   if (r ? f.from === r.from && f.to === r.to && !f.month : f.month === currentMonth() && !f.from) return 'period';
@@ -140,7 +146,7 @@ export function setPreset(v) {
 
 const fixedCats = () => state.boot.categories.fixed; // [Penyesuaian, transfer]
 
-function kindOf(f) {
+export function kindOf(f) {
   if (f.category === fixedCats()[1]) return 'transfer';
   if (f.category === fixedCats()[0]) return 'adjust';
   if (f.category) return '';

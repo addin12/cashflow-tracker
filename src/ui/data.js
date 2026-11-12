@@ -2,6 +2,7 @@
 
 import { rp } from './format.js';
 import { applyLanguage } from './language.js';
+import { restoreView } from './viewstate.js';
 import { toast, updateNav } from './render.js';
 import { T, state } from './state.js';
 
@@ -13,6 +14,7 @@ export function absorb(data) {
   // The page says who opened it (the cached first screen may have been made for the other person).
   state.boot = { ...data.boot, me: window.__ME__ || data.boot.me, lang: state.boot?.lang };
   state.dataAt = data.at; // when Google built this data: newer sync changes mean refresh
+  restoreView(); // whose numbers, which view, which period: as they were left on this device (once)
   const incoming = data.incoming || [];
   if (state.incomingIds) {
     const fresh = incoming.filter((x) => !state.incomingIds.has(String(x.id)));

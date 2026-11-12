@@ -26,7 +26,8 @@ import { installApp } from './install.js';
 import { applyLook, saveLook } from './look.js';
 import { tourStep } from './tour.js';
 import { applyTheme, toggleTheme } from './theme.js';
-import { applyPicked, drill, exportCsv, setKind, setPreset, showResults, viewTransactions } from './transactions.js';
+import { applyPicked, drill, exportCsv, kindOf, presetOf, setKind, setPreset, showResults, viewTransactions } from './transactions.js';
+import { saveView } from './viewstate.js';
 
 /** Every budget, with the fields of the view on screen (Kita or one person) read back into the list. */
 function mergeBudgetForm(form) {
@@ -77,12 +78,13 @@ export function onClick(e) {
   if (a === 'unfilter') {
     if (el.dataset.key === 'period') { state.filters.from = ''; state.filters.to = ''; } else state.filters[el.dataset.key] = '';
     state.limit = 50;
+    saveView({ preset: presetOf(state.filters), kind: kindOf(state.filters) });
     return viewTransactions();
   }
-  if (a === 'resetfilters') { state.filters = { q: '', month: '', from: '', to: '', stream: '', category: '', status: '', direction: '' }; state.limit = 50; return viewTransactions(); }
-  if (a === 'preset') { setPreset(el.dataset.p); state.limit = 50; return viewTransactions(); }
-  if (a === 'kindchip') { setKind(el.dataset.k); state.limit = 50; return viewTransactions(); }
-  if (a === 'dashview') { state.dashView = el.dataset.view; return viewDashboard(); }
+  if (a === 'resetfilters') { state.filters = { q: '', month: '', from: '', to: '', stream: '', category: '', status: '', direction: '', owner: state.who }; state.limit = 50; saveView({ preset: 'all', kind: 'all' }); return viewTransactions(); }
+  if (a === 'preset') { setPreset(el.dataset.p); state.limit = 50; saveView({ preset: presetOf(state.filters), kind: kindOf(state.filters) }); return viewTransactions(); }
+  if (a === 'kindchip') { setKind(el.dataset.k); state.limit = 50; saveView({ preset: presetOf(state.filters), kind: kindOf(state.filters) }); return viewTransactions(); }
+  if (a === 'dashview') { state.dashView = el.dataset.view; saveView(); return viewDashboard(); }
   if (a === 'usual') return useUsual(Number(el.dataset.i));
   if (a === 'bills') return openBills();
   if (a === 'tagbudget') return openTagBudget(el.dataset.tag || '', el.dataset.budget || '');
@@ -158,7 +160,7 @@ export function onClick(e) {
   }
   if (a === 'recap') { state.dashView = 'report'; state.reportYearly = true; state.month = state.boot.today.slice(0, 7); return show('dashboard'); }
   if (a === 'copyrecap') return copyRecap();
-  if (a === 'who') { state.who = el.dataset.who; state.filters.owner = state.who; state.dashByMonth = {}; return show(state.tab); }
+  if (a === 'who') { state.who = el.dataset.who; state.filters.owner = state.who; state.dashByMonth = {}; saveView(); return show(state.tab); }
   if (a === 'connectme') {
     el.disabled = true;
     el.textContent = T.hhConnecting;
@@ -186,7 +188,7 @@ export function onClick(e) {
     if (a === 'addasset') { const n = $$('.asset-row [data-a2=name]'); if (n.length) n[n.length - 1].focus(); }
     return null;
   }
-  if (a === 'reportmode') { state.reportYearly = el.dataset.mode === 'year'; return viewDashboard(); }
+  if (a === 'reportmode') { state.reportYearly = el.dataset.mode === 'year'; saveView(); return viewDashboard(); }
   if (a === 'yearmonth') { state.month = el.dataset.month; state.reportYearly = false; return show('dashboard'); }
   if (a === 'exportcsv') {
     if (!state.all) { call('list', { limit: 1000000 }).then((r) => { setAll(r.rows); exportCsv(); }).catch((err) => toast(`${T.error}: ${err.message}`, { kind: 'bad' })); return null; }

@@ -197,3 +197,69 @@ describe('charts answer a tap', () => {
     expect(donut.firstElementChild.querySelector('b')).not.toBeNull();
   });
 });
+
+describe('the app opens the way it was left', () => {
+  /** A second app on the same device: the saved choices are put in its browser storage before the page starts. */
+  async function reopen(saved) {
+    const api2 = createApi(store, { now: () => new Date(2026, 10, 10, 10, 0, 0), sync: () => ({ added: 0 }), sheetUrl: 'https://example.invalid/sheet' });
+    const second = new JSDOM(await buildUiHtml(), {
+      runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.invalid/',
+      beforeParse(window) {
+        window.localStorage.setItem('cashflow.view.v1', saved);
+        window.localStorage.setItem('cashflow.tour.v1', '1');
+        const runner = () => {
+          let ok;
+          const r = {
+            withSuccessHandler(f) { ok = f; return r; }, withFailureHandler() { return r; },
+            api(name, json) { setTimeout(() => { try { ok(JSON.stringify({ data: api2[name](JSON.parse(json)) })); } catch (e) { ok(JSON.stringify({ error: e.message })); } }, 0); },
+          };
+          return r;
+        };
+        window.google = { script: { get run() { return runner(); } } };
+        Object.defineProperty(window.navigator, 'language', { value: 'id-ID' });
+      },
+    });
+    const d2 = second.window.document;
+    await until(() => d2.querySelector('#view h1') && !d2.querySelector('#view .skeleton'), 'second app first screen'); // the loading text also has class empty, so wait for a real screen
+    return { dom2: second, d2 };
+  }
+
+  it('remembers whose numbers, Ikhtisar or Laporan, Bulanan or Tahunan, and Transaksi\'s period and kind', async () => {
+    click(doc.querySelector('.nav [data-tab=dashboard]'));
+    await until(() => doc.querySelector('.seg.who'), 'summary');
+    click(doc.querySelector('[data-action=who][data-who="Me"]'));
+    await until(() => doc.querySelector('.seg.who button.on')?.textContent === 'Aku', 'Aku');
+    click(doc.querySelector('[data-action=dashview][data-view=report]'));
+    await until(() => doc.querySelector('.mode-seg'), 'report');
+    click(doc.querySelector('[data-action=reportmode][data-mode=year]'));
+    await until(() => doc.querySelector('.mode-seg button.on')?.textContent === 'Tahunan', 'Tahunan');
+    click(doc.querySelector('.nav [data-tab=transactions]'));
+    await until(() => doc.querySelector('.pchips'), 'Transaksi');
+    click(doc.querySelector('[data-action=preset][data-p="30"]'));
+    await until(() => doc.querySelector('.pchips button.on')?.textContent === '30 hari', '30 hari');
+    click(doc.querySelector('[data-action=kindchip][data-k=out]'));
+    await until(() => [...doc.querySelectorAll('.pchips button.on')].some((b) => b.textContent === 'Pengeluaran'), 'Pengeluaran');
+    const saved = dom.window.localStorage.getItem('cashflow.view.v1');
+    expect(JSON.parse(saved)).toMatchObject({ who: 'me', view: 'report', yearly: true, preset: '30', kind: 'out' });
+
+    const { dom2, d2 } = await reopen(saved);
+    const click2 = (el) => el.dispatchEvent(new dom2.window.MouseEvent('click', { bubbles: true }));
+    const until2 = async (fn, what) => { for (const end = Date.now() + 2500; Date.now() < end;) { if (fn()) return; await new Promise((r) => setTimeout(r, 5)); } throw new Error(`timed out waiting for ${what}`); };
+    click2(d2.querySelector('.nav [data-tab=dashboard]'));
+    await until2(() => d2.querySelector('.seg.who'), 'summary in the second app');
+    expect(d2.querySelector('.seg.who button.on').textContent).toBe('Aku');
+    await until2(() => d2.querySelector('.mode-seg'), 'the report in the second app'); // it opens on Laporan
+    expect(d2.querySelector('.mode-seg button.on').textContent).toBe('Tahunan');
+    click2(d2.querySelector('.nav [data-tab=transactions]'));
+    await until2(() => d2.querySelector('.pchips'), 'Transaksi in the second app');
+    expect([...d2.querySelectorAll('.pchips button.on')].map((b) => b.textContent)).toEqual(['30 hari', 'Pengeluaran']);
+  });
+
+  it('ignores what makes no sense (a person who is not there, an unknown period) and opens on the defaults', async () => {
+    const { dom2, d2 } = await reopen(JSON.stringify({ who: 'other', view: 'nonsense', preset: 'forever', kind: 'weird' }));
+    const click2 = (el) => el.dispatchEvent(new dom2.window.MouseEvent('click', { bubbles: true }));
+    click2(d2.querySelector('.nav [data-tab=transactions]'));
+    for (const end = Date.now() + 2500; Date.now() < end && !d2.querySelector('.pchips');) await new Promise((r) => setTimeout(r, 5));
+    expect([...d2.querySelectorAll('.pchips button.on')].map((b) => b.textContent)).toEqual(['Periode ini', 'Masuk & keluar']);
+  });
+});
