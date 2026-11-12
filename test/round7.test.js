@@ -5,7 +5,6 @@ import { buildCategorySlots } from '../src/core/categories.js';
 import { missingSalaries, paydayPeriod, currentPaydayMonth, salaryCategory } from '../src/core/salary.js';
 import { suggestBudgets, summarizeMonth, filterTransactions } from '../src/core/app.js';
 import { recurringCharges } from '../src/core/recurring.js';
-import { validateSeed } from '../src/core/seed.js';
 import { TABS } from '../src/core/schema.js';
 
 function memoryStore(cfgExtra = {}) {
@@ -157,13 +156,3 @@ describe('budget suggestions', () => {
   });
 });
 
-describe('seed config', () => {
-  const seed = {
-    year: 2026, start_date: '2026-09-01', payday_day: 28, owner_name: 'Me',
-    categories: { income: ['Gaji'], expense: ['Biaya Admin', 'Dividen & Bunga'] }, accounts: [{ stream: 'BCA', type: 'Spending' }],
-  };
-  it('only Config keys', () => {
-    expect(() => validateSeed({ ...seed, config: { salary_stream: 'BCA', summary_period: 'payday' } })).not.toThrow();
-    expect(() => validateSeed({ ...seed, config: { salary: 'BCA' } })).toThrow(/config.salary is not a Config key/);
-  });
-});

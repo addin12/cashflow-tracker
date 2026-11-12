@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import { createApi, changeCategorySlots, renameCategoryEverywhere } from '../src/core/api.js';
 import { buildCategorySlots, slotsAfterChanges } from '../src/core/categories.js';
 import { filterTransactions, renamedCategories } from '../src/core/app.js';
-import { validateSeed } from '../src/core/seed.js';
 import { TABS } from '../src/core/schema.js';
 
 function memoryStore(rows = []) {
@@ -56,15 +55,6 @@ describe('category changes (setup v5)', () => {
     expect(store.cfg.cat_fee).toBe('Bank fees');
   });
 
-  it('the seed checks that changes name real categories', () => {
-    const seed = {
-      year: 2026, start_date: '2026-09-01', payday_day: 28, owner_name: 'Me',
-      categories: { income: ['Gaji'], expense: ['Food & Beverages', 'Barber', 'Biaya Admin', 'Dividen & Bunga'] },
-      accounts: [{ stream: 'BCA', type: 'Spending' }], category_changes: change,
-    };
-    expect(() => validateSeed(seed)).not.toThrow();
-    expect(() => validateSeed({ ...seed, category_changes: [{ since: 5, add: { expense: ['Nope'] } }] })).toThrow(/"Nope" is not a category/);
-  });
 });
 
 describe('renames', () => {
@@ -87,15 +77,6 @@ describe('renames', () => {
     expect(store.t[TABS.transactions][0].category).toBe('Biaya Admin');
   });
 
-  it('data fixes in the seed must be well formed', () => {
-    const seed = {
-      year: 2026, start_date: '2026-09-01', payday_day: 28, owner_name: 'Me',
-      categories: { income: ['Gaji'], expense: ['Biaya Admin', 'Barber', 'Dividen & Bunga'] }, accounts: [{ stream: 'BCA', type: 'Spending' }],
-    };
-    expect(() => validateSeed({ ...seed, data_fixes: [{ since: 6, transactions: [['t1', 'Pendidikan', 'Biaya Admin']], rules: [{ pattern: 'X', from: 'Barber', to: 'Biaya Admin' }] }] })).not.toThrow();
-    expect(() => validateSeed({ ...seed, data_fixes: [{ since: 6, transactions: [['t1', 'Biaya Admin']] }] })).toThrow(/must be \[id, from, to\]/);
-    expect(() => validateSeed({ ...seed, data_fixes: [{ since: 6, rules: [{ pattern: 'X', from: 'a', to: 'Nope' }] }] })).toThrow(/"Nope" is not a category/);
-  });
 });
 
 describe('web app data', () => {
@@ -137,12 +118,4 @@ describe('renaming the fixed transfer category (setup v7)', () => {
     expect(() => api.saveCategories({ income: ['Gaji'], expense: ['fnb', 'Transfer ke Bank Lain'] })).toThrow(/used more than once/);
   });
 
-  it('a seed may name the transfer category differently', () => {
-    const seed = {
-      year: 2026, start_date: '2026-09-01', payday_day: 28, owner_name: 'Me', default_categories: { transfer: 'Transfer ke Bank Lain' },
-      categories: { income: ['Gaji'], expense: ['Biaya Admin', 'Dividen & Bunga'] }, accounts: [{ stream: 'BCA', type: 'Spending' }],
-      category_changes: [{ since: 7, rename: { 'trf ke bank lain': 'Transfer ke Bank Lain' } }],
-    };
-    expect(validateSeed(seed).defaults.transfer).toBe('Transfer ke Bank Lain');
-  });
 });

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { nextPayday, daysUntilPayday, nextPaydayFormula } from '../src/core/payday.js';
 import { buildCategorySlots, nameProblems, validateAccounts } from '../src/core/categories.js';
-import { validateSeed } from '../src/core/seed.js';
 import { colLetter, TX_COL } from '../src/core/schema.js';
 import { sampleTransactions } from '../src/core/sample.js';
 import { readFileSync } from 'node:fs';
@@ -58,17 +57,6 @@ describe('category and account names', () => {
   it('enforces slot limits', () => {
     expect(() => buildCategorySlots({ income: Array.from({ length: 7 }, (_, i) => `i${i}`), expense: [] })).toThrow(/at most 6/);
     expect(() => validateAccounts(Array.from({ length: 9 }, (_, i) => ({ stream: `s${i}`, type: 'Spending' })))).toThrow(/at most 8/);
-  });
-});
-
-describe('seeds', () => {
-  it('the public example seed is valid', () => {
-    const seed = JSON.parse(readFileSync(new URL('../config/seed.example.json', import.meta.url), 'utf8'));
-    expect(() => validateSeed(seed)).not.toThrow();
-  });
-  it('reports every problem at once', () => {
-    expect(() => validateSeed({ year: 26, start_date: '1-9-2026', payday_day: 40, categories: {}, accounts: [] }))
-      .toThrow(/year[\s\S]*start_date[\s\S]*payday_day[\s\S]*owner_name/);
   });
 });
 

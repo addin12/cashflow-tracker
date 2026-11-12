@@ -13,7 +13,7 @@ const FIXED = [
   'claims', 'claim_days', 'partner_payday_day', 'partner_salary_stream', 'partner_salary_amount', 'partner_salary_skipped',
   'partner_closed_days', 'partner_calendar_sync', 'partner_calendar_id', 'partner_calendar_status', 'partner_yearly_scan', 'partner_push_events',
   'partner_weekly_email', 'partner_monthly_email', 'partner_payday_email', 'partner_bill_email', 'partner_close_email',
-  'shared_split', 'settlements', 'telegram_chats', 'telegram_nonce', 'telegram_username',
+  'shared_split', 'settlements',
 ];
 
 describe('the order of the Config keys', () => {

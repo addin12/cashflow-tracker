@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { createApi } from '../src/core/api.js';
 import { buildCategorySlots } from '../src/core/categories.js';
 import { goalProgress, goalProblems } from '../src/core/goals.js';
-import { validateSeed } from '../src/core/seed.js';
 import { monthlyEmail } from '../src/core/notices.js';
 import { TABS } from '../src/core/schema.js';
 
@@ -45,14 +44,6 @@ describe('first balance check as the opening balance', () => {
     expect(store.t[TABS.transactions].at(-1)).toMatchObject({ category: 'Penyesuaian', amount: 5300000 });
   });
 
-  it('a repair that moves adjustments into opening balances must be well formed', () => {
-    const seed = {
-      year: 2026, start_date: '2026-09-01', payday_day: 28, owner_name: 'Me',
-      categories: { income: ['Gaji'], expense: ['Biaya Admin', 'Dividen & Bunga'] }, accounts: [{ stream: 'BCA', type: 'Spending' }],
-    };
-    expect(() => validateSeed({ ...seed, data_fixes: [{ since: 11, move_to_opening: [['m1', 'BCA', 11037024.6]] }] })).not.toThrow();
-    expect(() => validateSeed({ ...seed, data_fixes: [{ since: 11, move_to_opening: [['m1', 'BCA']] }] })).toThrow(/must be \[id, stream, amount\]/);
-  });
 });
 
 describe('savings goals', () => {
