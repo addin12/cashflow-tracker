@@ -66,20 +66,22 @@ const STOP_LINKS = [
   [/canva/i, 'https://www.canva.com/settings/billing-and-teams'], [/microsoft|xbox|office/i, 'https://account.microsoft.com/services'],
 ];
 
-export function openSubs() {
+export function openSubs({ keep = false } = {}) {
   const d = state.dashByMonth[state.month] || {};
   const items = (d.recurring && d.recurring.items) || [];
   const marks = d.recurringMarks || {};
   const perMonth = (i) => (i.cycle === 'year' ? i.amount / 12 : i.amount);
   const monthly = items.reduce((t, i) => t + perMonth(i), 0);
   const stopping = items.filter((i) => marks[i.key] === 'stop').reduce((t, i) => t + perMonth(i), 0);
-  const sorted = [...items].sort((a, b) => b.amount - a.amount);
+  const sorted = [...items].sort((a, b) => perMonth(b) - perMonth(a)); // by what it costs a month (a yearly plan counts a twelfth)
+  const before = keep ? $('#modal .sheet') : null;
+  const top = before ? before.scrollTop : 0;
   $('#modal').innerHTML = `<div class="sheet"><h2>${esc(T.subsTitle)}</h2>
     <p class="lead">${esc(T.subsTotals(rp(monthly), rp(monthly * 12)))}${stopping ? ` <b class="in">${esc(T.subsSave(rp(stopping), rp(stopping * 12)))}</b>` : ''}</p>
     <div class="rows">${sorted.map((i) => {
       const link = (STOP_LINKS.find(([re]) => re.test(i.name)) || [])[1];
       const m = marks[i.key] || '';
-      return `<div class="sub-row"><div class="sub-top">${icon(i.category)}<span class="what"><b>${esc(i.name)}</b><span class="meta">${esc(T.recurringNext(dateLabel(i.nextDate, { weekday: false }), Math.max(0, i.daysLeft)))} · ${esc(T.perYear(rp(perMonth(i) * 12)))}</span></span><span class="amt">${rp(i.amount)}${i.cycle === 'year' ? `<small>/${esc(T.yearShort)}</small>` : ''}</span></div>
+      return `<div class="sub-row" data-key="${esc(i.key)}"><div class="sub-top">${icon(i.category)}<span class="what"><b>${esc(i.name)}</b><span class="meta">${esc(T.recurringNext(dateLabel(i.nextDate, { weekday: false }), Math.max(0, i.daysLeft)))} · ${esc(T.perYear(rp(perMonth(i) * 12)))}</span></span><span class="amt">${rp(i.amount)}${i.cycle === 'year' ? `<small>/${esc(T.yearShort)}</small>` : ''}</span></div>
         <div class="sub-acts">
           <button type="button" class="chip-btn ${m === 'keep' ? 'on' : ''}" aria-pressed="${m === 'keep'}" data-action="submark" data-name="${esc(i.name)}" data-mark="${m === 'keep' ? '' : 'keep'}">${esc(T.subKeep)}</button>
           <button type="button" class="chip-btn ${m === 'stop' ? 'on stop' : ''}" aria-pressed="${m === 'stop'}" data-action="submark" data-name="${esc(i.name)}" data-mark="${m === 'stop' ? '' : 'stop'}">${esc(T.subStop)}</button>
@@ -88,7 +90,7 @@ export function openSubs() {
     }).join('') || `<p class="hint">${esc(T.nothingYet)}</p>`}</div>
     <p class="hint">${esc(T.yearlyScanHint)}</p>
     <div class="actions"><button class="btn secondary left" type="button" data-action="scanyearly">${esc(T.yearlyScan)}</button><button class="btn primary" type="button" data-action="close">${esc(T.close)}</button></div></div>`;
-  openModal();
+  if (before) { const sheet = $('#modal .sheet'); if (sheet) { sheet.tabIndex = -1; sheet.scrollTop = top; } } else openModal(); // a tap on a mark redraws the list in place: the sheet stays where it was
 }
 
 /** Bills due in the next week (planned transactions and subscriptions). */
@@ -234,7 +236,7 @@ export function attentionCard(d, lead = []) {
   const rv = state.review || {};
   for (const e of (rv.errors || []).slice(0, 2)) rows.push({ icon: 'mail', bad: false, title: T.attnUnread(e.subject || e.from), meta: T.attnUnreadMeta, act: 'data-action="go" data-tab="review"' });
   for (const l of (rv.linkable || []).slice(0, 2)) rows.push({ icon: 'swap', bad: false, title: T.attnLink(rp(l.amount), l.stream, l.withStream), meta: T.attnLinkMeta, act: `data-action="linktx" data-id="${esc(l.id)}" data-with="${esc(l.withId)}"` });
-  for (const s of (state.boot.staleSync || []).slice(0, 2)) rows.push({ icon: 'mail', bad: true, title: T.attnStale(s.who || s.gmail, s.hours), meta: T.attnStaleMeta, act: 'data-action="go" data-tab="settings" data-section="household"' });
+  for (const s of (state.boot.staleSync || []).slice(0, 2)) rows.push({ icon: 'mail', bad: true, title: T.attnStale(s.who || s.gmail, s.hours), meta: T.attnStaleMeta, act: 'data-action="go" data-tab="settings" data-section="sync"' });
   for (const w of (rv.topups || []).slice(0, 2)) rows.push({ icon: 'swap', bad: false, title: T.attnTopups(w.wallet, w.count, rp(w.total)), meta: T.attnTopupsMeta, act: `data-action="convtopups" data-wallet="${esc(w.wallet)}"` });
   if (rv.ruleable) rows.push({ icon: 'tag', bad: false, title: T.attnRules(rv.ruleable), meta: T.attnRulesMeta, act: 'data-action="go" data-tab="review"' });
   if (!rows.length) return '';

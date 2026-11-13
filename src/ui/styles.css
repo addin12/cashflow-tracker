@@ -1016,3 +1016,23 @@ button.fl-line { cursor: pointer; }
 .ask-see { margin-top: 12px; }
 .ask-busy { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: 16px; }
 @media (max-width: 420px) { .ask-row { flex-direction: column; } .ask-row .btn { width: 100%; } }
+
+/* ---------- Ikhtisar on a phone (2026-11-13): the numbers come first, the question box is slim, nothing floats over the content */
+.ov-head { justify-content: space-between; gap: 12px; }
+.ov-head .seg.ov-view { flex: 0 1 220px; min-width: 190px; }
+.ask { padding: 14px 16px; }
+.ask-label { margin-bottom: 8px; font-size: 16px; }
+.ask-row { position: relative; display: block; }
+.ask-row input { width: 100%; padding-right: 56px; }
+.ask-go { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--accent-btn); color: var(--on-accent); font-size: 20px; line-height: 1; cursor: pointer; }
+.ask-go:active { transform: translateY(-50%) scale(.94); }
+.ask-chips { margin-top: 10px; }
+.ask-ans .ask-chips { flex-wrap: wrap; overflow: visible; margin-right: 0; padding-right: 0; }
+@media (max-width: 899px) {
+  .fab { display: none; } /* the bottom bar has "Tambah" */
+  .ask-chips { flex-wrap: nowrap; overflow-x: auto; margin-right: -16px; padding-right: 16px; scroll-snap-type: x proximity; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .ask-chips::-webkit-scrollbar { display: none; }
+  .ask-chips .chip { flex: none; scroll-snap-align: start; }
+  .ov-pickers { gap: 8px; }
+  .ov-bar { gap: 8px; margin-top: 8px; }
+}

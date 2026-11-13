@@ -112,10 +112,14 @@ export function onClick(e) {
   }
   if (a === 'subs') return openSubs();
   if (a === 'submark') {
-    const d = state.dashByMonth[state.month];
-    const it = d && d.recurring.items.find((i) => i.name === el.dataset.name);
-    if (d && it) { d.recurringMarks = { ...(d.recurringMarks || {}) }; if (el.dataset.mark) d.recurringMarks[it.key] = el.dataset.mark; else delete d.recurringMarks[it.key]; }
-    openSubs();
+    const place = $$('#modal [data-action=submark]').indexOf(el);
+    for (const d of Object.values(state.dashByMonth)) { // every month that is loaded, not only the one on screen
+      const it = d && d.recurring && d.recurring.items.find((i) => i.name === el.dataset.name);
+      if (it) { d.recurringMarks = { ...(d.recurringMarks || {}) }; if (el.dataset.mark) d.recurringMarks[it.key] = el.dataset.mark; else delete d.recurringMarks[it.key]; }
+    }
+    openSubs({ keep: true });
+    const again = $$('#modal [data-action=submark]')[place];
+    if (again) again.focus({ preventScroll: true });
     return save('markRecurring', { name: el.dataset.name, mark: el.dataset.mark }).catch((err) => toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }));
   }
   if (a === 'addplan' || a === 'delplan') {
@@ -180,7 +184,7 @@ export function onClick(e) {
   if (a === 'scanyearly') {
     el.disabled = true;
     el.textContent = T.yearlyScanning;
-    return call('scanYearly').then((r) => { toast(T.yearlyFound(r.found)); state.dashByMonth = {}; closeModal(); if (state.tab === 'dashboard') viewDashboard(); })
+    return call('scanYearly').then((r) => { toast(r.queued ? T.yearlyQueued : T.yearlyFound(r.found)); state.dashByMonth = {}; closeModal(); if (state.tab === 'dashboard') viewDashboard(); })
       .catch((err) => { el.disabled = false; el.textContent = T.yearlyScan; toast(`${T.notSaved}: ${err.message}`, { kind: 'bad' }); });
   }
   if (a === 'addasset' || a === 'delasset') {

@@ -71,7 +71,7 @@ describe('the question card', () => {
   it('has a label above the box, the four buttons, and nothing answered yet', () => {
     const card = doc.querySelector('.ask');
     expect(card.querySelector('label[for=askIn]').textContent).toBe('Tanya apa saja');
-    expect(card.querySelector('#askIn').getAttribute('placeholder')).toMatch(/pengeluaran/);
+    expect(card.querySelector('#askIn').getAttribute('placeholder')).toMatch(/bulan ini/);
     expect([...card.querySelectorAll('.ask-chips .chip')].map((b) => b.textContent)).toEqual(['Tinjau minggu ini', 'Ke mana uangnya?', 'Cek langganan', 'Tagihan minggu ini']);
     expect(card.querySelector('#askOut').children.length).toBe(0);
     expect(card.querySelector('#askOut').getAttribute('aria-live')).toBe('polite');

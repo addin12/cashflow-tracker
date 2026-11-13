@@ -41,7 +41,7 @@ export async function viewDashboard() {
   const todayLong = new Date(`${state.boot.today}T00:00:00`).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
   const modeSeg = report ? `<div class="seg mode-seg">${[['month', T.reportMonthly], ['year', T.reportYearly]].map(([v, l]) => `<button type="button" class="${(v === 'year') === !!state.reportYearly ? 'on' : ''}" aria-pressed="${(v === 'year') === !!state.reportYearly}" data-action="reportmode" data-mode="${v}">${esc(l)}</button>`).join('')}</div>` : '';
   setView(`
-    <header class="page-head ov-head"><h1>${esc(T.tabDashboard)}</h1></header>
+    <header class="page-head ov-head"><h1>${esc(T.tabDashboard)}</h1><div class="seg ov-view">${viewBtn('overview', T.viewOverview)}${viewBtn('report', T.viewReport)}</div></header>
     <p class="sub ov-sub">${esc(greet)} · ${esc(todayLong)}</p>
     <div class="ov-bar">
       <div class="monthbar">
@@ -49,7 +49,7 @@ export async function viewDashboard() {
         <div class="monthname"><b>${esc(monthLabel(d.month))}</b>${s.from ? `<small>${esc(rangeLabel(s.from, s.to))}</small>` : ''}</div>
         <button class="btn secondary small month-next" data-action="setmonth" data-month="${next}" aria-label="${esc(monthAria(next))}" ${next > current ? 'disabled' : ''}>${esc(monthShort(next))}</button>
       </div>
-      <div class="ov-pickers">${whoSeg()}<div class="seg">${viewBtn('overview', T.viewOverview)}${viewBtn('report', T.viewReport)}</div>${modeSeg}</div>
+      <div class="ov-pickers">${whoSeg()}${modeSeg}</div>
     </div>
     ${report ? `${state.reportYearly ? yearlyHtml(state.yearly.data) : reportHtml(d)}` : overviewHtml(d)}`);
   afterRender(d);
@@ -218,9 +218,10 @@ function overviewHtml(d) {
   const more = [owedCard(d.owed), incomeRows ? `<section class="card"><h2>${esc(T.incomeByCategory)}</h2><div class="rows">${incomeRows}</div></section>` : '',
     goalsCard(d.goals), recurringCard(d.recurring), eventsCard(d.events), sharedCard(d.shared), claimsCard(d.claims), warrantiesCard(d.warranties), cardsCard(d.cards),
     healthCard(d.health), wealthCard(d.wealth)].map((h) => fold(h));
-  // Reading order (--o): the month, what needs you, the money you have, where it went, the latest, the rest. The question box goes above all of it.
-  return askCard() + flow([
+  // Reading order (--o): the month, the question box, what needs you, the money you have, where it went, the latest, the rest.
+  return flow([
     sec(10, status),
+    sec(15, askCard()),
     sec(20, isNow ? attentionCard(d, lead) : ''),
     sec(25, isNow ? paydayCard(d.paydayPlan) : ''),
     sec(30, accountsCard),

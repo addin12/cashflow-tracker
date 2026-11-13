@@ -15,7 +15,7 @@ export function askCard() {
   return `<section class="card ask" aria-labelledby="askLabel">
     <form data-form="ask" class="ask-form" autocomplete="off">
       <label id="askLabel" class="ask-label" for="askIn">${esc(T.askTitle)}</label>
-      <div class="ask-row"><input id="askIn" name="q" type="text" maxlength="160" enterkeyhint="send" value="${esc(q)}" placeholder="${esc(T.askPlaceholder)}"><button class="btn primary" type="submit">${esc(T.askSend)}</button></div>
+      <div class="ask-row"><input id="askIn" name="q" type="text" maxlength="160" enterkeyhint="send" value="${esc(q)}" placeholder="${esc(T.askPlaceholder)}"><button class="ask-go" type="submit" aria-label="${esc(T.askSend)}"><span aria-hidden="true">→</span></button></div>
     </form>
     <div class="ask-chips">${chips}</div>
     <div class="ask-out" id="askOut" role="status" aria-live="polite">${outHtml()}</div>
